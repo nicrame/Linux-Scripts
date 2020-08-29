@@ -17,11 +17,11 @@ More info: https://www.marcinwilk.eu/en/projects/pure-ftpd-lets-encrypt/
 
 make-kodi.sh - HTPC on CentOS 8 Linux with KODI
 Script that automates the installation and configuration of CentOS 8 Linux with KODI (formerly XBMC) under HTPC (a computer for media playback). It will make Your computer starts directly to KODI after reboot. It use flatpak package by default, but You may configure it to use sources if you prefer.
-More info: https://www.marcinwilk.eu/en/projects/htpc-na-centos-8-linux-z-kodi/
+More info: https://www.marcinwilk.eu/en/projects/htpc-on-centos-8-linux-with-kodi/
 
 unms-centos.sh - UNMS installation script for CentOS 8 Linux
 This takes the appropriate steps to install and run UNMS in CentOS 8 Linux. It was prepared for clear CentOS 8 install.
-More info: https://www.marcinwilk.eu/en/projects/skrypt-instalacji-unms-na-centos-8-linux/
+More info: https://www.marcinwilk.eu/en/projects/unms-install-on-centos-8-linux/
 
 Feel free to contact me: marcin@marcinwilk.eu
 https://www.marcinwilk.eu/
