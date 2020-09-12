@@ -18,6 +18,8 @@
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
 # Changelog:
+# v 2.4 - 12.09.2020
+# Add HDMI/CEC fix (tested with Pulse-Eight CEC module on USB/HDMI for TV-remote control of KODI).
 # v 2.3 - 19.07.2020
 # Fixed some typos, finally releasing on the web.
 # v 2.2 - 07.07.2020
@@ -336,5 +338,11 @@ echo "Session=xinit-compat" >> /home/kodi/.dmrc
 echo "Language=$LANG" >> /home/kodi/.dmrc
 chown kodi:kodi /home/kodi/.dmrc
 chmod 766 /home/kodi/.dmrc
+
+if [ -f /dev/ttyACM0 ]
+then
+    chmod a+rw /dev/ttyACM0
+fi
+
 echo "You may now restart this computer to experience Kodi."
 
