@@ -3,11 +3,10 @@
 # KODI Standalone autostart install script for CentOS (versions 8)
 # Created using CentOS 8!
 # Wasn't made and never tested on different distros than CentOS!
-# Version 2.2 for x86_64
+# Version 2.5 for x86_64
 #
 # More info:
-# [PL] https://www.marcinwilk.eu/pl/projects/htpc-on-centos-8-linux-with-kodi/
-# [EMG] https://www.marcinwilk.eu/en/projects/htpc-on-centos-8-linux-with-kodi/
+# [PL/ENG] https://www.marcinwilk.eu/projects/htpc-on-centos-8-linux-with-kodi/
 #
 # Feel free to contact me: marcin@marcinwilk.eu
 # www.marcinwilk.eu
@@ -18,6 +17,14 @@
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
 # Changelog:
+# v 2.5 - 30.09.2020 
+# Thanks to Thebes Knossos there are some fixes in the script - thank You!
+# Raven repo can be disabled in configuration (reported conflicts with VLC).
+# rapidjson package do not need compiling from sources anymore.
+# I prepared SRPM of phonon that works and is phonon-qt5 compatible! (Oryginal srpm stopped - don't know why - rebuilding, maybe some cmake changes or dunno).
+# I made script little less "loud" when taking actions (except when compiling from sources).
+# Added libcec srpm for CEC/HDMI support on compiled from source version of Kodi.
+# Fixed some errors in commands. 
 # v 2.4 - 12.09.2020
 # Add HDMI/CEC fix (tested with Pulse-Eight CEC module on USB/HDMI for TV-remote control of KODI).
 # v 2.3 - 19.07.2020
@@ -51,6 +58,9 @@ srcins=no
 # Plex Media Server install.
 # You can set this to yes so Plex Media Server will be installed. You may try it for fun.
 plex=no
+
+# Raven repo can be disabled here. According to Thebes there is conflict with VLC.
+raven=yes
 
 echo -e "Welcome in \e[93mKODI Standalone autostart install script \e[39mfor CentOS."
 echo -e "Version \e[91m2.2 \e[39msupporting SL/CentOS version 8."
@@ -112,21 +122,24 @@ then
 fi
 
 # Disabling SELinux problems
+echo "Disabling SELinux in /etc/selinux/config and installing base software - please wait." 
 sed --in-place=.bak 's/^SELINUX\=enforcing/SELINUX\=permissive/g' /etc/selinux/config
-dnf -y update
-dnf -y install --nogpgcheck https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
-dnf -y install --nogpgcheck https://download1.rpmfusion.org/free/el/rpmfusion-free-release-8.noarch.rpm https://download1.rpmfusion.org/nonfree/el/rpmfusion-nonfree-release-8.noarch.rpm
+dnf -y -q update
+dnf -y -q install --nogpgcheck https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+dnf -y -q install --nogpgcheck https://download1.rpmfusion.org/free/el/rpmfusion-free-release-8.noarch.rpm https://download1.rpmfusion.org/nonfree/el/rpmfusion-nonfree-release-8.noarch.rpm
 dnf config-manager --enable PowerTools
+dnf -y -q groupinstall "base-x"
+dnf -y -q install wget gdm matchbox-window-manager rsync xorg-x11-xinit-session xterm glibc-langpack-en flatpak avahi oclock xload ImageMagick langpacks-en glibc-all-langpacks
 
-useradd kodi
-dnf -y groupinstall "base-x"
-dnf -y install wget gdm matchbox-window-manager rsync xorg-x11-xinit-session xterm glibc-langpack-en flatpak avahi oclock xload ImageMagick
+echo "Enabling avahi, creating kodi user."
 systemctl enable avahi-daemon
 
 # Adding kodi user to some groups used for hardware acceleration
+useradd kodi
 usermod kodi -a -G audio
 usermod kodi -a -G video
 
+echo "Firewall setup."
 # Setting up firewall
 firewall-cmd --zone=public --add-port=32469/tcp --permanent
 firewall-cmd --zone=public --add-port=32414/udp --permanent
@@ -159,6 +172,7 @@ setsebool httpd_can_network_connect on -P
 # Installing Plex Media Server
 if [ $plex = yes ]
 then
+echo "Installing Plex."
 touch /etc/yum.repos.d/plex.repo
 echo "[Plex]" >> /etc/yum.repos.d/plex.repo
 echo "name=Plex" >> /etc/yum.repos.d/plex.repo
@@ -167,25 +181,28 @@ echo "enabled=1" >> /etc/yum.repos.d/plex.repo
 echo "gpgkey=https://downloads.plex.tv/plex-keys/PlexSign.key" >> /etc/yum.repos.d/plex.repo
 echo "gpgcheck=1" >> /etc/yum.repos.d/plex.repo
 echo "" >> /etc/yum.repos.d/plex.repo
-dnf -y install plexmediaserver
+dnf -y -q install plexmediaserver
 dnf -y reinstall glibc-common
 systemctl enable plexmediaserver
 systemctl start plexmediaserver
 else
-echo "Plex Media Server installation skipping."
+echo "Skipping Plex Media Server installation."
 fi
 
-# Installing KODI
-# Configuring flatpak for kodi install
-flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+echo "Installing KODI!"
 
 if [ $srcins = no ]
 then
+echo "Configuring flatpak for kodi install."
+flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 flatpak -y install flathub tv.kodi.Kodi
 sudo -u kodi flatpak override --user --share=network --share=ipc --socket=x11 --socket=wayland --socket=fallback-x11 --socket=pulseaudio --socket=system-bus --socket=session-bus --device=all --device=dri --device=shm --allow=devel --allow=multiarch --allow=bluetooth --allow=canbus --filesystem=host tv.kodi.Kodi
 else
 cd /root
 # Adding Raven REPO for QT install
+if [ $raven = yes ]
+then
+echo "Installing KODI from source - this will take VERY long time, be patient!"
 touch /etc/yum.repos.d/raven.repo
 echo "[raven]" >> /etc/yum.repos.d/raven.repo
 echo "name=Raven packages" >> /etc/yum.repos.d/raven.repo
@@ -205,11 +222,20 @@ echo "baseurl=https://pkgs.dyn.su/el8/multimedia/x86_64/" >> /etc/yum.repos.d/ra
 echo "gpgcheck=0" >> /etc/yum.repos.d/raven.repo
 echo "enabled=0" >> /etc/yum.repos.d/raven.repo
 echo "" >> /etc/yum.repos.d/raven.repo
-dnf --enablerepo=epel-testing,raven-extras,raven-multimedia
-dnf -y update
+dnf config-manager --set-enabled raven
+# dnf config-manager --set-enabled raven-extras
+# dnf config-manager --set-enabled raven-multimedia
 dnf -y install qt-4.8.7 qt-devel-4.8.7
-dnf -y install unixODBC-devel bzip2-devel cmake curl dbus-devel fmt-devel fontconfig-devel freetype-devel fribidi-devel gawk gcc gcc-c++ gettext gettext-devel giflib-devel gperf gtest java-11-openjdk-headless jre lcms2-devel libao-devel libass-devel libcap-devel libcdio-devel libcurl-devel libidn2-devel libjpeg-turbo-devel libmicrohttpd-devel libmpc-devel libnfs-devel libplist-devel libsmbclient-devel libtool libtool-ltdl-devel libudev-devel libunistring libunistring-devel libusb-devel libuuid-devel libva-devel libvdpau-devel libxml2-devel libXmu-devel libXrandr-devel libxslt-devel libXt-devel lirc-devel lzo-devel make mariadb-devel mesa-libEGL-devel mesa-libGL-devel mesa-libGLU-devel mesa-libGLw-devel mesa-libOSMesa-devel nasm openssl-devel openssl-libs patch pcre-devel pulseaudio-libs-devel python3-devel python3-pillow sqlite-devel swig taglib-devel tinyxml-devel trousers-devel uuid-devel yasm zlib-devel
-dnf -y install gtk2-devel libXv-devel libXcursor-devel cups-devel firebird-devel freetds-devel libmng-devel libpq-devel tk-devel python2-numpy python2-tkinter python3-numpy python3-qt5 python3-sphinx python3-sphinx_rtd_theme python3-tkinter libimagequant-devel libwebp-devel openjpeg2-devel pixman-devel python2-devel tre-devel wavpack-devel yajl-devel libsamplerate-devel libtiff-devel libvorbis-devel mesa-libgbm-devel ninja-build libmad-devel libmms-devel libmodplug-devel libmpcdec-devel libmpeg2-devel libogg-devel librtmp-devel libXinerama-devel libXtst-devel libcrystalhd-devel libdca-devel fontpackages-devel glew-devel jasper-devel lame-devel faad2-devel flac-devel enca-devel e2fsprogs-devel boost-devel afpfs-ng-devel qt5-devel extra-cmake-modules kde-filesystem kf5-rpm-macros gtest-devel libpng12 lockdev-devel ncurses-devel platform-devel ant doxygen texlive-latex libevent-devel git make gcc glib2-devel gcc-c++ groff ghostscript alsa-lib-devel autoconf automake avahi-compat-libdns_sd-devel avahi-devel bluez-libs-devel
+else
+echo "Raven's repo disabled."
+fi
+
+echo "Because source install method is unstable (link to source files can disappear, newr lib version may brake things, there will be more details on the screen about the proccess."
+sleep 5
+dnf config-manager --set-enabled epel-testing
+dnf -y -q install unixODBC-devel bzip2-devel cmake curl dbus-devel fmt-devel fontconfig-devel freetype-devel fribidi-devel gawk gcc gcc-c++ gettext gettext-devel giflib-devel gperf gtest java-11-openjdk-headless jre lcms2-devel libao-devel libass-devel libcap-devel libcdio-devel libcurl-devel libidn2-devel libjpeg-turbo-devel libmicrohttpd-devel libmpc-devel libnfs-devel libplist-devel libsmbclient-devel libtool libtool-ltdl-devel libudev-devel libunistring libunistring-devel libusb-devel libuuid-devel libva-devel libvdpau-devel libxml2-devel libXmu-devel libXrandr-devel libxslt-devel libXt-devel lirc-devel lzo-devel make mariadb-devel mesa-libEGL-devel mesa-libGL-devel mesa-libGLU-devel mesa-libGLw-devel mesa-libOSMesa-devel nasm openssl-devel openssl-libs patch pcre-devel pulseaudio-libs-devel python3-devel python3-pillow sqlite-devel swig taglib-devel tinyxml-devel trousers-devel uuid-devel yasm zlib-devel qt5-qtdeclarative-devel 
+dnf -y -q install gtk2-devel libXv-devel libXcursor-devel cups-devel firebird-devel freetds-devel libmng-devel libpq-devel tk-devel python2-numpy python2-tkinter python3-numpy python3-qt5 python3-sphinx python3-sphinx_rtd_theme python3-tkinter libimagequant-devel libwebp-devel openjpeg2-devel pixman-devel python2-devel tre-devel wavpack-devel yajl-devel libsamplerate-devel libtiff-devel libvorbis-devel mesa-libgbm-devel ninja-build libmad-devel libmms-devel libmodplug-devel libmpcdec-devel libmpeg2-devel libogg-devel librtmp-devel libXinerama-devel libXtst-devel libcrystalhd-devel libdca-devel fontpackages-devel glew-devel jasper-devel lame-devel faad2-devel flac-devel enca-devel e2fsprogs-devel boost-devel afpfs-ng-devel qt5-devel extra-cmake-modules kde-filesystem kf5-rpm-macros gtest-devel libpng12 lockdev-devel ncurses-devel platform-devel ant doxygen texlive-latex libevent-devel git make gcc glib2-devel gcc-c++ groff ghostscript alsa-lib-devel autoconf automake avahi-compat-libdns_sd-devel avahi-devel bluez-libs-devel
+dnf -y -q install kf5-rpm-macros libxml2-devel libxcb-devel pulseaudio-libs-devel glib2-devel qt5-qtbase-devel qt5-qttools-devel kde-filesystem
 
 wget https://download-ib01.fedoraproject.org/pub/fedora/linux/releases/30/Everything/source/tree/Packages/f/fstrcmp-0.7.D001-11.fc30.src.rpm 
 rpmbuild --rebuild fstrcmp-0.7.D001-11.fc30.src.rpm
@@ -223,9 +249,11 @@ wget http://vault.centos.org/8.1.1911/AppStream/Source/SPackages/libpng12-1.2.57
 rpmbuild --rebuild libpng12-1.2.57-5.el8.src.rpm
 dnf -y install /root/rpmbuild/RPMS/x86_64/libpng12-devel-1.2.57-5.el8.x86_64.rpm
 
-wget https://download-ib01.fedoraproject.org/pub/fedora/linux/releases/30/Everything/source/tree/Packages/r/rapidjson-1.1.0-9.fc30.src.rpm
-rpmbuild --rebuild rapidjson-1.1.0-9.fc30.src.rpm
-dnf -y install /root/rpmbuild/RPMS/noarch/rapidjson-devel-1.1.0-9.el8.noarch.rpm /root/rpmbuild/RPMS/noarch/rapidjson-doc-1.1.0-9.el8.noarch.rpm
+dnf -y install valgrind rapidjson rapidjson-devel 
+# wget https://download-ib01.fedoraproject.org/pub/fedora/linux/releases/30/Everything/source/tree/Packages/r/rapidjson-1.1.0-9.fc30.src.rpm
+# rpmbuild --rebuild rapidjson-1.1.0-9.fc30.src.rpm
+# dnf -y install /root/rpmbuild/RPMS/noarch/rapidjson-devel-1.1.0-9.el8.noarch.rpm /root/rpmbuild/RPMS/noarch/rapidjson-doc-1.1.0-9.el8.noarch.rpm
+dnf -y install rapidjson rapidjson-devel
 
 wget https://download-ib01.fedoraproject.org/pub/fedora/linux/releases/30/Everything/source/tree/Packages/f/flatbuffers-1.10.0-4.fc30.src.rpm
 rpmbuild --rebuild flatbuffers-1.10.0-4.fc30.src.rpm
@@ -243,6 +271,7 @@ wget https://download-ib01.fedoraproject.org/pub/fedora/linux/releases/30/Everyt
 rpmbuild --rebuild python-olefile-0.46-2.fc30.src.rpm
 dnf -y install /root/rpmbuild/RPMS/noarch/python2-olefile-0.46-2.el8.noarch.rpm /root/rpmbuild/RPMS/noarch/python3-olefile-0.46-2.el8.noarch.rpm
 
+dnf -y install python3-cffi
 wget https://download-ib01.fedoraproject.org/pub/fedora/linux/updates/30/Everything/SRPMS/Packages/p/python-pillow-5.4.1-4.fc30.src.rpm
 rpmbuild --rebuild python-pillow-5.4.1-4.fc30.src.rpm
 dnf -y install /root/rpmbuild/RPMS/x86_64/python2-pillow-5.4.1-4.el8.x86_64.rpm /root/rpmbuild/RPMS/x86_64/python2-pillow-devel-5.4.1-4.el8.x86_64.rpm 
@@ -250,17 +279,32 @@ dnf -y install /root/rpmbuild/RPMS/x86_64/python2-pillow-tk-5.4.1-4.el8.x86_64.r
 dnf -y install /root/rpmbuild/RPMS/x86_64/python3-pillow-devel-5.4.1-4.el8.x86_64.rpm /root/rpmbuild/RPMS/noarch/python3-pillow-doc-5.4.1-4.el8.noarch.rpm 
 dnf -y install /root/rpmbuild/RPMS/x86_64/python3-pillow-tk-5.4.1-4.el8.x86_64.rpm
 
+# automoc needs qt4-devel
 wget https://download-ib01.fedoraproject.org/pub/fedora/linux/releases/30/Everything/source/tree/Packages/a/automoc-1.0-0.34.rc3.fc30.src.rpm 
 rpmbuild --rebuild automoc-1.0-0.34.rc3.fc30.src.rpm
 dnf -y install /root/rpmbuild/RPMS/x86_64/automoc-1.0-0.34.rc3.el8.x86_64.rpm
 
-wget https://download-ib01.fedoraproject.org/pub/fedora/linux/releases/30/Everything/source/tree/Packages/p/phonon-4.10.2-2.fc30.src.rpm 
-rpmbuild --rebuild phonon-4.10.2-2.fc30.src.rpm 
-dnf -y install /root/rpmbuild/RPMS/x86_64/phonon-4.10.2-2.el8.x86_64.rpm /root/rpmbuild/RPMS/x86_64/phonon-devel-4.10.2-2.el8.x86_64.rpm /root/rpmbuild/RPMS/x86_64/phonon-qt5-4.10.2-2.el8.x86_64.rpm /root/rpmbuild/RPMS/x86_64/phonon-qt5-devel-4.10.2-2.el8.x86_64.rpm
+# wget https://dl.fedoraproject.org/pub/fedora/linux/updates/30/Everything/SRPMS/Packages/p/phonon-4.10.2-3.fc30.src.rpm
+# rpmbuild --rebuild phonon-4.10.2-3.fc30.src.rpm
+# dnf -y install /root/rpmbuild/RPMS/x86_64/phonon-4.10.2-3.el8.x86_64.rpm /root/rpmbuild/RPMS/x86_64/phonon-4.10.2-3.el8.x86_64.rpm phonon-devel-4.10.2-3.el8.x86_64.rpm
+
+# !!! Something is broken and rebuilding from srpm STOPPED working (few weeks ago there was no problem with that), 
+# !!! so i "fixed/broken" that by editing spec files, and removing everything related to qt5, prepared own srpm that will be downloaded here and installed.
+# !!! Also that should be "compatible" with -qt5 rpm from epel repo. This thime i backed up all rebuilt rpms in case they broke something again somewhere.
+
+wget https://www.marcinwilk.eu/SRPMS/phonon-4.10.2-3.el8.src.rpm
+rpmbuild --rebuild phonon-4.10.2-3.el8.src.rpm
+dnf -y install /root/rpmbuild/RPMS/x86_64/phonon-4.10.2-3.el8.x86_64.rpm /root/rpmbuild/RPMS/x86_64/phonon-devel-4.10.2-3.el8.x86_64.rpm
+dnf -y install phonon-qt5 phonon-qt5-devel
 
 wget https://download-ib01.fedoraproject.org/pub/fedora/linux/releases/30/Everything/source/tree/Packages/s/shairplay-0.9.0-12.20160101gitce80e00.fc30.src.rpm 
 rpmbuild --rebuild shairplay-0.9.0-12.20160101gitce80e00.fc30.src.rpm
 dnf -y install /root/rpmbuild/RPMS/x86_64/shairplay-0.9.0-12.20160101gitce80e00.el8.x86_64.rpm /root/rpmbuild/RPMS/x86_64/shairplay-libs-0.9.0-12.20160101gitce80e00.el8.x86_64.rpm /root/rpmbuild/RPMS/x86_64/shairplay-devel-0.9.0-12.20160101gitce80e00.el8.x86_64.rpm /root/rpmbuild/RPMS/x86_64/airtv-0.9.0-12.20160101gitce80e00.el8.x86_64.rpm
+
+# Added libcec and libcec-devel package for CEC support.
+wget https://www.marcinwilk.eu/SRPMS/libcec-4.0.4-4.el8.src.rpm
+rpmbuild --rebuild libcec-4.0.4-4.el8.src.rpm
+dnf -y install /root/rpmbuild/RPMS/x86_64/libcec-4.0.4-4.el8.x86_64.rpm /root/rpmbuild/RPMS/x86_64/libcec-devel-4.0.4-4.el8.x86_64.rpm
 
 cd $HOME
 git clone https://github.com/xbmc/xbmc kodi
@@ -339,10 +383,10 @@ echo "Language=$LANG" >> /home/kodi/.dmrc
 chown kodi:kodi /home/kodi/.dmrc
 chmod 766 /home/kodi/.dmrc
 
+echo "Adopting HDMI/CEC fix (tested with Pulse-Eight CEC module)."
 if [ -f /dev/ttyACM0 ]
 then
     chmod a+rw /dev/ttyACM0
 fi
 
 echo "You may now restart this computer to experience Kodi."
-
