@@ -1,8 +1,6 @@
 #!/bin/bash
 
 # KODI Standalone autostart install script for CentOS (versions 8)
-# Created using CentOS 8!
-# Wasn't made and never tested on different distros than CentOS!
 # Version 2.5 for x86_64
 #
 # More info:
@@ -62,8 +60,7 @@ plex=no
 # Raven repo can be disabled here. According to Thebes there is conflict with VLC.
 raven=yes
 
-echo -e "Welcome in \e[93mKODI Standalone autostart install script \e[39mfor CentOS."
-echo -e "Version \e[91m2.2 \e[39msupporting SL/CentOS version 8."
+echo -e "Welcome in \e[93mKODI Standalone autostart install script \e[39mfor CentOS8."
 echo ""
 echo "This script will install additional software and will make changes"
 echo "in system config files to autologin and start KODI after reboot."
