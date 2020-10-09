@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # KODI Standalone autostart install script for CentOS (versions 8)
-# Version 2.5 for x86_64
+# Version 2.6 for x86_64
 #
 # More info:
 # [PL/ENG] https://www.marcinwilk.eu/projects/htpc-on-centos-8-linux-with-kodi/
@@ -15,6 +15,8 @@
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
 # Changelog:
+# v 2.6 - 09.10.2020
+# Removed double lines.
 # v 2.5 - 30.09.2020 
 # Thanks to Thebes Knossos there are some fixes in the script - thank You!
 # Raven repo can be disabled in configuration (reported conflicts with VLC).
@@ -250,7 +252,6 @@ dnf -y install valgrind rapidjson rapidjson-devel
 # wget https://download-ib01.fedoraproject.org/pub/fedora/linux/releases/30/Everything/source/tree/Packages/r/rapidjson-1.1.0-9.fc30.src.rpm
 # rpmbuild --rebuild rapidjson-1.1.0-9.fc30.src.rpm
 # dnf -y install /root/rpmbuild/RPMS/noarch/rapidjson-devel-1.1.0-9.el8.noarch.rpm /root/rpmbuild/RPMS/noarch/rapidjson-doc-1.1.0-9.el8.noarch.rpm
-dnf -y install rapidjson rapidjson-devel
 
 wget https://download-ib01.fedoraproject.org/pub/fedora/linux/releases/30/Everything/source/tree/Packages/f/flatbuffers-1.10.0-4.fc30.src.rpm
 rpmbuild --rebuild flatbuffers-1.10.0-4.fc30.src.rpm
@@ -317,7 +318,6 @@ cd $HOME/kodi-build
 cmake ../kodi -DCMAKE_INSTALL_PREFIX=/usr/local -DX11_RENDER_SYSTEM=gl
 cmake --build . -- VERBOSE=1 -j$(getconf _NPROCESSORS_ONLN)
 sudo make install
-make -j$(getconf _NPROCESSORS_ONLN) -C tools/depends/target/binary-addons PREFIX=/usr/local
 cd $HOME/kodi
 make -j$(getconf _NPROCESSORS_ONLN) -C tools/depends/target/binary-addons PREFIX=/usr/local
 fi
