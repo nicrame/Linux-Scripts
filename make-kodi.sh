@@ -15,6 +15,8 @@
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
 # Changelog:
+# v 2.6.1 - 12.11.2020
+# HDMI/CEC file access for kodi is now fixed with every restart, so large system updates should not brake that.
 # v 2.6 - 09.10.2020
 # Removed double lines.
 # v 2.5 - 30.09.2020 
