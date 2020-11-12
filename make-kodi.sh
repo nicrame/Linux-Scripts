@@ -384,6 +384,7 @@ echo "Adopting HDMI/CEC fix (tested with Pulse-Eight CEC module)."
 if [ -f /dev/ttyACM0 ]
 then
     chmod a+rw /dev/ttyACM0
+    echo 'chmod a+rw /dev/ttyACM0' >> /etc/rc.local
 fi
 
 echo "You may now restart this computer to experience Kodi."
