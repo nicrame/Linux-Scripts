@@ -19,8 +19,8 @@ make-kodi.sh - HTPC on CentOS 8 Linux with KODI
 Script that automates the installation and configuration of CentOS 8 Linux with KODI (formerly XBMC) under HTPC (a computer for media playback). It will make Your computer starts directly to KODI after reboot. It use flatpak package by default, but You may configure it to use sources if you prefer.
 More info: https://www.marcinwilk.eu/projects/htpc-on-centos-8-linux-with-kodi/
 
-unms-centos.sh - UNMS installation script for CentOS 8 Linux
-This takes the appropriate steps to install and run UNMS in CentOS 8 Linux. It was prepared for clear CentOS 8 install.
+uisp-el.sh - UISP / UNMS installation script for EL Linux
+This takes the appropriate steps to install and run UNMS in EL8 Linux (CentOS 8, Rocky Linux, RHEL 8). It was prepared for clear OS installation.
 More info: https://www.marcinwilk.eu/projects/unms-install-on-centos-8-linux/
 
 centos-lamp.sh - CentOS 8 LAMP Script
