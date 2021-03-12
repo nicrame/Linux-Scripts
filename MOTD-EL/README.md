@@ -4,6 +4,8 @@ This will install colorful and nice MOTD with some system information.
 MOTD is generated with scripts, that will be extracted to /etc/profile.d 
 where you may modify them to suite your needs.
 
+![motd-el-look](https://user-images.githubusercontent.com/5872054/110964678-ba890c00-8353-11eb-8a0e-829a9b7c1282.png)
+
 To install use this command:  
 > wget https://raw.githubusercontent.com/nicrame/Linux-Scripts/master/MOTD-EL/motd-el.sh && chmod +x motd-el.sh && ./motd-el.sh
 
