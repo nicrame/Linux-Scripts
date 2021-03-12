@@ -1,7 +1,7 @@
 MOTD scripts for EL
 
-This will install colorful and nice MOTD with some system information.
-MOTD is generated with sceript, that will be extracted to /etc/profile.d 
+This will install colorful and nice MOTD with some system information. 
+MOTD is generated with scripts, that will be extracted to /etc/profile.d 
 where you may modify them to suite your needs.
 
 Here is the main install script motd-el.sh - and the source files .sh used to create it.
