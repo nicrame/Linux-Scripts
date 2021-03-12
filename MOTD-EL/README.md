@@ -29,6 +29,6 @@ License:
 
 Changelog:
 v 1.1 - 12.03.2021
-First release, tested on CentOS 7
+First release, tested on CentOS 7.
 v 1.0 - 11.03.2021
-Play at home, tested on RHEL 8 and CentOS 8
+Play at home, tested on RHEL 8 and CentOS 8.
