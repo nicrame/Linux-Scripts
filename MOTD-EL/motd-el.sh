@@ -38,8 +38,10 @@ user=$( whoami )
 # Used only for testing.
 
 # Installing packages that are need to make world colorful and nice!
+echo "Updating system and installing EPEL repo and packages."
 yum update -y
 yum -y -q install dnf unzip
+dnf -y -q install --nogpgcheck https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
 dnf -y -q install figlet && dnf -y -q install ruby
 
 if [ -e /usr/local/bin/lolcat ]
