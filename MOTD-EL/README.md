@@ -6,7 +6,7 @@ where you may modify them to suite your needs.
 fail2ban and docker stats will not be shown if user do not have correct permissions for that.  
 Here is the main install script motd-el.sh - and the source files .sh used to create it.
 
-![motd-el-look](https://user-images.githubusercontent.com/5872054/110964678-ba890c00-8353-11eb-8a0e-829a9b7c1282.png)
+![motd-el](https://user-images.githubusercontent.com/5872054/111041700-d7980a80-8439-11eb-850a-f8c99ef0d6e4.png)
 
 To install use this command:  
 > wget -q https://raw.githubusercontent.com/nicrame/Linux-Scripts/master/MOTD-EL/motd-el.sh && chmod +x motd-el.sh && ./motd-el.sh  
