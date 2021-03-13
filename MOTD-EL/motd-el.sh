@@ -6,8 +6,7 @@
 # This will install colorful and nice MOTD with some system information.  
 # MOTD is generated with scripts, that will be extracted to /etc/profile.d 
 # where you may modify them to suite your needs.  
-# 
-# I made it because i couldn't find anything like that for EL.  
+# You may call this script with administrator email as argument: ./motd-el.sh admin@email.com
 #
 # Most of the work is done using scripts made and published here: https://github.com/yboetz/motd 
 #
@@ -31,6 +30,7 @@
 # Add monthly stats of fail2ban script.  
 # Add docker containers list script.  
 # Changed some colors to work better on white background. 
+# Show more information while processing installer and system operator argument support.
 # v 1.2 - 12.03.2021  
 # Small fixes.  
 # v 1.1 - 12.03.2021  
@@ -43,8 +43,12 @@ user=$( whoami )
 # Used only for testing.
 
 # Installing packages that are need to make world colorful and nice!
+echo "\e[38;5;214mMOTD for EL will make world colorful and nice!\e[39;0m"
+echo ""
+echo "You may call this script with administrator email as argument: ./motd-el.sh admin@email.com"
+echo "Adding colors to the system started!"
 echo "Updating system and installing EPEL repo and packages."
-yum update -y
+yum update -y -q
 yum -y -q install dnf unzip
 dnf -y -q install --nogpgcheck https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
 dnf -y -q install figlet && dnf -y -q install ruby
@@ -53,6 +57,7 @@ if [ -e /usr/local/bin/lolcat ]
 then
 echo "Lolcat already installed, skipping..."
 else
+echo "Installing lolcat from sources."
 cd /tmp
 wget https://github.com/busyloop/lolcat/archive/master.zip
 unzip master.zip
@@ -62,7 +67,8 @@ gem install lolcat
 cd /tmp
 rm -rf lolcast-master
 fi
-
+echo ""
+echo "Creating script files in /etc/prfile.d/."
 touch /etc/profile.d/10-banner.sh
 echo '#!/bin/bash
 
@@ -195,8 +201,20 @@ base64 --decode /etc/profile.d/55-docker.sh.b64 > /etc/profile.d/55-docker.sh
 rm -rf /etc/profile.d/55-docker.sh.b64
 
 touch /etc/profile.d/60-admin.sh
+if [ $# -eq 0 ]
+then
 echo '#!/bin/bash
+
 system=$(hostname)
 echo "
 SysOP: root@$system
 " | lolcat -f' > /etc/profile.d/60-admin.sh
+else
+echo "#!/bin/bash" > /etc/profile.d/60-admin.sh
+echo "" >> /etc/profile.d/60-admin.sh
+echo "echo \"" >> /etc/profile.d/60-admin.sh
+echo SysOP: $1 >> /etc/profile.d/60-admin.sh
+echo "\" | lolcat -f" >> /etc/profile.d/60-admin.sh
+fi
+
+echo "Everything is ready. Have fun!" | lolcat -f
