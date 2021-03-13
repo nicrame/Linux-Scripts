@@ -32,6 +32,8 @@ License:
 2. Feel free to share and modify this as you like.
 
 Changelog:  
+v 1.2 - 13.03.2021  
+Little fixes.  
 v 1.1 - 12.03.2021  
 First release, tested on CentOS 7  
 v 1.0 - 11.03.2021  
