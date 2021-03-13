@@ -13,8 +13,7 @@ Here is the main install script motd-el.sh - and the source files .sh used to cr
 
 I made it because i couldn't find anything like that for EL.
 
-Most of the work is done by Yannick Boetzel - yboetzel@ethz.ch  
-using scripts he made and published here: https://github.com/yboetz/motd
+Most of the work is done using scripts published here: https://github.com/yboetz/motd
 
 Some parts inside install script are .sh files encoded with base64. 
 The reason was it's much easier to extract such data without formatting problems 
