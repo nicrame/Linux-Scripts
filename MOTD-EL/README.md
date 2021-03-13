@@ -9,7 +9,8 @@ fail2ban and docker stats will not be shown if user do not have correct permissi
 
 To install use this command:  
 > wget -q https://raw.githubusercontent.com/nicrame/Linux-Scripts/master/MOTD-EL/motd-el.sh && chmod +x motd-el.sh && ./motd-el.sh  
-You may add system administrator email address as argument so it will be used like that:
+
+You may also add system administrator email address as argument, like that:  
 > wget -q https://raw.githubusercontent.com/nicrame/Linux-Scripts/master/MOTD-EL/motd-el.sh && chmod +x motd-el.sh && ./motd-el.sh admin@email  
 
 Here is the main install script motd-el.sh - and the source files .sh used to create it.
