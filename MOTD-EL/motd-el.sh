@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # MOTD scripts for EL
-# Version 1.1
+# Version 1.2
 #
 # This will install colorful and nice MOTD with some system information.
 # MOTD is generated with scripts, that will be extracted to /etc/profile.d 
@@ -9,8 +9,7 @@
 # 
 # I made it because i couldn't find anything like that for EL.
 #
-# Most of the work is done by Yannick Boetzel - yboetzel@ethz.ch
-# using scripts he made and published here: https://github.com/yboetz/motd
+# Most of the work is done using scripts made and published here: https://github.com/yboetz/motd
 #
 # Some parts are base64 encoded here - the reason was it's much easier to
 # extract such data without formatting problems with special characters from one file.
@@ -28,6 +27,8 @@
 # 2. Feel free to share and modify this as you like.
 #
 # Changelog:
+# v 1.2 - 12.03.2021  
+# Small fixes
 # v 1.1 - 12.03.2021
 # First release, tested on CentOS 7
 # v 1.0 - 11.03.2021
