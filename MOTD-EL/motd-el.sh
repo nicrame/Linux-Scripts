@@ -47,10 +47,13 @@ echo -e "\e[38;5;214mMOTD for EL will make world colorful and nice!\e[39;0m"
 echo ""
 echo "You may call this script with administrator email as argument: ./motd-el.sh admin@email.com"
 echo "Adding colors to the system started!"
-echo "Updating system and installing EPEL repo and packages."
+echo "Updating system packages. It may take some time, be patient!"
 yum update -y -q
+echo "Installing unzip and dnf."
 yum -y -q install dnf unzip
+echo "Enabling EPEL repo."
 dnf -y -q install --nogpgcheck https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+echo "Installing figlet and ruby packages."
 dnf -y -q install figlet && dnf -y -q install ruby
 
 if [ -e /usr/local/bin/lolcat ]
