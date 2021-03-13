@@ -1,9 +1,10 @@
-#### MOTD scripts for EL
+#### MOTD for EL
 
-This will install colorful and nice MOTD with some system information.  
+This will install colorful and nice motd (message of the day) with some system informations.  
 MOTD is generated with scripts, that will be extracted to /etc/profile.d 
 where you may modify them to suite your needs.  
 fail2ban and docker stats will not be shown if user do not have correct permissions for that.  
+Here is the main install script motd-el.sh - and the source files .sh used to create it.
 
 ![motd-el-look](https://user-images.githubusercontent.com/5872054/110964678-ba890c00-8353-11eb-8a0e-829a9b7c1282.png)
 
@@ -12,10 +13,6 @@ To install use this command:
 
 You may also add system administrator email address as argument, like that:  
 > wget -q https://raw.githubusercontent.com/nicrame/Linux-Scripts/master/MOTD-EL/motd-el.sh && chmod +x motd-el.sh && ./motd-el.sh admin@email  
-
-Here is the main install script motd-el.sh - and the source files .sh used to create it.
-
-I made it because i couldn't find anything like that for EL.
 
 Most of the work is done using scripts published here: https://github.com/yboetz/motd
 
@@ -39,7 +36,8 @@ Changelog:
 v 1.3 - 13.03.2021  
 Add monthly stats of fail2ban script.  
 Add docker containers list script.  
-Changed some colors to work better on white background. 
+Changed some colors to work better on white background.  
+Show more information while processing installer and system operator argument support.  
 v 1.2 - 13.03.2021  
 Little fixes.  
 v 1.1 - 12.03.2021  
