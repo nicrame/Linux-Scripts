@@ -3,19 +3,19 @@
 # #### MOTD scripts for EL
 # Version 1.3  
 #
-# This will install colorful and nice MOTD with some system information.  
-# MOTD is generated with scripts, that will be extracted to /etc/profile.d 
+# This will install colorful and nice motd (message of the day) with some system informations.    
+# MOTD is generated with scripts, that will be extracted to /etc/profile.d  
 # where you may modify them to suite your needs.  
-# You may call this script with administrator email as argument: ./motd-el.sh admin@email.com
+# You may call this script with administrator email as argument: ./motd-el.sh admin@email.com  
 #
-# Most of the work is done using scripts made and published here: https://github.com/yboetz/motd 
+# Most of the work is done using scripts made and published here: https://github.com/yboetz/motd  
 #
-# Some parts are base64 encoded here - the reason was it's much easier to
+# Some parts are base64 encoded here - the reason was it's much easier to  
 # extract such data without formatting problems with special characters from one file.  
-# I know it's lazy, but it is fast and very easy to do.   
+# I know it's lazy, but it is fast and very easy to do.  
 # 
 # More info:  
-# [PL/ENG] /link will be here/
+# [PL/ENG] /link will be here/  
 #
 # Feel free to contact me: marcin@marcinwilk.eu  
 # www.marcinwilk.eu  
@@ -29,8 +29,8 @@
 # v 1.3 - 13.03.2021  
 # Add monthly stats of fail2ban script.  
 # Add docker containers list script.  
-# Changed some colors to work better on white background. 
-# Show more information while processing installer and system operator argument support.
+# Changed some colors to work better on white background.  
+# Show more information while processing installer and system operator argument support.  
 # v 1.2 - 12.03.2021  
 # Small fixes.  
 # v 1.1 - 12.03.2021  
