@@ -36,6 +36,6 @@ for line in "${dfs[@]}"; do
     done
     bar+="${undim}]"
     # print usage line & bar
-    echo "${line}" | awk '{ printf("%-16s%+3s/%s used out of %+4s(%s free) \n", $1, $2, $3, $4, $5); }' | sed -e 's/^/  /'
+    echo "${line}" | awk '{ printf("%-16s%+3s/%+4s used out of %+4s(%+4s free) \n", $1, $2, $3, $4, $5); }' | sed -e 's/^/  /'
     echo -e "${bar}" | sed -e 's/^/  /'
 done
