@@ -2,6 +2,8 @@
 
 if [ -e /var/log/fail2ban.log ]
 then
+    if [ -r /var/log/fail2ban.log ]
+    then
 logfile='/var/log/fail2ban.log*'
 mapfile -t lines < <(grep -hioP '(\[[a-z-]+\]) ?(?:restore)? (ban|unban)' $logfile | sort | uniq -c)
 jails=($(printf -- '%s\n' "${lines[@]}" | grep -oP '\[\K[^\]]+' | sort | uniq))
@@ -21,4 +23,5 @@ done
 
 printf "\nfail2ban status (monthly):\n"
 printf "$out" | column -ts $',' | sed -e 's/^/  /'
+    fi
 fi
