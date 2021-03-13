@@ -15,7 +15,7 @@ PROCESSOR_COUNT=`grep -ioP 'processor\t:' /proc/cpuinfo | wc -l`
 
 W="\e[0;39m"
 G="\e[1;32m"
-Y="\e[93m"
+Y="\e[38;5;214m"
 ipext=$(curl -s https://ipecho.net/plain)
 netdev=$(ip -o link show | awk -F': ' '{print $2" "}' | tr -d '\n')
 
