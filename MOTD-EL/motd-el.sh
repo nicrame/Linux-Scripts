@@ -155,3 +155,5 @@ system=$(hostname)
 echo "
 SysOP: root@$system
 " | lolcat -f' > /etc/profile.d/60-admin.sh
+
+exit 0
