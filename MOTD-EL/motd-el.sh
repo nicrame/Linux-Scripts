@@ -1,38 +1,42 @@
 #!/bin/bash
 
-# MOTD scripts for EL
-# Version 1.2
+# #### MOTD scripts for EL
+# Version 1.3  
 #
-# This will install colorful and nice MOTD with some system information.
+# This will install colorful and nice MOTD with some system information.  
 # MOTD is generated with scripts, that will be extracted to /etc/profile.d 
-# where you may modify them to suite your needs.
+# where you may modify them to suite your needs.  
 # 
-# I made it because i couldn't find anything like that for EL.
+# I made it because i couldn't find anything like that for EL.  
 #
-# Most of the work is done using scripts made and published here: https://github.com/yboetz/motd
+# Most of the work is done using scripts made and published here: https://github.com/yboetz/motd 
 #
 # Some parts are base64 encoded here - the reason was it's much easier to
-# extract such data without formatting problems with special characters from one file.
-# I know it's lazy, but it is fast and very easy to do. 
+# extract such data without formatting problems with special characters from one file.  
+# I know it's lazy, but it is fast and very easy to do.   
 # 
-# More info:
+# More info:  
 # [PL/ENG] /link will be here/
 #
-# Feel free to contact me: marcin@marcinwilk.eu
-# www.marcinwilk.eu
-# Marcin Wilk
+# Feel free to contact me: marcin@marcinwilk.eu  
+# www.marcinwilk.eu  
+# Marcin Wilk  
 #
 # License:
-# 1. You use it at your own risk. Author is not responsible for any damage made with that script.
-# 2. Feel free to share and modify this as you like.
+# 1. You use it at your own risk. Author is not responsible for any damage made with that script.  
+# 2. Feel free to share and modify this as you like.  
 #
-# Changelog:
+# Changelog:  
+# v 1.3 - 13.03.2021  
+# Add monthly stats of fail2ban script.  
+# Add docker containers list script.  
+# Changed some colors to work better on white background. 
 # v 1.2 - 12.03.2021  
-# Small fixes
-# v 1.1 - 12.03.2021
-# First release, tested on CentOS 7
-# v 1.0 - 11.03.2021
-# Play at home, tested on RHEL 8 and CentOS 8
+# Small fixes.  
+# v 1.1 - 12.03.2021  
+# First release, tested on CentOS 7.  
+# v 1.0 - 11.03.2021  
+# Play at home, tested on RHEL 8 and CentOS 8.  
 
 user=$( whoami )
 # User name that run the script. No reasons to change it.
@@ -64,7 +68,7 @@ echo '#!/bin/bash
 
 user="$(whoami)"
 echo "- -- -- ------ Audaces Fortuna Iuvat  ------ -- -- -" | lolcat -f
-echo -e "Welcome \e[93m$user \e[39mat:"
+echo -e "Welcome \e[38;5;214m$user \e[39;0mat:"
 ' > /etc/profile.d/10-banner.sh
 
 touch /etc/profile.d/15-name.sh
@@ -87,19 +91,19 @@ ayAneyBTVU0gKz0gJDF9IEVORCB7IHByaW50IFNVTSB9J2AKIyBnZXQgcHJvY2Vzc29ycwpQUk9D
 RVNTT1JfTkFNRT1gZ3JlcCAibW9kZWwgbmFtZSIgL3Byb2MvY3B1aW5mbyB8IGN1dCAtZCAnICcg
 LWYzLSB8IGF3ayB7J3ByaW50ICQwJ30gfCBoZWFkIC0xYApQUk9DRVNTT1JfQ09VTlQ9YGdyZXAg
 LWlvUCAncHJvY2Vzc29yXHQ6JyAvcHJvYy9jcHVpbmZvIHwgd2MgLWxgCgpXPSJcZVswOzM5bSIK
-Rz0iXGVbMTszMm0iClk9IlxlWzkzbSIKaXBleHQ9JChjdXJsIC1zIGh0dHBzOi8vaXBlY2hvLm5l
-dC9wbGFpbikKbmV0ZGV2PSQoaXAgLW8gbGluayBzaG93IHwgYXdrIC1GJzogJyAne3ByaW50ICQy
-IiAifScgfCB0ciAtZCAnXG4nKQoKZWNobyAtZSAiCiR7V31zeXN0ZW0gaW5mbzoKJFcgIERpc3Ry
-by4uLi4uLjogJFlgY2F0IC9ldGMvKnJlbGVhc2UgfCBncmVwICJQUkVUVFlfTkFNRSIgfCBjdXQg
-LWQgIj0iIC1mIDItIHwgc2VkICdzLyIvL2cnYAokVyAgS2VybmVsLi4uLi4uOiAkV2B1bmFtZSAt
-c3JgCgokVyAgVXB0aW1lLi4uLi4uOiAkV2B1cHRpbWUgLXBgCiRXICBMb2FkLi4uLi4uLi46ICRH
-JExPQUQxJFcgKDFtKSwgJEckTE9BRDUkVyAoNW0pLCAkRyRMT0FEMTUkVyAoMTVtKQokVyAgUHJv
-Y2Vzc2VzLi4uOiRXICRHJFBST0NFU1NfUk9PVCRXIChyb290KSwgJEckUFJPQ0VTU19VU0VSJFcg
-KHVzZXIpLCAkRyRQUk9DRVNTX0FMTCRXICh0b3RhbCkKCiRXICBDUFUuLi4uLi4uLi46ICRXJFBS
-T0NFU1NPUl9OQU1FICgkRyRQUk9DRVNTT1JfQ09VTlQkVyB2Q1BVKQokVyAgTWVtb3J5Li4uLi4u
-OiAkRyRVU0VEJFcgdXNlZCwgJEckQVZBSUwkVyBhdmFpbCwgJEckVE9UQUwkVyB0b3RhbCRXCgok
-VyAgTG9jYWwgSVAuLi4uOiAkV2Bob3N0bmFtZSAtSWAKJFcgIEV4dGVybmFsIElQLjogJFckaXBl
-eHQKJFcgIE5ldCBkZXZpY2VzLjogJFckbmV0ZGV2Igo=' > /etc/profile.d/20-sysinfo.sh.b64
+Rz0iXGVbMTszMm0iClk9IlxlWzM4OzU7MjE0bSIKaXBleHQ9JChjdXJsIC1zIGh0dHBzOi8vaXBl
+Y2hvLm5ldC9wbGFpbikKbmV0ZGV2PSQoaXAgLW8gbGluayBzaG93IHwgYXdrIC1GJzogJyAne3By
+aW50ICQyIiAifScgfCB0ciAtZCAnXG4nKQoKZWNobyAtZSAiCiR7V31zeXN0ZW0gaW5mbzoKJFcg
+IERpc3Ryby4uLi4uLjogJFlgY2F0IC9ldGMvKnJlbGVhc2UgfCBncmVwICJQUkVUVFlfTkFNRSIg
+fCBjdXQgLWQgIj0iIC1mIDItIHwgc2VkICdzLyIvL2cnYAokVyAgS2VybmVsLi4uLi4uOiAkV2B1
+bmFtZSAtc3JgCgokVyAgVXB0aW1lLi4uLi4uOiAkV2B1cHRpbWUgLXBgCiRXICBMb2FkLi4uLi4u
+Li46ICRHJExPQUQxJFcgKDFtKSwgJEckTE9BRDUkVyAoNW0pLCAkRyRMT0FEMTUkVyAoMTVtKQok
+VyAgUHJvY2Vzc2VzLi4uOiRXICRHJFBST0NFU1NfUk9PVCRXIChyb290KSwgJEckUFJPQ0VTU19V
+U0VSJFcgKHVzZXIpLCAkRyRQUk9DRVNTX0FMTCRXICh0b3RhbCkKCiRXICBDUFUuLi4uLi4uLi46
+ICRXJFBST0NFU1NPUl9OQU1FICgkRyRQUk9DRVNTT1JfQ09VTlQkVyB2Q1BVKQokVyAgTWVtb3J5
+Li4uLi4uOiAkRyRVU0VEJFcgdXNlZCwgJEckQVZBSUwkVyBhdmFpbCwgJEckVE9UQUwkVyB0b3Rh
+bCRXCgokVyAgTG9jYWwgSVAuLi4uOiAkV2Bob3N0bmFtZSAtSWAKJFcgIEV4dGVybmFsIElQLjog
+JFckaXBleHQKJFcgIE5ldCBkZXZpY2VzLjogJFckbmV0ZGV2Igo=' > /etc/profile.d/20-sysinfo.sh.b64
 base64 --decode /etc/profile.d/20-sysinfo.sh.b64 > /etc/profile.d/20-sysinfo.sh
 rm -rf /etc/profile.d/20-sysinfo.sh.b64
 
@@ -149,11 +153,50 @@ biIKcHJpbnRmICIkb3V0IiB8IGNvbHVtbiAtdHMgJCcsJyB8IHNlZCAtZSAncy9eLyAgLycK' > /etc
 base64 --decode /etc/profile.d/40-services.sh.b64 > /etc/profile.d/40-services.sh
 rm -rf /etc/profile.d/40-services.sh.b64
 
+touch /etc/profile.d/50-fail2ban.sh.b64
+echo 'IyEvYmluL2Jhc2gKCmlmIFsgLWUgL3Zhci9sb2cvZmFpbDJiYW4ubG9nIF0KdGhlbgogICAgaWYg
+WyAtciAvdmFyL2xvZy9mYWlsMmJhbi5sb2cgXQogICAgdGhlbgpsb2dmaWxlPScvdmFyL2xvZy9m
+YWlsMmJhbi5sb2cqJwptYXBmaWxlIC10IGxpbmVzIDwgPChncmVwIC1oaW9QICcoXFtbYS16LV0r
+XF0pID8oPzpyZXN0b3JlKT8gKGJhbnx1bmJhbiknICRsb2dmaWxlIHwgc29ydCB8IHVuaXEgLWMp
+CmphaWxzPSgkKHByaW50ZiAtLSAnJXNcbicgIiR7bGluZXNbQF19IiB8IGdyZXAgLW9QICdcW1xL
+W15cXV0rJyB8IHNvcnQgfCB1bmlxKSkKCm91dD0iIgpmb3IgamFpbCBpbiAke2phaWxzW0BdfTsg
+ZG8KICAgIGJhbnM9JChwcmludGYgLS0gJyVzXG4nICIke2xpbmVzW0BdfSIgfCBncmVwIC1pUCAi
+W1s6ZGlnaXQ6XV0rIFxbJGphaWxcXSBiYW4iIHwgYXdrICd7cHJpbnQgJDF9JykKICAgIHJlc3Rv
+cmVzPSQocHJpbnRmIC0tICclc1xuJyAiJHtsaW5lc1tAXX0iIHwgZ3JlcCAtaVAgIltbOmRpZ2l0
+Ol1dKyBcWyRqYWlsXF0gcmVzdG9yZSBiYW4iIHwgYXdrICd7cHJpbnQgJDF9JykKICAgIHVuYmFu
+cz0kKHByaW50ZiAtLSAnJXNcbicgIiR7bGluZXNbQF19IiB8IGdyZXAgLWlQICJbWzpkaWdpdDpd
+XSsgXFskamFpbFxdIHVuYmFuIiB8IGF3ayAne3ByaW50ICQxfScpCiAgICBiYW5zPSR7YmFuczot
+MH0gIyBkZWZhdWx0IHZhbHVlCiAgICByZXN0b3Jlcz0ke3Jlc3RvcmVzOi0wfSAjIGRlZmF1bHQg
+dmFsdWUKICAgIHVuYmFucz0ke3VuYmFuczotMH0gIyBkZWZhdWx0IHZhbHVlCiAgICBiYW5zPSQo
+KCRiYW5zKyRyZXN0b3JlcykpCiAgICBkaWZmPSQoKCRiYW5zLSR1bmJhbnMpKQogICAgb3V0Kz0k
+KHByaW50ZiAiJGphaWwsICUrM3MgYmFucywgJSszcyB1bmJhbnMsICUrM3MgYWN0aXZlIiAkYmFu
+cyAkdW5iYW5zICRkaWZmKSJcbiIKZG9uZQoKcHJpbnRmICJcbmZhaWwyYmFuIHN0YXR1cyAobW9u
+dGhseSk6XG4iCnByaW50ZiAiJG91dCIgfCBjb2x1bW4gLXRzICQnLCcgfCBzZWQgLWUgJ3MvXi8g
+IC8nCiAgICBmaQpmaQo=' > /etc/profile.d/50-fail2ban.sh.b64
+base64 --decode /etc/profile.d/50-fail2ban.sh.b64 > /etc/profile.d/50-fail2ban.sh
+rm -rf /etc/profile.d/50-fail2ban.sh.b64
+
+touch /etc/profile.d/55-docker.sh.b64
+echo 'IyEvYmluL2Jhc2gKCmlmIFsgLWUgL3Vzci9iaW4vZG9ja2VyIF0KdGhlbgogICAgaWYgWyAtciAv
+dmFyL3J1bi9kb2NrZXIuc29jayBdCiAgICB0aGVuCiMgc2V0IGNvbHVtbiB3aWR0aApDT0xVTU5T
+PTIKIyBjb2xvcnMKZ3JlZW49IlxlWzE7MzJtIgpyZWQ9IlxlWzE7MzFtIgp1bmRpbT0iXGVbMG0i
+CgptYXBmaWxlIC10IGNvbnRhaW5lcnMgPCA8KGRvY2tlciBwcyAtYSAtLWZvcm1hdCAne3suTmFt
+ZXN9fVx0e3suU3RhdHVzfX0nIHwgc29ydCAtazEgfCBhd2sgJ3sgcHJpbnQgJDEsJDIgfScpCgpv
+dXQ9IiIKZm9yIGkgaW4gIiR7IWNvbnRhaW5lcnNbQF19IjsgZG8KICAgIElGUz0iICIgcmVhZCBu
+YW1lIHN0YXR1cyA8PDwgJHtjb250YWluZXJzW2ldfQogICAgIyBjb2xvciBncmVlbiBpZiBzZXJ2
+aWNlIGlzIGFjdGl2ZSwgZWxzZSByZWQKICAgIGlmIFtbICIke3N0YXR1c30iID09ICJVcCIgXV07
+IHRoZW4KICAgICAgICBvdXQrPSIke25hbWV9Oiwke2dyZWVufSR7c3RhdHVzLCx9JHt1bmRpbX0s
+IgogICAgZWxzZQogICAgICAgIG91dCs9IiR7bmFtZX06LCR7cmVkfSR7c3RhdHVzLCx9JHt1bmRp
+bX0sIgogICAgZmkKICAgICMgaW5zZXJ0IFxuIGV2ZXJ5ICRDT0xVTU5TIGNvbHVtbgogICAgaWYg
+WyAkKCgoJGkrMSkgJSAkQ09MVU1OUykpIC1lcSAwIF07IHRoZW4KICAgICAgICBvdXQrPSJcbiIK
+ICAgIGZpCmRvbmUKb3V0Kz0iXG4iCgpwcmludGYgIlxuZG9ja2VyIHN0YXR1czpcbiIKcHJpbnRm
+ICIkb3V0IiB8IGNvbHVtbiAtdHMgJCcsJyB8IHNlZCAtZSAncy9eLyAgLycKICAgIGZpCmZp' > /etc/profile.d/55-docker.sh.b64
+base64 --decode /etc/profile.d/55-docker.sh.b64 > /etc/profile.d/55-docker.sh
+rm -rf /etc/profile.d/55-docker.sh.b64
+
 touch /etc/profile.d/60-admin.sh
 echo '#!/bin/bash
 system=$(hostname)
 echo "
 SysOP: root@$system
 " | lolcat -f' > /etc/profile.d/60-admin.sh
-
-exit 0
