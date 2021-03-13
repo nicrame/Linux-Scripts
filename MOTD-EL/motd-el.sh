@@ -43,7 +43,7 @@ user=$( whoami )
 # Used only for testing.
 
 # Installing packages that are need to make world colorful and nice!
-echo "\e[38;5;214mMOTD for EL will make world colorful and nice!\e[39;0m"
+echo -e "\e[38;5;214mMOTD for EL will make world colorful and nice!\e[39;0m"
 echo ""
 echo "You may call this script with administrator email as argument: ./motd-el.sh admin@email.com"
 echo "Adding colors to the system started!"
