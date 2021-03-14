@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # #### MOTD scripts for EL
-# Version 1.3  
+# Version 1.4  
+# Testes on: CentOS 8, RHEL 8  
 #
 # This will install colorful and nice motd (message of the day) with some system informations.    
 # MOTD is generated with scripts, that will be extracted to /etc/profile.d  
@@ -28,7 +29,7 @@
 # Changelog:  
 # v 1.4 - 15.03.2021  
 # Add full file path for last command so it will work when sudo is used.  
-# Fix for correct EPEL repo installing on older EL7.  
+# Fix for correct EPEL repo installing on EL7.  
 # v 1.3 - 13.03.2021  
 # Add monthly stats of fail2ban script.  
 # Add docker containers list script.  
@@ -55,7 +56,7 @@ yum update -y -q
 echo "Installing unzip and dnf."
 yum -y -q install dnf unzip
 echo "Enabling EPEL repo."
-dnf -y -q install --nogpgcheck https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+yum -y install epel-release
 echo "Installing figlet and ruby packages."
 dnf -y -q install figlet && dnf -y -q install ruby
 
@@ -73,6 +74,7 @@ gem install lolcat
 cd /tmp
 rm -rf lolcast-master
 fi
+
 echo ""
 echo "Creating script files in /etc/prfile.d/."
 touch /etc/profile.d/10-banner.sh
