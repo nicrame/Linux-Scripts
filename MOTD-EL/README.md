@@ -32,7 +32,7 @@ License:
 1. You use it at your own risk. Author is not responsible for any damage made with that script.  
 2. Feel free to share and modify this as you like.
 
-Testes on: CentOS 8, RHEL 8  
+Testes on: CentOS 7/8, RHEL 8  
 Changelog:  
 v 1.4 - 15.03.2021  
 Add full file path for last command so it will work when sudo is used.  
