@@ -9,10 +9,10 @@ Here is the main install script motd-el.sh - and the source files .sh used to cr
 ![motd-el](https://user-images.githubusercontent.com/5872054/111041700-d7980a80-8439-11eb-850a-f8c99ef0d6e4.png)
 
 To install use this command:  
-> wget -q https://raw.githubusercontent.com/nicrame/Linux-Scripts/master/MOTD-EL/motd-el.sh && chmod +x motd-el.sh && ./motd-el.sh  
+> sudo sh -c "wget -q https://raw.githubusercontent.com/nicrame/Linux-Scripts/master/MOTD-EL/motd-el.sh && chmod +x motd-el.sh && ./motd-el.sh"  
 
 You may also add system administrator email address as argument, like that:  
-> wget -q https://raw.githubusercontent.com/nicrame/Linux-Scripts/master/MOTD-EL/motd-el.sh && chmod +x motd-el.sh && ./motd-el.sh admin@email  
+> sudo sh -c "wget -q https://raw.githubusercontent.com/nicrame/Linux-Scripts/master/MOTD-EL/motd-el.sh && chmod +x motd-el.sh && ./motd-el.sh admin@email"  
 
 Most of the work is done using scripts published here: https://github.com/yboetz/motd
 
