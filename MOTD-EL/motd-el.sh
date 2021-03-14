@@ -2,7 +2,7 @@
 
 # #### MOTD scripts for EL
 # Version 1.4  
-# Testes on: CentOS 8, RHEL 8  
+# Testes on: CentOS 7/8, RHEL 8  
 #
 # This will install colorful and nice motd (message of the day) with some system informations.    
 # MOTD is generated with scripts, that will be extracted to /etc/profile.d  
