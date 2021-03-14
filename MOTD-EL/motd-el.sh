@@ -56,7 +56,7 @@ yum update -y -q
 echo "Installing unzip and dnf."
 yum -y -q install dnf unzip
 echo "Enabling EPEL repo."
-yum -y install epel-release
+yum -y -q install epel-release
 echo "Installing figlet and ruby packages."
 dnf -y -q install figlet && dnf -y -q install ruby
 
