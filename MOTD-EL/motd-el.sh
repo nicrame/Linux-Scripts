@@ -26,6 +26,9 @@
 # 2. Feel free to share and modify this as you like.  
 #
 # Changelog:  
+# v 1.4 - 15.03.2021  
+# Add full file path for last command so it will work when sudo is used.  
+# Fix for correct EPEL repo installing on older EL7.  
 # v 1.3 - 13.03.2021  
 # Add monthly stats of fail2ban script.  
 # Add docker containers list script.  
@@ -220,4 +223,4 @@ echo SysOP: $1 >> /etc/profile.d/60-admin.sh
 echo "\" | lolcat -f" >> /etc/profile.d/60-admin.sh
 fi
 
-echo "Everything is ready. Have fun!" | lolcat -f
+echo "Everything is ready. Have fun!" | /usr/local/bin/lolcat -f
