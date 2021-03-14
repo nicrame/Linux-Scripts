@@ -32,7 +32,11 @@ License:
 1. You use it at your own risk. Author is not responsible for any damage made with that script.  
 2. Feel free to share and modify this as you like.
 
+Testes on: CentOS 8, RHEL 8  
 Changelog:  
+v 1.4 - 15.03.2021  
+Add full file path for last command so it will work when sudo is used.  
+Fix for correct EPEL repo installing on EL7.  
 v 1.3 - 13.03.2021  
 Add monthly stats of fail2ban script.  
 Add docker containers list script.  
