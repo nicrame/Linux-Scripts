@@ -17,7 +17,7 @@ W="\e[0;39m"
 G="\e[1;32m"
 Y="\e[38;5;214m"
 ipext=$(curl -s https://ipecho.net/plain)
-netdev=$(ip -o link show | awk -F': ' '{print $2" "}' | tr -d '\n')
+netdev=$(/usr/sbin/ip -o link show | awk -F': ' '{print $2" "}' | tr -d '\n')
 
 echo -e "
 ${W}system info:
