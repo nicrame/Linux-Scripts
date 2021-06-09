@@ -1,15 +1,13 @@
 #!/bin/bash
 
-# LAMP install script for CentOS (versions 8)
-# Created using CentOS 8!
-# Wasn't made and never tested on different distros than CentOS!
-# Version 1.1 for x86_64
+# LAMP install script for EL (versions 8)
+# Version 1.2 for x86_64
 #
 # More info:
 # [PL/ENG] https://www.marcinwilk.eu/projects/skrypt-centos-8-lamp/
 #
 # This script use Remi's repo for PHP packages.
-# Please support Remi by dinations at https://rpms.remirepo.net/ !!!!
+# Please support Remi by donations at https://rpms.remirepo.net/ !!!!
 #
 # Feel free to contact me: marcin@marcinwilk.eu
 # www.marcinwilk.eu
@@ -20,6 +18,11 @@
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
 # Changelog:
+# v 1.2 - 09.06.2021
+# Use MariaDB from OS repo as default install source.
+# Fixed some PowerTools installer (name has changed in repos).
+# Initial Let's Encrypt certbot (SSL) integration.
+# Tested on RockyLinux 8!
 # v 1.1 - 17.09.2020
 # Show summary.
 # Adminer is used as default database web administration panel.
@@ -37,8 +40,8 @@
 webserver=httpd
 # Replace CentOS default php version with remi(remi), or install it as secondary version(second). Second method is default.
 php=second
-# Install MariaDB from default CentOS repo(centosdb), or use MariaDB repo(mariadb). CentOS repo is default.
-mariadb=mariadb
+# Install MariaDB from default OS repo(repodb), or use MariaDB repo(mariadb). OS repo is default.
+mariadb=repodb
 # ############################################### Configuration ##############################################################
 
 user=$(whoami)
@@ -113,6 +116,7 @@ sed --in-place=.bak 's/^SELINUX\=enforcing/SELINUX\=disabled/g' /etc/selinux/con
 echo "Add EPEL repo, enable PowerTools packages, installing chrony NTP client, curl, vim, vsftpd, wget, ImageMagick and lynx."
 dnf -y -d0 install --nogpgcheck https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
 dnf config-manager -q --enable PowerTools
+dnf config-manager -q --set-enabled powertools
 dnf -y -d0 install yum-utils chrony curl vim vsftpd lynx wget ImageMagick
 dnf -y -d0 update
 
@@ -148,10 +152,10 @@ fi
 echo "Installing and configuring PHP."
 if [ $php = second ]
 then
-	dnf -y -d0 install https://rpms.remirepo.net/enterprise/remi-release-8.rpm
-	dnf -y -d0 install php74
-	dnf -y -d0 install php74-php-fpm php74-php-mysql php74-php-mysqlnd php74-php-pecl-zip php74-php-bcmath php74-php-xml php74-php-mbstring php74-php-gd php74-php-intl php74-php-process php74-php-imap php74-php-gmp php74-php-pecl-mcrypt php74-php-smbclient php74-php-imagick php74-php-pdo php74-php-recode php74-php-xmlrpc php74-php-pecl-lzf php74-php-zstd php74-php-geos php74-php-opcache
-	dnf -y -d0 install php74-php-phpiredis php74-php-pecl-redis5 hiredis php74-php-pecl-apcu
+	dnf -y install https://rpms.remirepo.net/enterprise/remi-release-8.rpm
+	dnf -y install php74
+	dnf -y install php74-php-fpm php74-php-mysql php74-php-pear php74-php-mysqlnd php74-php-pecl-zip php74-php-bcmath php74-php-xml php74-php-mbstring php74-php-gd php74-php-intl php74-php-process php74-php-imap php74-php-gmp php74-php-pecl-mcrypt php74-php-smbclient php74-php-imagick php74-php-pdo php74-php-recode php74-php-xmlrpc php74-php-pecl-lzf php74-php-zstd php74-php-geos php74-php-opcache
+	dnf -y install php74-php-phpiredis php74-php-pecl-redis5 hiredis php74-php-pecl-apcu
 
 	#Enable APCu command line support
 	sed -i '/apc.enable_cli=0/aapc.enable_cli=1' /etc/opt/remi/php74/php.d/40-apcu.ini
@@ -248,8 +252,41 @@ else
 	fi
 fi
 
+#LE
+echo "Installing Let's Encrypt certbot software that You may like to use for SSL generation purpose later."
+dnf install certbot mod_ssl -y -d0
+
+echo "Generating DHParam 2048 bit key."
+openssl dhparam -out /etc/ssl/certs/dhparam.pem 2048
+
+echo "Creating default Let's Encrypt directory location for refreshing certificates of every vhost."
+mkdir -p /var/lib/letsencrypt/.well-known
+chgrp apache /var/lib/letsencrypt
+chmod g+s /var/lib/letsencrypt
+touch /etc/httpd/conf.d/letsencrypt.conf
+echo 'Alias /.well-known/acme-challenge/ "/var/lib/letsencrypt/.well-known/acme-challenge/"
+<Directory "/var/lib/letsencrypt/">
+    AllowOverride None
+    Options MultiViews Indexes SymLinksIfOwnerMatch IncludesNoExec
+    Require method GET POST OPTIONS
+</Directory>' >> /etc/httpd/conf.d/letsencrypt.conf
+
+touch /etc/httpd/conf.d/ssl-params.conf
+echo 'SSLCipherSuite EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH
+SSLProtocol All -SSLv2 -SSLv3 -TLSv1 -TLSv1.1
+SSLHonorCipherOrder On
+# Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+Header always set X-Frame-Options SAMEORIGIN
+Header always set X-Content-Type-Options nosniff
+# Requires Apache >= 2.4
+SSLCompression off
+SSLUseStapling on
+SSLStaplingCache "shmcb:logs/stapling-cache(150000)"
+# Requires Apache >= 2.4.11
+SSLSessionTickets Off' >> /etc/httpd/conf.d/ssl-params.conf
+
 echo "Installing database."
-if [ $mariadb = centosdb ]
+if [ $mariadb = repodb ]
 then
 	dnf -y -d0 install mariadb-server
 	systemctl --now enable mariadb
@@ -271,7 +308,11 @@ else
 	echo "MariaDB from it's own repo is now installed."
 fi
 
+echo "- -- --- ------------------------- WARNING !!!! ------------------------- --- -- -"
 echo "Now MariaDB wizard will be started to make it secure. Please answer some questions."
+echo "Currently there is no database password - so hit enter on question:"
+echo "Enter current password for root (enter for none):"
+echo ""
 sleep 5
 mysql_secure_installation
 
