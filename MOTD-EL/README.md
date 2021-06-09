@@ -22,7 +22,7 @@ with special characters from one file.
 I know it's lazy, but it is fast and very easy to do. 
 
 More info:  
-[PL/ENG] /link will be here/
+[PL/ENG] https://www.marcinwilk.eu/projects/motd-dla-el/
 
 Feel free to contact me: marcin@marcinwilk.eu  
 www.marcinwilk.eu  
