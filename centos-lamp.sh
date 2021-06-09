@@ -116,6 +116,7 @@ sed --in-place=.bak 's/^SELINUX\=enforcing/SELINUX\=disabled/g' /etc/selinux/con
 echo "Add EPEL repo, enable PowerTools packages, installing chrony NTP client, curl, vim, vsftpd, wget, ImageMagick and lynx."
 dnf -y -d0 install --nogpgcheck https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
 dnf config-manager -q --enable PowerTools
+echo "If there is error above about PowerTools - don't worry!"
 dnf config-manager -q --set-enabled powertools
 dnf -y -d0 install yum-utils chrony curl vim vsftpd lynx wget ImageMagick
 dnf -y -d0 update
@@ -152,10 +153,10 @@ fi
 echo "Installing and configuring PHP."
 if [ $php = second ]
 then
-	dnf -y install https://rpms.remirepo.net/enterprise/remi-release-8.rpm
-	dnf -y install php74
-	dnf -y install php74-php-fpm php74-php-mysql php74-php-pear php74-php-mysqlnd php74-php-pecl-zip php74-php-bcmath php74-php-xml php74-php-mbstring php74-php-gd php74-php-intl php74-php-process php74-php-imap php74-php-gmp php74-php-pecl-mcrypt php74-php-smbclient php74-php-imagick php74-php-pdo php74-php-recode php74-php-xmlrpc php74-php-pecl-lzf php74-php-zstd php74-php-geos php74-php-opcache
-	dnf -y install php74-php-phpiredis php74-php-pecl-redis5 hiredis php74-php-pecl-apcu
+	dnf -y install https://rpms.remirepo.net/enterprise/remi-release-8.rpm -d0
+	dnf -y install php74 -d0
+	dnf -y install php74-php-fpm php74-php-mysql php74-php-pear php74-php-mysqlnd php74-php-pecl-zip php74-php-bcmath php74-php-xml php74-php-mbstring php74-php-gd php74-php-intl php74-php-process php74-php-imap php74-php-gmp php74-php-pecl-mcrypt php74-php-smbclient php74-php-imagick php74-php-pdo php74-php-recode php74-php-xmlrpc php74-php-pecl-lzf php74-php-zstd php74-php-geos php74-php-opcache -d0
+	dnf -y install php74-php-phpiredis php74-php-pecl-redis5 hiredis php74-php-pecl-apcu -d0
 
 	#Enable APCu command line support
 	sed -i '/apc.enable_cli=0/aapc.enable_cli=1' /etc/opt/remi/php74/php.d/40-apcu.ini
