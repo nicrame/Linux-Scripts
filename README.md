@@ -25,7 +25,7 @@ More info: https://www.marcinwilk.eu/projects/unms-install-on-centos-8-linux/
 
 centos-lamp.sh - CentOS 8 LAMP Script  
 It will make LAMP enviroment on clean CentOS 8 system by downloading and configuring software and OS.  
-More info: https://www.marcinwilk.eu/projects/skrypt-centos-8-lamp/
+More info: https://www.marcinwilk.eu/projects/skrypt-el-8-lamp/
 
 Feel free to contact me: marcin@marcinwilk.eu  
 https://www.marcinwilk.eu/  
