@@ -65,7 +65,7 @@ echo "2. Disabling SELinux, add EPEL and Remi's repo, installing packages, confi
 echo ""
 echo -e "\e[93mIMPORTANT\e[39m: Edit this script file to configure web server: apache(default) or nginx,"
 echo "PHP running method: multipackage(default) using own directory, or as OS standard,"
-echo "database: use older MariaDB from CentOS repo, or newer from MariaDB's repo(default)."
+echo "database: use older MariaDB from OS repo(default), or newer from MariaDB's repo."
 echo ""
 echo "To stop now and configure use CTRL+C,"
 sleep 20
