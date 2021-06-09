@@ -23,6 +23,7 @@
 # Fixed some PowerTools installer (name has changed in repos).
 # Initial Let's Encrypt certbot (SSL) integration.
 # Tested on RockyLinux 8!
+# Tested on RHEL 8!
 # v 1.1 - 17.09.2020
 # Show summary.
 # Adminer is used as default database web administration panel.
@@ -116,7 +117,8 @@ sed --in-place=.bak 's/^SELINUX\=enforcing/SELINUX\=disabled/g' /etc/selinux/con
 echo "Add EPEL repo, enable PowerTools packages, installing chrony NTP client, curl, vim, vsftpd, wget, ImageMagick and lynx."
 dnf -y -d0 install --nogpgcheck https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
 dnf config-manager -q --enable PowerTools
-echo "If there is error above about PowerTools - don't worry!"
+subscription-manager repos --enable codeready-builder-for-rhel-8-x86_64-rpms
+echo "If there is error above about PowerTools or codeready - don't worry!"
 dnf config-manager -q --set-enabled powertools
 dnf -y -d0 install yum-utils chrony curl vim vsftpd lynx wget ImageMagick
 dnf -y -d0 update
