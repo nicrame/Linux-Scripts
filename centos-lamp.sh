@@ -53,8 +53,8 @@ el6=$( cat /etc/redhat-release | grep "release 6" )
 el7=$( cat /etc/redhat-release | grep "release 7" )
 el8=$( cat /etc/redhat-release | grep "release 8" )
 
-echo -e "Welcome in \e[93mLAMP install script \e[39mfor CentOS."
-echo -e "Version \e[91m1.1 \e[39msupporting CentOS version 8."
+echo -e "Welcome in \e[93mLAMP install script \e[39mfor EL."
+echo -e "Version \e[91m1.2 \e[39msupporting EL version 8."
 echo ""
 echo "This script will install additional software and will make changes"
 echo "in system config files so web server with PHP and database will be ready to use."
