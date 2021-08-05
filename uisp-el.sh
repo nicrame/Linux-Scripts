@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # UISP formerlny known as Ubiquiti Network Management System (UNMS) install script for EL8 variants (CentOS, RockyLinux, RHEL).
-# Version 1.2
+# Version 1.2.1
 #
 # This script is made for clear CentOS 8 installed, with disabled web servers (like httpd or nginx).
 # Also if You got docker installed, it will remove it and install current Docker CE version and composer.
@@ -21,6 +21,9 @@
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
 # Changelog:
+# v 1.2.1 - 05.08.2021
+# Use Docker Compose v 1.29.2.
+# Tested (and working) on Rocky Linux 8.4.
 # v 1.2 - 02.03.2021
 # Added --allowerasing flag for installing docker (it resolved problems on test env). This will disable cockpit!
 # Firewall rules fixes.
@@ -44,7 +47,7 @@ sudo dnf config-manager --add-repo=https://download.docker.com/linux/centos/dock
 sudo dnf install -y docker-ce --allowerasing --nobest
 sudo systemctl enable --now docker
 sudo usermod -aG docker $USER
-sudo curl -L "https://github.com/docker/compose/releases/download/1.25.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
 sudo chmod +x /usr/local/bin/docker-compose
 
 # Opening Firewall ports:
@@ -76,4 +79,4 @@ sudo rm -rf brfaces.txt
 # Restarting docker:
 sudo systemctl restart docker
 
-# Now it is possible to login using this computer hostname/ip in web browser.
+echo "Now it is possible to login using this computer hostname/ip in web browser."
