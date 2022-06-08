@@ -51,7 +51,10 @@ user=$( whoami )
 # Installing packages that are need to make world colorful and nice!
 echo -e "\e[38;5;214mMOTD for EL will make world colorful and nice!\e[39;0m"
 echo ""
-echo "You may call this script with administrator email as argument: ./motd-el.sh admin@email.com"
+if [ $# -eq 0 ]
+then
+	echo "You may call this script with administrator email as argument: ./motd-el.sh admin@email.com"
+fi
 echo "Adding colors to the system started!"
 echo "Updating system packages. It may take some time, be patient!"
 if [ -e /etc/redhat-release ]
@@ -67,7 +70,7 @@ else
 	echo "No EL detected, trying Debian...."
 	if [ -e /etc/debian_version ]
 	then
-		apt install -y -qq lolcat figlet ruby unzip
+		apt install -y -qq lolcat figlet ruby unzip > /dev/null
 	else
 		echo "Debian is not detected either, exiting..."
 		exit 0
@@ -106,7 +109,7 @@ echo -e "Welcome \e[38;5;214m$user \e[39;0mat:"
 
 if [ -e /etc/debian_version ]
 then
-	sed -i '/lolcat -f/a/usr/games/lolcat -f' /etc/redis.conf
+	sed -i 's/\blolcat -f\b/\/usr\/games\/lolcat -f/g' /etc/profile.d/10-banner.sh
 fi
 
 touch /etc/profile.d/15-name.sh
@@ -247,6 +250,11 @@ echo "" >> /etc/profile.d/60-admin.sh
 echo "echo \"" >> /etc/profile.d/60-admin.sh
 echo SysOP: $1 >> /etc/profile.d/60-admin.sh
 echo "\" | lolcat -f" >> /etc/profile.d/60-admin.sh
+fi
+
+if [ -e /etc/debian_version ]
+then
+	sed -i 's/\blolcat -f\b/\/usr\/games\/lolcat -f/g' /etc/profile.d/60-admin.sh
 fi
 
 if [ -e /etc/redhat-release ]
