@@ -257,8 +257,8 @@ then
 		sed -i 's/\bpure-ftpd\b/pure-ftpd-mysql/g' /etc/profile.d/40-services.sh
 	fi
 	sed -i 's/\bphp80-php-fpm\b/php7.4-fpm/g' /etc/profile.d/40-services.sh
-	sed -i 's/\bphp-fpm\b/postgrey/g' /etc/profile.d/40-services.sh
 	sed -i 's/\bphp74-php-fpm\b/rspamd/g' /etc/profile.d/40-services.sh
+	sed -i 's/\bphp-fpm\b/postgrey/g' /etc/profile.d/40-services.sh
 	sed -i 's/\blolcat -f\b/\/usr\/games\/lolcat -f/g' /etc/profile.d/60-admin.sh
 fi
 
