@@ -29,6 +29,7 @@
 # Changelog:  
 # v 1.5 - 08.06.2022
 # Add Debian 11 support.
+# Ingore user locale settings that may broke output.
 # v 1.4 - 15.03.2021  
 # Add full file path for last command so it will work when sudo is used.  
 # Fix for correct EPEL repo installing on EL7.  
@@ -102,6 +103,7 @@ echo "Creating script files in /etc/prfile.d/."
 touch /etc/profile.d/10-banner.sh
 echo '#!/bin/bash
 
+export LC_ALL=C
 user="$(whoami)"
 echo "- -- -- ------ Audaces Fortuna Iuvat  ------ -- -- -" | lolcat -f
 echo -e "Welcome \e[38;5;214m$user \e[39;0mat:"
@@ -238,13 +240,15 @@ echo '#!/bin/bash
 system=$(hostname)
 echo "
 SysOP: root@$system
-" | lolcat -f' > /etc/profile.d/60-admin.sh
+" | lolcat -f
+unset LC_ALL' > /etc/profile.d/60-admin.sh
 else
 echo "#!/bin/bash" > /etc/profile.d/60-admin.sh
 echo "" >> /etc/profile.d/60-admin.sh
 echo "echo \"" >> /etc/profile.d/60-admin.sh
 echo SysOP: $1 >> /etc/profile.d/60-admin.sh
 echo "\" | lolcat -f" >> /etc/profile.d/60-admin.sh
+echo "unset LC_ALL" >> /etc/profile.d/60-admin.sh
 fi
 
 if [ -e /etc/debian_version ]
