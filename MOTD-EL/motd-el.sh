@@ -107,11 +107,6 @@ echo "- -- -- ------ Audaces Fortuna Iuvat  ------ -- -- -" | lolcat -f
 echo -e "Welcome \e[38;5;214m$user \e[39;0mat:"
 ' > /etc/profile.d/10-banner.sh
 
-if [ -e /etc/debian_version ]
-then
-	sed -i 's/\blolcat -f\b/\/usr\/games\/lolcat -f/g' /etc/profile.d/10-banner.sh
-fi
-
 touch /etc/profile.d/15-name.sh
 echo '#!/bin/bash
 
@@ -254,6 +249,8 @@ fi
 
 if [ -e /etc/debian_version ]
 then
+	sed -i 's/\blolcat -f\b/\/usr\/games\/lolcat -f/g' /etc/profile.d/10-banner.sh
+	sed -i 's/\blolcat -f\b/\/usr\/games\/lolcat -f/g' /etc/profile.d/15-name.sh
 	sed -i 's/\blolcat -f\b/\/usr\/games\/lolcat -f/g' /etc/profile.d/60-admin.sh
 fi
 
