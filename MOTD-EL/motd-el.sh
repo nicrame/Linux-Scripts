@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # #### MOTD scripts for EL
-# Version 1.4  
-# Testes on: CentOS 7/8, RHEL 8  
+# Version 1.5
+# Testes on: CentOS 7/8, RHEL 8, Debian 11
 #
 # This will install colorful and nice motd (message of the day) with some system informations.    
 # MOTD is generated with scripts, that will be extracted to /etc/profile.d  
@@ -16,7 +16,7 @@
 # I know it's lazy, but it is fast and very easy to do.  
 # 
 # More info:  
-# [PL/ENG] /link will be here/  
+# [PL/ENG] https://www.marcinwilk.eu/en/projects/motd-dla-el/
 #
 # Feel free to contact me: marcin@marcinwilk.eu  
 # www.marcinwilk.eu  
@@ -27,6 +27,8 @@
 # 2. Feel free to share and modify this as you like.  
 #
 # Changelog:  
+# v 1.5 - 06.08.2022
+# Add Debian 11 support.
 # v 1.4 - 15.03.2021  
 # Add full file path for last command so it will work when sudo is used.  
 # Fix for correct EPEL repo installing on EL7.  
@@ -52,27 +54,44 @@ echo ""
 echo "You may call this script with administrator email as argument: ./motd-el.sh admin@email.com"
 echo "Adding colors to the system started!"
 echo "Updating system packages. It may take some time, be patient!"
-yum update -y -q
-echo "Installing unzip and dnf."
-yum -y -q install dnf unzip
-echo "Enabling EPEL repo."
-yum -y -q install epel-release
-echo "Installing figlet and ruby packages."
-dnf -y -q install figlet && dnf -y -q install ruby
-
-if [ -e /usr/local/bin/lolcat ]
+if [ -e /etc/redhat-release ]
 then
-echo "Lolcat already installed, skipping..."
+	yum update -y -q
+	echo "Installing unzip and dnf."
+	yum -y -q install dnf unzip
+	echo "Enabling EPEL repo."
+	yum -y -q install epel-release
+	echo "Installing figlet and ruby packages."
+	dnf -y -q install figlet ruby
 else
-echo "Installing lolcat from sources."
-cd /tmp
-wget https://github.com/busyloop/lolcat/archive/master.zip
-unzip master.zip
-rm -rf master.zip
-cd lolcat-master/bin
-gem install lolcat
-cd /tmp
-rm -rf lolcast-master
+	echo "No EL detected, trying Debian...."
+	if [ -e /etc/debian_version ]
+	then
+		apt install -y -qq lolcat figlet ruby unzip
+	else
+		echo "Debian is not detected either, exiting..."
+		exit 0
+	fi
+fi
+
+if [ -e /etc/redhat-release ]
+then
+	if [ -e /usr/local/bin/lolcat ]
+	then
+		echo "Lolcat already installed, skipping..."
+	else
+		echo "Installing lolcat from sources."
+		cd /tmp
+		wget https://github.com/busyloop/lolcat/archive/master.zip
+		unzip master.zip
+		rm -rf master.zip
+		cd lolcat-master/bin
+		gem install lolcat
+		cd /tmp
+		rm -rf lolcast-master
+	fi
+else
+	echo "Skipping lolcat compiling from sources (already installed)."
 fi
 
 echo ""
@@ -84,6 +103,11 @@ user="$(whoami)"
 echo "- -- -- ------ Audaces Fortuna Iuvat  ------ -- -- -" | lolcat -f
 echo -e "Welcome \e[38;5;214m$user \e[39;0mat:"
 ' > /etc/profile.d/10-banner.sh
+
+if [ -e /etc/debian_version ]
+then
+	sed -i '/lolcat -f/a/usr/games/lolcat -f' /etc/redis.conf
+fi
 
 touch /etc/profile.d/15-name.sh
 echo '#!/bin/bash
@@ -225,4 +249,9 @@ echo SysOP: $1 >> /etc/profile.d/60-admin.sh
 echo "\" | lolcat -f" >> /etc/profile.d/60-admin.sh
 fi
 
-echo "Everything is ready. Have fun!" | /usr/local/bin/lolcat -f
+if [ -e /etc/redhat-release ]
+then
+	echo "Everything is ready. Have fun!" | /usr/local/bin/lolcat -f
+else
+	echo "Everything is ready. Have fun!" | /usr/games/lolcat -f
+fi
