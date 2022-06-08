@@ -27,7 +27,7 @@
 # 2. Feel free to share and modify this as you like.  
 #
 # Changelog:  
-# v 1.5 - 06.08.2022
+# v 1.5 - 08.06.2022
 # Add Debian 11 support.
 # v 1.4 - 15.03.2021  
 # Add full file path for last command so it will work when sudo is used.  
