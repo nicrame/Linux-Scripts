@@ -1,4 +1,5 @@
-﻿#!/bin/bash
+#!/bin/bash
+
 # Nextcloud Debian 11 Install Script
 # Version 1.0 for x86_64
 #
@@ -176,7 +177,7 @@ subjectAltName = @alt_names
 DNS.1 = localhost
 DNS.2 = local' >> open_ssl.conf
 # echo '' >> open_ssl.conf
-openssl req -x509 -nodes -days 4096 -newkey rsa:2048 -keyout localhost.key -out localhost.crt -config open_ssl.conf -extensions 'v3_req' -verify_quiet >> $insl
+openssl req -x509 -nodes -days 4096 -newkey rsa:2048 -keyout localhost.key -out localhost.crt -config open_ssl.conf -extensions 'v3_req' >> $insl
 cp localhost.crt /etc/ssl/certs/localhost.crt >> $insl
 # mkdir /etc/ssl/private/
 cp localhost.key /etc/ssl/private/localhost.key >> $insl
@@ -411,6 +412,7 @@ echo ""
 echo "You may access Your Nextcloud instalation using this address:
 http://$addr or
 https://$addr"
+echo ""
 echo -e "Here are the important passwords, \e[1;31mbackup them!!!\e[39;0m"
 echo "---------------------------------------------------------------------------"
 echo -e "Database settings generated are:
