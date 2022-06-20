@@ -1,5 +1,6 @@
 #!/bin/bash
+system=$(hostname)
 echo "
-SysOP: root@localhost
+SysOP: root@$system
 " | lolcat -f
 unset LC_ALL
