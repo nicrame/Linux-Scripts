@@ -3,11 +3,11 @@
 # Nextcloud Debian 11 Install Script
 # Version 1.0 for x86_64
 #
-# This script is made for Debian 11 on AMD64 CPU architecture.
+# This script is made for clean Debian 11 installation on AMD64 CPU architecture.
 # It will update OS, install neeeded packages, and preconfigure everything to run Nextcloud.
 # There are Apache (web server), MariaDB (database server), PHP 8.1 (programming language), 
 # NTP (time synchronization service), and Redis (cache server) used.
-# Also new srvice for Nextcloud cron is generated that starts every 5 minutes.
+# Also new service for Nextcloud cron is generated that starts every 5 minutes.
 #
 # After install You may use Your web browser to access Nextcloud using local IP address.
 # Both HTTP and HTTPS protocols are enabled by default (localhost certificate is generated).
@@ -15,7 +15,7 @@
 # It was tested with Nextcloud v24.0.1.
 #
 # More info:
-# [PL/ENG] 
+# [PL/ENG] https://www.marcinwilk.eu/projects/linux-scripts/nextcloud-debian-install/
 #
 # Feel free to contact me: marcin@marcinwilk.eu
 # www.marcinwilk.eu
