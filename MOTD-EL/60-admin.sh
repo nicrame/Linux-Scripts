@@ -1,5 +1,5 @@
 #!/bin/bash
 echo "
-SysOP: marcin.wilk@itos.pl
+SysOP: root@localhost
 " | lolcat -f
 unset LC_ALL
