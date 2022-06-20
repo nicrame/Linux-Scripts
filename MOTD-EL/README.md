@@ -32,7 +32,7 @@ License:
 1. You use it at your own risk. Author is not responsible for any damage made with that script.  
 2. Feel free to share and modify this as you like.
 
-Testes on: CentOS 7/8, RHEL 8, Fedora 33, RockyLinux 8, Debian 11  
+Tested on: CentOS 7/8, RHEL 8, Fedora 33, RockyLinux 8, Debian 11  
 Changelog:  
 v 1.5 - 08.06.2022  
 Add Debian 11 support.  
