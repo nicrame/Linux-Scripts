@@ -36,8 +36,8 @@
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
 # V 1.1 - 04.08.2022
-# - add support for adding domain name as command line argument (with let's ecnrypt support)
-# - add crontab job for certbot (Let's encrypt) and some more description
+# - added support for adding domain name as command line argument (with let's ecnrypt support)
+# - added crontab job for certbot (Let's encrypt) and some more description
 # V 1.0 - 20.06.2022
 # - initial version based on private install script (for EL)
 
