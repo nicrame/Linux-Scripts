@@ -454,10 +454,17 @@ echo ""
 echo "Job done! Now make last steps in Your web browser!"
 echo "Use # certbot if You want SSL"
 echo ""
-echo "You may access Your Nextcloud instalation using this address:
-http://$addr or
-https://$addr or
-https://$1"
+if [ $# -eq 0 ]
+then
+	echo "You may access Your Nextcloud instalation using this address:
+	http://$addr or
+	https://$addr"
+else
+	echo "You may access Your Nextcloud instalation using this address:
+	http://$addr or
+	https://$addr or
+	https://$1"
+fi
 echo ""
 echo -e "Here are the important passwords, \e[1;31mbackup them!!!\e[39;0m"
 echo "---------------------------------------------------------------------------"
