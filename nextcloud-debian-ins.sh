@@ -1,21 +1,31 @@
 #!/bin/bash
 
 # Nextcloud Debian 11 Install Script
-# Version 1.0 for x86_64
+# Version 1.1 for x86_64
 #
-# This script is made for clean Debian 11 installation on AMD64 CPU architecture.
+# This script is made for Debian 11 on AMD64 CPU architecture.
 # It will update OS, install neeeded packages, and preconfigure everything to run Nextcloud.
 # There are Apache (web server), MariaDB (database server), PHP 8.1 (programming language), 
 # NTP (time synchronization service), and Redis (cache server) used.
 # Also new service for Nextcloud cron is generated that starts every 5 minutes.
+# To use it just download it, make it executable and start with this command:
+# sudo sh -c "wget -q https://github.com/nicrame/Linux-Scripts/raw/master/nextcloud-debian-ins.sh && chmod +x nextcloud-debian-ins.sh && ./nextcloud-debian-ins.sh"
+# You may also add specific domain name that will be used, by adding it as argument to command above:
+# sudo sh -c "wget -q https://github.com/nicrame/Linux-Scripts/raw/master/nextcloud-debian-ins.sh && chmod +x nextcloud-debian-ins.sh && ./nextcloud-debian-ins.sh domain.com"
 #
-# After install You may use Your web browser to access Nextcloud using local IP address.
-# Both HTTP and HTTPS protocols are enabled by default (localhost certificate is generated).
+# After install You may use Your web browser to access Nextcloud using local IP address,
+# or domain name that You have configured before (DNS setting, router configuration
+# should be done earlier). 
+# Both HTTP and HTTPS protocols are enabled by default (localhost certificate is generated
+# bu default, and domain certificate with Let's encrypt if You use add it as command argument).
 #
-# It was tested with Nextcloud v24.0.1.
+# It was tested with Nextcloud v24.0.3.
+# 
+# In case of problems, LOG output is generated at /var/log/nextcloud-installer.log.
+# Attach it if You want to report errors.
 #
 # More info:
-# [PL/ENG] https://www.marcinwilk.eu/projects/linux-scripts/nextcloud-debian-install/
+# [PL/ENG] https://www.marcinwilk.eu/pl/projects/linux-scripts/nextcloud-debian-install/
 #
 # Feel free to contact me: marcin@marcinwilk.eu
 # www.marcinwilk.eu
@@ -25,6 +35,9 @@
 # 1. You use it at your own risk. Author is not responsible for any damage made with that script.
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
+# V 1.1 - 04.08.2022
+# - add support for adding domain name as command line argument (with let's ecnrypt support)
+# - add crontab job for certbot (Let's encrypt) and some more description
 # V 1.0 - 20.06.2022
 # - initial version based on private install script (for EL)
 
@@ -36,7 +49,7 @@ addr=$( hostname -I )
 insl=/var/log/nextcloud-installer.log
 
 echo -e "\e[38;5;214mNextcloud Debian 11 Install Script\e[39;0m
-Version 1.0 for x86_64
+Version 1.1 for x86_64
 by marcin@marcinwilk.eu - www.marcinwilk.eu"
 echo "---------------------------------------------------------------------------"
 if [ $user != root ]
@@ -48,6 +61,20 @@ else
 	echo "This script will install Nextcloud service."
 	echo "Additional packages will be installed too:"
 	echo "Apache, PHP 8.1, MariaDB and Let's encrypt."
+	echo ""
+	if [ $# -eq 0 ]
+	then
+		echo -e "You may add your \e[1;32m*preconfigured\e[39;0m domain name"
+		echo "as command line argument:"
+		echo "./nextcloud-debian-ins.sh mydomain.com"
+		echo ""
+		echo "You may now cancel this script with CRTL+C,"
+		echo "or wait 15 seconds so it will install without"
+		echo "additional domain name to use."
+		echo ""
+		echo -e "\e[1;32m*\e[39;0m - domain and router configured to work with this server."
+		sleep 19
+	fi
 fi
 
 if [ $cpu = x86_64 ]
@@ -76,6 +103,12 @@ then
 else
 echo "Detected Debian version $debv"
 fi
+if [ $# -eq 0 ]
+then
+	echo "No custom domain name argument used." >> $insl
+else
+	echo -e "Using domain argument: \e[1;32m$1\e[39;0m!"
+	fi
 
 touch /var/log/nextcloud-installer.log
 echo "Nextcloud installer for Debian 11 - v1.0 (www.marcinwilk.eu) started." >> $insl
@@ -110,7 +143,7 @@ echo "Setting up firewall"
 ufw allow OpenSSH >> $insl
 ufw allow 'WWW Full' >> $insl
 
-
+echo "Installing cache (redis) and multimedia (ffmpeg) packages." 
 # REDIS cache configure, adding socket for faster communication on local host
 apt-get install -y redis-server >> $insl
 sed -i '/# unixsocketperm 700/aunixsocketperm 777' /etc/redis/redis.conf
@@ -404,6 +437,18 @@ sudo -u www-data php8.1 /var/www/nextcloud/occ files:scan  --all; >> $insl
 sudo -u www-data php8.1 /var/www/nextcloud/occ files:cleanup; >> $insl
 # sudo -u www-data php /var/www/nextcloud/occ preview:generate-all -vvv
 
+if [ $# -eq 0 ]
+then
+	echo "Skipping additional domain configuration."
+else
+	echo "Configuring additional domain name."
+	sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:set trusted_domains 96 --value="$1" >> $insl
+	sed -i '/ServerName localhost/aServerName '"$1"'' /etc/apache2/sites-available/nextcloud.conf >> $insl
+	echo "Configuring Let's encrypt."
+	certbot --register-unsafely-without-email --apache --agree-tos -d $1 >> $insl
+	(crontab -l 2>/dev/null; echo "0 4 1,15 * * /usr/bin/certbot renew") | crontab -
+fi
+
 # Finished!!!
 echo ""
 echo "Job done! Now make last steps in Your web browser!"
@@ -411,7 +456,8 @@ echo "Use # certbot if You want SSL"
 echo ""
 echo "You may access Your Nextcloud instalation using this address:
 http://$addr or
-https://$addr"
+https://$addr or
+https://$1"
 echo ""
 echo -e "Here are the important passwords, \e[1;31mbackup them!!!\e[39;0m"
 echo "---------------------------------------------------------------------------"
@@ -436,4 +482,3 @@ rm -rf /opt/localhost.key
 rm -rf /opt/open_ssl.conf
 unset LC_ALL
 exit 0
-
