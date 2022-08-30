@@ -1,5 +1,10 @@
 #!/bin/bash
 
+if [ "Z$(ps o comm="" -p $(ps o ppid="" -p $$))" == "Zcron" -o \
+     "Z$(ps o comm="" -p $(ps o ppid="" -p $(ps o ppid="" -p $$)))" == "Zcron" ]
+then
+    :
+else
 if [ -e /usr/bin/docker ]
 then
     if [ -r /var/run/docker.sock ]
@@ -32,4 +37,5 @@ out+="\n"
 printf "\ndocker status:\n"
 printf "$out" | column -ts $',' | sed -e 's/^/  /'
     fi
+fi
 fi

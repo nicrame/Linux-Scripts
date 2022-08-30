@@ -1,5 +1,10 @@
 #!/bin/bash
 
+if [ "Z$(ps o comm="" -p $(ps o ppid="" -p $$))" == "Zcron" -o \
+     "Z$(ps o comm="" -p $(ps o ppid="" -p $(ps o ppid="" -p $$)))" == "Zcron" ]
+then
+    :
+else
 if [ -e /var/log/fail2ban.log ]
 then
     if [ -r /var/log/fail2ban.log ]
@@ -24,4 +29,5 @@ done
 printf "\nfail2ban status (monthly):\n"
 printf "$out" | column -ts $',' | sed -e 's/^/  /'
     fi
+fi
 fi

@@ -16,11 +16,6 @@ You may also add system administrator email address as argument, like that:
 
 Most of the work is done using scripts published here: https://github.com/yboetz/motd
 
-Some parts inside install script are .sh files encoded with base64. 
-The reason was it's much easier to extract such data without formatting problems 
-with special characters from one file.  
-I know it's lazy, but it is fast and very easy to do. 
-
 More info:  
 [PL/ENG] https://www.marcinwilk.eu/projects/motd-dla-el/
 
@@ -34,6 +29,9 @@ License:
 
 Tested on: CentOS 7/8, RHEL 8, Fedora 33, RockyLinux 8, Debian 11  
 Changelog:  
+v 1.6 - 30.08.2022  
+Detecting if running from cron job, and then skip any operation (so it will not mess cron logs).  
+ownload script files from GitHub instead of extracting from script file.  
 v 1.5 - 08.06.2022  
 Add Debian 11 support.  
 Ingore user locale settings that may broke output.  

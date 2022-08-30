@@ -1,5 +1,10 @@
 #!/bin/bash
 
+if [ "Z$(ps o comm="" -p $(ps o ppid="" -p $$))" == "Zcron" -o \
+     "Z$(ps o comm="" -p $(ps o ppid="" -p $(ps o ppid="" -p $$)))" == "Zcron" ]
+then
+    :
+else
 # get load averages
 IFS=" " read LOAD1 LOAD5 LOAD15 <<<$(cat /proc/loadavg | awk '{ print $1,$2,$3 }')
 # get free memory
@@ -34,3 +39,4 @@ $W  Memory......: $G$USED$W used, $G$AVAIL$W avail, $G$TOTAL$W total$W
 $W  Local IP....: $W`hostname -I`
 $W  External IP.: $W$ipext
 $W  Net devices.: $W$netdev"
+fi

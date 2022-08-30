@@ -1,5 +1,10 @@
 #!/bin/bash
 
+if [ "Z$(ps o comm="" -p $(ps o ppid="" -p $$))" == "Zcron" -o \
+     "Z$(ps o comm="" -p $(ps o ppid="" -p $(ps o ppid="" -p $$)))" == "Zcron" ]
+then
+    :
+else
 # config
 max_usage=90
 bar_width=50
@@ -39,3 +44,4 @@ for line in "${dfs[@]}"; do
     echo "${line}" | awk '{ printf("%-16s%+3s/%+4s used out of %+4s(%+4s free) \n", $1, $2, $3, $4, $5); }' | sed -e 's/^/  /'
     echo -e "${bar}" | sed -e 's/^/  /'
 done
+fi

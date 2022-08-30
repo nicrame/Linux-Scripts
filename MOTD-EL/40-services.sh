@@ -1,5 +1,10 @@
 #!/bin/bash
 
+if [ "Z$(ps o comm="" -p $(ps o ppid="" -p $$))" == "Zcron" -o \
+     "Z$(ps o comm="" -p $(ps o ppid="" -p $(ps o ppid="" -p $$)))" == "Zcron" ]
+then
+    :
+else
 # set column width
 COLUMNS=3
 # colors
@@ -35,3 +40,4 @@ out+="\n"
 
 printf "\nservices:\n"
 printf "$out" | column -ts $',' | sed -e 's/^/  /'
+fi
