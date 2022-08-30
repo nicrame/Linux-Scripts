@@ -26,6 +26,7 @@
 # v 1.6 - 30.08.2022  
 # Detecting if running from cron job, and then skip any operation (so it will not mess cron logs).
 # Download script files from GitHub instead of extracting from script file.
+# Checking if running user is root.
 # v 1.5 - 08.06.2022  
 # Add Debian 11 support.
 # Ingore user locale settings that may broke output.
@@ -47,6 +48,13 @@
 user=$( whoami )
 # User name that run the script. No reasons to change it.
 # Used only for testing.
+
+if [ $user != root ]
+then
+    echo "You must be root. Mission aborted!"
+    echo "You are trying to start this script as: $user"
+    exit 0
+fi
 
 # Installing packages that are need to make world colorful and nice!
 echo -e "\e[38;5;214mMOTD for EL will make world colorful and nice!\e[39;0m"
