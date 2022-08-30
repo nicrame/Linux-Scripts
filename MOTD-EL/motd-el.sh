@@ -78,7 +78,7 @@ else
 	echo "No EL detected, trying Debian...."
 	if [ -e /etc/debian_version ]
 	then
-		apt install -y -qq lolcat figlet ruby wget unzip > /dev/null
+		apt install -y -qq curl lolcat figlet ruby wget unzip > /dev/null
 	else
 		echo "Debian is not detected either, exiting..."
 		exit 0
@@ -121,7 +121,7 @@ if [ $# -eq 0 ]
 then
 	:
 else
-	sed -i 's/\SysOP: root@$system\b/SysOP: $1/g' /etc/profile.d/60-admin.sh
+	sed -i 's/\SysOP: root@$system\b/SysOP: '"$1"'/g' /etc/profile.d/60-admin.sh
 fi
 
 if [ -e /etc/debian_version ]

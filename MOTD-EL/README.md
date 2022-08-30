@@ -31,7 +31,7 @@ Tested on: CentOS 7/8, RHEL 8, Fedora 33, RockyLinux 8, Debian 11
 Changelog:  
 v 1.6 - 30.08.2022  
 Detecting if running from cron job, and then skip any operation (so it will not mess cron logs).  
-ownload script files from GitHub instead of extracting from script file.  
+Download script files from GitHub instead of extracting from script file.  
 v 1.5 - 08.06.2022  
 Add Debian 11 support.  
 Ingore user locale settings that may broke output.  
