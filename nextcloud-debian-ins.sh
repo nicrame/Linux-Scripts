@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Nextcloud Debian 11 Install Script
-# Version 1.1 for x86_64
+# Version 1.2 for x86_64
 #
 # This script is made for Debian 11 on AMD64 CPU architecture.
 # It will update OS, install neeeded packages, and preconfigure everything to run Nextcloud.
@@ -35,11 +35,18 @@
 # 1. You use it at your own risk. Author is not responsible for any damage made with that script.
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
+# V 1.2 - 23.01.2023
+# - some performance fixes (better support for large files)
 # V 1.1 - 04.08.2022
 # - added support for adding domain name as command line argument (with let's ecnrypt support)
 # - added crontab job for certbot (Let's encrypt) and some more description
 # V 1.0 - 20.06.2022
 # - initial version based on private install script (for EL)
+# 
+# Future plans:
+# - add High Performance Backend (HPB) for Nextcloud (Push Service) 
+# Currently the way it have to be configured when installing is so unpleasent that this is no go for ordinary users,
+# it is also can't support dynamic IP's so it's just useless at some enviroments.
 
 export LC_ALL=C
 cpu=$( uname -m )
@@ -49,7 +56,7 @@ addr=$( hostname -I )
 insl=/var/log/nextcloud-installer.log
 
 echo -e "\e[38;5;214mNextcloud Debian 11 Install Script\e[39;0m
-Version 1.1 for x86_64
+Version 1.2 for x86_64
 by marcin@marcinwilk.eu - www.marcinwilk.eu"
 echo "---------------------------------------------------------------------------"
 if [ $user != root ]
@@ -69,11 +76,11 @@ else
 		echo "./nextcloud-debian-ins.sh mydomain.com"
 		echo ""
 		echo "You may now cancel this script with CRTL+C,"
-		echo "or wait 15 seconds so it will install without"
+		echo "or wait 30 seconds so it will install without"
 		echo "additional domain name to use."
 		echo ""
-		echo -e "\e[1;32m*\e[39;0m - domain and router configured to work with this server."
-		sleep 19
+		echo -e "\e[1;32m*\e[39;0m - domain and router already configured to work with this server."
+		sleep 30
 	fi
 fi
 
@@ -111,7 +118,7 @@ else
 	fi
 
 touch /var/log/nextcloud-installer.log
-echo "Nextcloud installer for Debian 11 - v1.0 (www.marcinwilk.eu) started." >> $insl
+echo "Nextcloud installer for Debian 11 - v1.2 (www.marcinwilk.eu) started." >> $insl
 date >> $insl
 echo "---------------------------------------------------------------------------" >> $insl
 # Generating passwords for database and SuperAdmin user.
@@ -142,6 +149,7 @@ a2dissite 000-default >> $insl
 echo "Setting up firewall"
 ufw allow OpenSSH >> $insl
 ufw allow 'WWW Full' >> $insl
+ufw allow 7867/tcp >> $insl
 
 echo "Installing cache (redis) and multimedia (ffmpeg) packages." 
 # REDIS cache configure, adding socket for faster communication on local host
@@ -160,25 +168,25 @@ apt-get install -y ffmpeg >> $insl
 echo 'apc.enable_cli=1' >> /etc/php/8.1/cli/conf.d/20-apcu.ini
 
 sed -i 's/\b128M\b/1024M/g' /etc/php/8.1/apache2/php.ini
-sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 360/g' /etc/php/8.1/apache2/php.ini
+sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.1/apache2/php.ini
 sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.1/apache2/php.ini
 sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.1/apache2/php.ini
-sed -i 's/\bmax_input_time = 60\b/max_input_time = 280/g' /etc/php/8.1/apache2/php.ini
-sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16884M/g' /etc/php/8.1/apache2/php.ini
-sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16884M/g' /etc/php/8.1/apache2/php.ini
+sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.1/apache2/php.ini
+sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.1/apache2/php.ini
+sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.1/apache2/php.ini
 sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.1/apache2/php.ini
-sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 360/g' /etc/php/8.1/apache2/php.ini
+sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.1/apache2/php.ini
 sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.1/apache2/php.ini
 
 sed -i 's/\b128M\b/1024M/g' /etc/php/8.1/cli/php.ini
-sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 360/g' /etc/php/8.1/cli/php.ini
+sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.1/cli/php.ini
 sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.1/cli/php.ini
 sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.1/cli/php.ini
-sed -i 's/\bmax_input_time = 60\b/max_input_time = 280/g' /etc/php/8.1/cli/php.ini
-sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16884M/g' /etc/php/8.1/cli/php.ini
-sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16884M/g' /etc/php/8.1/cli/php.ini
+sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.1/cli/php.ini
+sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.1/cli/php.ini
+sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.1/cli/php.ini
 sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.1/cli/php.ini
-sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 360/g' /etc/php/8.1/cli/php.ini
+sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.1/cli/php.ini
 sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.1/cli/php.ini
 
 echo 'opcache.enable_cli=1' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
@@ -231,6 +239,12 @@ echo '<VirtualHost *:80>
     </IfModule>
   </Directory>
   
+  LimitRequestBody 0
+  
+  # ProxyPass /push/ws ws://127.0.0.1:7867/ws
+  # ProxyPass /push/ http://127.0.0.1:7867/
+  # ProxyPassReverse /push/ http://127.0.0.1:7867/
+  
   ErrorLog ${APACHE_LOG_DIR}/error.log
   CustomLog ${APACHE_LOG_DIR}/access.log combined
 </VirtualHost>
@@ -249,6 +263,12 @@ echo '<VirtualHost *:80>
     </IfModule>
   </Directory>
   
+  LimitRequestBody 0
+  
+  # ProxyPass /push/ws ws://127.0.0.1:7867/ws
+  # ProxyPass /push/ http://127.0.0.1:7867/
+  # ProxyPassReverse /push/ http://127.0.0.1:7867/
+  
   ErrorLog ${APACHE_LOG_DIR}/error.log
   CustomLog ${APACHE_LOG_DIR}/access.log combined
   SSLEngine on
@@ -263,7 +283,10 @@ a2enmod headers >> $insl
 a2enmod env >> $insl
 a2enmod dir >> $insl
 a2enmod mime >> $insl
-a2ensite nextcloud.conf >> $insl
+a2enmod proxy >> $insl
+# a2enmod proxy_http >> $insl
+# a2enmod proxy_wstunnel >> $insl
+# a2ensite nextcloud.conf >> $insl
 
 echo "Installing MariaDB database server."
 apt-get install -y mariadb-server >> $insl
@@ -308,7 +331,7 @@ mysql -e "DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost',
 # Creating database for Nextcloud
 mysql -e "SET GLOBAL innodb_default_row_format='dynamic'" >> $insl
 mysql -e "CREATE DATABASE nextdrive CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci" >> $insl
-mysql -e "GRANT ALL on nextdrive.* to nextcloud@localhost identified by '$mp'" >> $insl
+mysql -e "GRANT ALL on nextdrive.* to 'nextcloud'@'%' identified by '$mp'" >> $insl
 
 # Make our changes take effect
 mysql -e "FLUSH PRIVILEGES" >> $insl
@@ -383,6 +406,7 @@ sudo -u www-data php8.1 /var/www/nextcloud/occ app:install files_rightclick >> $
 sudo -u www-data php8.1 /var/www/nextcloud/occ app:disable updatenotification >> $insl
 sudo -u www-data php8.1 /var/www/nextcloud/occ app:install tasks >> $insl
 sudo -u www-data php8.1 /var/www/nextcloud/occ app:install groupfolders >> $insl
+sudo -u www-data php8.1 /var/www/nextcloud/occ config:app:set files max_chunk_size --value 20971520 >> $insl
 
 # Below lines will give more data if something goes wrong!
 curl -I http://127.0.0.1/  >> $insl
@@ -449,6 +473,36 @@ else
 	(crontab -l 2>/dev/null; echo "0 4 1,15 * * /usr/bin/certbot renew") | crontab -
 fi
 
+# HPB Configuration
+# gwaddr=$( route -n | grep 'UG[ \t]' | awk '{print $2}' )
+# echo "Enabling HPB" >> $insl
+# sudo -u www-data php8.1 /var/www/nextcloud/occ app:install notify_push >> $insl
+# touch /etc/systemd/system/nextcloud_hpb.service
+# echo '[Unit]
+# Description = Nextcloud High Performance Backend Push Service
+# After=redis.service mariadb.service
+# 
+# [Service]
+# Environment = PORT=7867
+# ExecStart = /var/www/nextcloud/apps/notify_push/bin/x86_64/notify_push /var/www/nextcloud/config/config.php
+# User=www-data
+# 
+# [Install]
+# WantedBy = multi-user.target
+# ' >> /etc/systemd/system/nextcloud_hpb.service
+# systemctl enable nextcloud_hpb >> $insl
+# service nextcloud_hpb start >> $insl
+# echo -ne '\n' | sudo -u www-data php8.1 /var/www/nextcloud/occ notify_push:setup >> $insl
+# </root/ips.local awk '{print "sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:set trusted_proxies " NR " --value=\x22" $1 "\x22"}' | xargs -L 1 -0  | bash;
+# sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:set trusted_proxies 97 --value="$gwaddr" >> $insl
+# sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:set trusted_proxies 98 --value="$addr" >> $insl
+#if [ $# -eq 0 ]
+#then
+#	sudo -u www-data php8.1 /var/www/nextcloud/occ notify_push:setup https://$addr/push >> $insl
+#else
+#	sudo -u www-data php8.1 /var/www/nextcloud/occ notify_push:setup https://$1/push >> $insl
+#fi
+
 # Finished!!!
 echo ""
 echo "Job done! Now make last steps in Your web browser!"
@@ -465,6 +519,7 @@ else
 	https://$addr or
 	https://$1"
 fi
+
 echo ""
 echo -e "Here are the important passwords, \e[1;31mbackup them!!!\e[39;0m"
 echo "---------------------------------------------------------------------------"
