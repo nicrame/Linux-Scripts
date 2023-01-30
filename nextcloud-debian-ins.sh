@@ -305,7 +305,7 @@ a2enmod mime >> $insl
 a2enmod proxy >> $insl
 # a2enmod proxy_http >> $insl
 # a2enmod proxy_wstunnel >> $insl
-# a2ensite nextcloud.conf >> $insl
+a2ensite nextcloud.conf >> $insl
 
 echo "Installing MariaDB database server."
 apt-get install -y mariadb-server >> $insl
@@ -561,5 +561,6 @@ rm -rf /opt/latest.tar.bz2
 rm -rf /opt/localhost.crt
 rm -rf /opt/localhost.key
 rm -rf /opt/open_ssl.conf
+systemctl restart apache2
 unset LC_ALL
 exit 0
