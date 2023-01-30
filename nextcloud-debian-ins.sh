@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Nextcloud Debian 11 Install Script
-# Version 1.2 for x86_64
+# Version 1.3 for x86_64
 #
 # This script is made for Debian 11 on AMD64 CPU architecture.
 # It will update OS, install neeeded packages, and preconfigure everything to run Nextcloud.
@@ -19,7 +19,7 @@
 # Both HTTP and HTTPS protocols are enabled by default (localhost certificate is generated
 # bu default, and domain certificate with Let's encrypt if You use add it as command argument).
 #
-# It was tested with Nextcloud v24.0.3.
+# It was tested with Nextcloud v25.0.3.
 # 
 # In case of problems, LOG output is generated at /var/log/nextcloud-installer.log.
 # Attach it if You want to report errors.
@@ -35,6 +35,9 @@
 # 1. You use it at your own risk. Author is not responsible for any damage made with that script.
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
+# V 1.3 - 30.01.2023
+# - fix PHP 8.1 installing
+# - more data stored to log for better error handling
 # V 1.2 - 23.01.2023
 # - some performance fixes (better support for large files)
 # V 1.1 - 04.08.2022
@@ -49,6 +52,7 @@
 # it is also can't support dynamic IP's so it's just useless at some enviroments.
 
 export LC_ALL=C
+ver=1.3
 cpu=$( uname -m )
 user=$( whoami )
 debv=$( cat /etc/debian_version )
@@ -56,7 +60,7 @@ addr=$( hostname -I )
 insl=/var/log/nextcloud-installer.log
 
 echo -e "\e[38;5;214mNextcloud Debian 11 Install Script\e[39;0m
-Version 1.2 for x86_64
+Version $ver for x86_64
 by marcin@marcinwilk.eu - www.marcinwilk.eu"
 echo "---------------------------------------------------------------------------"
 if [ $user != root ]
@@ -79,7 +83,7 @@ else
 		echo "or wait 30 seconds so it will install without"
 		echo "additional domain name to use."
 		echo ""
-		echo -e "\e[1;32m*\e[39;0m - domain and router already configured to work with this server."
+		echo -e "\e[1;32m*\e[39;0m - domain and router must be already configured to work with this server."
 		sleep 30
 	fi
 fi
@@ -131,18 +135,20 @@ mp2=$( cat /root/superadminpass )
 echo "Updating OS."
 apt-get update >> $insl && apt-get upgrade -y >> $insl && apt-get autoremove -y >> $insl
 echo "Installing standard packages. It may take some time - be patient."
-apt-get install -y git bzip2 unzip zip lsb-release locales-all rsync wget curl sed screen gawk mc sudo net-tools ethtool vim nano ufw apt-transport-https ca-certificates ntp >> $insl
+apt-get install -y git bzip2 unzip zip lsb-release locales-all rsync wget curl sed screen gawk mc sudo net-tools ethtool vim nano ufw apt-transport-https ca-certificates ntp software-properties-common >> $insl
 # apt-get install -y task-polish
 # localectl set-locale LANG=pl_PL.UTF-8
 systemctl enable ntp >> $insl
 systemctl restart ntp >> $insl
 
 echo "Installing web server with PHP."
+curl -sSLo /usr/share/keyrings/deb.sury.org-php.gpg https://packages.sury.org/php/apt.gpg >> $insl
+sh -c 'echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.sury.org/php/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/php.list' >> $insl
+apt-get update >> $insl
+apt-get upgrade -y >> $insl
 apt-get install -y apache2 apache2-utils >> $insl
-wget -q -O /etc/apt/trusted.gpg.d/php.gpg https://packages.sury.org/php/apt.gpg >> $insl
-echo "deb https://packages.sury.org/php/ $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/php.list >> $insl
-apt-get update >> $insl && apt-get upgrade -y >> $insl
-apt-get install -y php libapache2-mod-php libmagickcore-6.q16-6-extra php8.1-mysql php8.1-common php8.1-redis php8.1-dom php8.1-curl php8.1-exif php8.1-fileinfo php8.1-bcmath php8.1-gmp php8.1-imagick php8.1-mbstring php8.1-xml php8.1-zip php8.1-iconv php8.1-intl php8.1-simplexml php8.1-xmlreader php8.1-ftp php8.1-ssh2 php8.1-sockets php8.1-gd php8.1-imap php8.1-soap php8.1-xmlrpc php8.1-apcu php8.1-dev php8.1-cli >> $insl
+apt-get install -y php8.1 libapache2-mod-php8.1 libmagickcore-6.q16-6-extra php8.1-mysql php8.1-common php8.1-redis php8.1-dom php8.1-curl php8.1-exif php8.1-fileinfo php8.1-bcmath php8.1-gmp php8.1-imagick php8.1-mbstring php8.1-xml php8.1-zip php8.1-iconv php8.1-intl php8.1-simplexml php8.1-xmlreader php8.1-ftp php8.1-ssh2 php8.1-sockets php8.1-gd php8.1-imap php8.1-soap php8.1-xmlrpc php8.1-apcu php8.1-dev php8.1-cli >> $insl
+systemctl restart apache2 >> $insl
 systemctl enable apache2 >> $insl
 a2dissite 000-default >> $insl
 
@@ -151,6 +157,21 @@ ufw allow OpenSSH >> $insl
 ufw allow 'WWW Full' >> $insl
 ufw allow 7867/tcp >> $insl
 
+echo "Simple PHP testing..."
+echo "PHP check:" >> $insl
+touch test.php
+echo '<?php
+   echo "PHP is working! \n";
+?>' >> test.php
+php test.php
+php test.php >> $insl
+echo '<?php
+   phpinfo();
+?>' >> info.php
+php info.php >> $insl
+rm -rf test.php >> $insl
+rm -rf info.php >> $insl
+
 echo "Installing cache (redis) and multimedia (ffmpeg) packages." 
 # REDIS cache configure, adding socket for faster communication on local host
 apt-get install -y redis-server >> $insl
@@ -158,8 +179,6 @@ sed -i '/# unixsocketperm 700/aunixsocketperm 777' /etc/redis/redis.conf
 sed -i '/# unixsocketperm 700/aunixsocket /var/run/redis/redis.sock' /etc/redis/redis.conf
 usermod -a -G redis www-data
 systemctl restart redis >> $insl
-
-#Best moment for VM Snapshot
 
 ## ffmpeg installing - used for generating thumbnails of video files
 apt-get install -y ffmpeg >> $insl
