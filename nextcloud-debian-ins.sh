@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Nextcloud Debian 11 Install Script
-# Version 1.3 for x86_64
+# Version 1.4 for x86_64
 #
 # This script is made for Debian 11 on AMD64 CPU architecture.
 # It will update OS, install neeeded packages, and preconfigure everything to run Nextcloud.
@@ -35,6 +35,8 @@
 # 1. You use it at your own risk. Author is not responsible for any damage made with that script.
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
+# V 1.4 - 31.01.2023
+# - fixes thanks to "maybe" user from hejto.pl portal (ufw, redis, chmods etc.) Thank You!
 # V 1.3 - 30.01.2023
 # - fix PHP 8.1 installing
 # - more data stored to log for better error handling
@@ -52,7 +54,7 @@
 # it is also can't support dynamic IP's so it's just useless at some enviroments.
 
 export LC_ALL=C
-ver=1.3
+ver=1.4
 cpu=$( uname -m )
 user=$( whoami )
 debv=$( cat /etc/debian_version )
@@ -122,7 +124,7 @@ else
 	fi
 
 touch /var/log/nextcloud-installer.log
-echo "Nextcloud installer for Debian 11 - v1.2 (www.marcinwilk.eu) started." >> $insl
+echo "Nextcloud installer for Debian 11 - $ver (www.marcinwilk.eu) started." >> $insl
 date >> $insl
 echo "---------------------------------------------------------------------------" >> $insl
 # Generating passwords for database and SuperAdmin user.
@@ -153,9 +155,14 @@ systemctl enable apache2 >> $insl
 a2dissite 000-default >> $insl
 
 echo "Setting up firewall"
+echo "Setting up firewall" >> $insl
+ufw default allow  >> $insl
+ufw --force enable >> $insl
 ufw allow OpenSSH >> $insl
 ufw allow 'WWW Full' >> $insl
 ufw allow 7867/tcp >> $insl
+ufw default deny >> $insl
+ufw show added >> $insl
 
 echo "Simple PHP testing..."
 echo "PHP check:" >> $insl
@@ -173,6 +180,28 @@ rm -rf test.php >> $insl
 rm -rf info.php >> $insl
 
 echo "Installing cache (redis) and multimedia (ffmpeg) packages." 
+# Tweaks for redis first
+sysctl vm.overcommit_memory=1 >> $insl
+echo "vm.overcommit_memory = 1" >> /etc/sysctl.conf
+echo "#!/bin/sh -e
+#
+# rc.local
+#
+# This script is executed at the end of each multiuser runlevel.
+# Make sure that the script will "exit 0" on success or any other
+# value on error.
+#
+# In order to enable or disable this script just change the execution
+# bits.
+#
+# By default this script does nothing.
+
+echo madvise > /sys/kernel/mm/transparent_hugepage/enabled
+exit 0
+" >> /etc/rc.local
+chmod +x /etc/rc.local
+systemctl daemon-reload
+systemctl start rc-local
 # REDIS cache configure, adding socket for faster communication on local host
 apt-get install -y redis-server >> $insl
 sed -i '/# unixsocketperm 700/aunixsocketperm 777' /etc/redis/redis.conf
@@ -471,7 +500,7 @@ systemctl restart apache2
 
 #Additional things that may fix some unknown Nextcloud problems (that appeared for me when started using v19)
 chown -R www-data:www-data /var/www/nextcloud
-chmod 777 /var/www/nextcloud
+chmod 775 /var/www/nextcloud
 
 sudo -u www-data php8.1 /var/www/nextcloud/occ maintenance:repair >> $insl
 
@@ -479,6 +508,10 @@ sudo -u www-data php8.1 /var/www/nextcloud/occ files:scan-app-data >> $insl
 sudo -u www-data php8.1 /var/www/nextcloud/occ files:scan  --all; >> $insl
 sudo -u www-data php8.1 /var/www/nextcloud/occ files:cleanup; >> $insl
 # sudo -u www-data php /var/www/nextcloud/occ preview:generate-all -vvv
+
+# hide index.php from urls
+sed -i "/installed' => true,/a\ \ 'htaccess.RewriteBase' => '/'," /var/www/nextcloud/config/config.php
+sudo -u www-data php8.1 /var/www/nextcloud/occ maintenance:update:htaccess >> $insl
 
 if [ $# -eq 0 ]
 then
