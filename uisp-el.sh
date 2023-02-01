@@ -78,12 +78,12 @@ then
 	cat /etc/redhat-release
 	echo "Updating and installing additional packages. Some packages may be removed before reinstalling."
 	# Updating OS, removing current Docker install files and installing needed packages:
-	sudo dnf update -y
-	sudo dnf remove -y docker docker-client docker-client-latest docker-common docker-latest docker-latest-logrotate docker-logrotate docker-engine
-	sudo dnf install -y device-mapper device-mapper-persistent-data device-mapper-event device-mapper-libs device-mapper-event-libs lvm2 curl
+	sudo dnf update -y --quiet
+	sudo dnf remove -y docker docker-client docker-client-latest docker-common docker-latest docker-latest-logrotate docker-logrotate docker-engine --quiet
+	sudo dnf install -y device-mapper device-mapper-persistent-data device-mapper-event device-mapper-libs device-mapper-event-libs lvm2 curl --quiet
 
 	# Installing Docker CE with Composer:
-	sudo dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
+	sudo dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo --quiet
 	sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin --allowerasing --nobest --quiet
 	sudo systemctl enable --now docker
 	sudo usermod -aG docker $USER
