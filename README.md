@@ -20,10 +20,10 @@ Script that automates the installation and configuration of CentOS 8 Linux with 
 More info: https://www.marcinwilk.eu/projects/linux-scripts/htpc-on-centos-8-linux-with-kodi/
 
 uisp-el.sh - UISP / UNMS installation script for EL Linux  
-This takes the appropriate steps to install and run UNMS in EL8 Linux (CentOS 8, Rocky Linux, RHEL 8). It was prepared for clear OS installation.  
+This takes the appropriate steps to install and run UISP/UNMS in EL Linux (Rocky Linux, CentOS, RHEL). It was prepared for clear OS installation.  
 More info: https://www.marcinwilk.eu/projects/linux-scripts/unms-install-on-centos-8-linux/
 
-centos-lamp.sh - EL 8 LAMP Script  
+centos-lamp.sh - EL LAMP Script  
 It will make LAMP enviroment on clean EL8 (RockyLinux, CentOS, RHEL) system by downloading and configuring software and OS.  
 More info: https://www.marcinwilk.eu/projects/linux-scripts/el-8-lamp/
 
