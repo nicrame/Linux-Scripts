@@ -1,9 +1,10 @@
 #!/bin/bash
 
-# UISP formerlny known as Ubiquiti Network Management System (UNMS) install script for EL8 variants (CentOS, RockyLinux, RHEL).
-# Version 1.2.1
+# UISP formerlny known as Ubiquiti Network Management System (UNMS) install script for EL8/9 variants (CentOS, RockyLinux, RHEL).
+# It will also start installer on Debian Linux.
+# Version 1.3
 #
-# This script is made for clear CentOS 8 installed, with disabled web servers (like httpd or nginx).
+# This script is made to install UISP on EL8 and EL9 (clear minimal OS install) with disabled web servers (like httpd or nginx).
 # Also if You got docker installed, it will remove it and install current Docker CE version and composer.
 # Please check this file before use, you may unhash some options.
 # You use it at your own risk!
@@ -21,6 +22,11 @@
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
 # Changelog:
+# v 1.3 - 01.02.2023
+# Add support for EL9
+# Add fallback for Debian installer if that OS is detected.
+# Tested on RockyLinux 9, RHEL 9 and RockyLinux 8.
+# Use Docker Compose from repo (so it will autoupdate correctly now with dnf update).
 # v 1.2.1 - 05.08.2021
 # Use Docker Compose v 1.29.2.
 # Tested (and working) on Rocky Linux 8.4.
@@ -34,49 +40,88 @@
 # v 1.0 - 28.08.2020
 # First version.
 
-# Disabling SELinux if problems occurs:
+# Disabling SELinux if problems occurs (EL8):
 # sudo sed --in-place=.bak 's/^SELINUX\=enforcing/SELINUX\=permissive/g' /etc/selinux/config
 
-# Updating OS, removing current Docker install files and installing needed packages:
-sudo dnf update -y
-sudo dnf remove docker docker-client docker-client-latest docker-common docker-latest docker-latest-logrotate docker-logrotate docker-engine
-sudo dnf install -y device-mapper device-mapper-persistent-data device-mapper-event device-mapper-libs device-mapper-event-libs lvm2 curl
+export LC_ALL=C
+if [ -e /etc/redhat-release ]
+then
+	echo "EL detected, going forward with installation process."
+else
+	echo "No EL detected, trying Debian...."
+	if [ -e /etc/debian_version ]
+	then
+		echo "Running official installer procedure for Debian OS..."
+		curl -fsSL https://uisp.ui.com/v1/install > /tmp/uisp_inst.sh && sudo bash /tmp/uisp_inst.sh --unattended
+		exit 0
+	else
+		echo "Debian is not detected either, exiting..."
+		exit 0
+	fi
+fi
 
-# Installing Docker CE with Composer:
-sudo dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
-sudo dnf install -y docker-ce --allowerasing --nobest
-sudo systemctl enable --now docker
-sudo usermod -aG docker $USER
-sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-sudo chmod +x /usr/local/bin/docker-compose
+el6=$( cat /etc/redhat-release | grep "release 6" )
+el7=$( cat /etc/redhat-release | grep "release 7" )
+el8=$( cat /etc/redhat-release | grep "release 8" )
+el9=$( cat /etc/redhat-release | grep "release 9" )
 
-# Opening Firewall ports:
-# Noticed that are opened, but Ubi do not say to open them:
-# sudo firewall-cmd --zone=public --add-port=24224/tcp --permanent
-# sudo firewall-cmd --zone=public --add-port=5140/tcp --permanent
-# sudo firewall-cmd --zone=public --add-port=9000/tcp --permanent
+if [ -n "$el6" ] || [ -n "$el7" ]
+then
+	echo "Too old EL version. Pleasu upgrade to EL 8 or 9."
+	echo "Mission aborted!."
+	exit 0
+fi
 
-# Ports used only when using Reverse Proxy
-# sudo firewall-cmd --zone=public --add-port=8443/tcp --permanent
-# sudo firewall-cmd --zone=public --add-port=8080/tcp --permanent
+if [ -n "$el9" ] || [ -n "$el8" ]
+then
+	echo "Reading OS and version:"
+	cat /etc/redhat-release
+	echo "Updating and installing additional packages. Some packages may be removed before reinstalling."
+	# Updating OS, removing current Docker install files and installing needed packages:
+	sudo dnf update -y
+	sudo dnf remove -y docker docker-client docker-client-latest docker-common docker-latest docker-latest-logrotate docker-logrotate docker-engine
+	sudo dnf install -y device-mapper device-mapper-persistent-data device-mapper-event device-mapper-libs device-mapper-event-libs lvm2 curl
 
-sudo firewall-cmd --zone=public --add-port=2055/udp --permanent
-sudo firewall-cmd --zone=public --add-port=443/tcp --permanent
-sudo firewall-cmd --zone=public --add-port=81/tcp --permanent
-sudo firewall-cmd --zone=public --add-port=80/tcp --permanent
-sudo firewall-cmd --reload
+	# Installing Docker CE with Composer:
+	sudo dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
+	sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin --allowerasing --nobest --quiet
+	sudo systemctl enable --now docker
+	sudo usermod -aG docker $USER
 
-# Installing UNMS:
-sudo curl -fsSL https://unms.com/v1/install > /tmp/unms_inst.sh && sudo yes | bash /tmp/unms_inst.sh --unattended
+	# Opening Firewall ports:
+	# Noticed that are opened, but Ubi do not say to open them:
+	# sudo firewall-cmd --zone=public --add-port=24224/tcp --permanent
+	# sudo firewall-cmd --zone=public --add-port=5140/tcp --permanent
+	# sudo firewall-cmd --zone=public --add-port=9000/tcp --permanent
+	
+	# Ports used only when using Reverse Proxy
+	# sudo firewall-cmd --zone=public --add-port=8443/tcp --permanent
+	# sudo firewall-cmd --zone=public --add-port=8080/tcp --permanent
+	
+	echo "Configuring firewall."
+	sudo firewall-cmd --zone=public --add-port=9000/tcp --permanent
+	sudo firewall-cmd --zone=public --add-port=2055/udp --permanent
+	sudo firewall-cmd --zone=public --add-port=443/tcp --permanent
+	sudo firewall-cmd --zone=public --add-port=81/tcp --permanent
+	sudo firewall-cmd --zone=public --add-port=80/tcp --permanent
+	sudo firewall-cmd --zone=public --add-port=22/tcp --permanent
+	sudo firewall-cmd --reload
+	# Installing UISP/UNMS:
+	sudo curl -fsSL https://uisp.ui.com/v1/install > /tmp/uisp_inst.sh && sudo bash /tmp/uisp_inst.sh --unattended
 
-# Adding Docker netowrk interfaces to trusted zone in firewall:
-sudo ip -o link show | awk -F': ' '{if ($2 ~/^br/) {print $2}}' >> brfaces.txt
-sudo xargs -I {} -n 1 firewall-cmd --permanent --zone=docker --change-interface={} < brfaces.txt
-# sudo firewall-cmd --permanent --direct --add-rule ipv4 filter INPUT 4 -i docker0 -j ACCEPT
-sudo firewall-cmd --reload
-sudo rm -rf brfaces.txt
-
-# Restarting docker:
-sudo systemctl restart docker
+	# Adding Docker netowrk interfaces to trusted zone in firewall:
+	sudo ip -o link show | awk -F': ' '{if ($2 ~/^br/) {print $2}}' >> brfaces.txt
+	sudo xargs -I {} -n 1 firewall-cmd --permanent --zone=docker --change-interface={} < brfaces.txt
+	# sudo firewall-cmd --permanent --direct --add-rule ipv4 filter INPUT 4 -i docker0 -j ACCEPT
+	sudo firewall-cmd --reload
+	sudo rm -rf brfaces.txt
+	# Restarting docker:
+	sleep 60
+	echo "Waiting for UISP ro preconfigure itself, one minute please."
+	sudo systemctl restart docker
+fi
 
 echo "Now it is possible to login using this computer hostname/ip in web browser."
+echo "But give it few minutes before try, it take time for first run."
+unset LC_ALL
+exit 0
