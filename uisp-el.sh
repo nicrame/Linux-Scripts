@@ -23,8 +23,8 @@
 #
 # Changelog:
 # v 1.3 - 01.02.2023
-# Add support for EL9
-# Add fallback for Debian installer if that OS is detected.
+# Added support for EL9
+# Added fallback for Debian installer if that OS is detected.
 # Tested on RockyLinux 9, RHEL 9 and RockyLinux 8.
 # Use Docker Compose from repo (so it will autoupdate correctly now with dnf update).
 # v 1.2.1 - 05.08.2021
