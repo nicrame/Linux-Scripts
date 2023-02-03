@@ -45,6 +45,8 @@
 # Disabling SELinux if problems occurs (EL8):
 # sudo sed --in-place=.bak 's/^SELINUX\=enforcing/SELINUX\=permissive/g' /etc/selinux/config
 
+addr=$( hostname -I )
+
 export LC_ALL=C
 if [ -e /etc/redhat-release ]
 then
@@ -117,7 +119,7 @@ then
 	# sudo firewall-cmd --permanent --direct --add-rule ipv4 filter INPUT 4 -i docker0 -j ACCEPT
 	sudo firewall-cmd --reload
 	sudo rm -rf brfaces.txt
-	echo "Waiting for UISP ro preconfigure itself, one minute please."
+	echo "Waiting for UISP to preconfigure itself, one minute please."
 	sleep 60
 fi
 
