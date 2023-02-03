@@ -2,7 +2,7 @@
 
 # UISP formerlny known as Ubiquiti Network Management System (UNMS) install script for EL8/9 variants (CentOS, RockyLinux, RHEL).
 # It will also start installer on Debian Linux.
-# Version 1.3
+# Version 1.3.2
 #
 # This script is made to install UISP on EL8 and EL9 (clear minimal OS install) with disabled web servers (like httpd or nginx).
 # Also if You got docker installed, it will remove it and install current Docker CE version and composer.
@@ -22,8 +22,10 @@
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
 # Changelog:
-# v 1.3.1 - 03.02.2023
+# v 1.3.2 - 03.02.2023
 # Just small tweaks.
+# Disabling SELinux on Stream distros.
+# Add some more infos.
 # v 1.3 - 01.02.2023
 # Added support for EL9
 # Added fallback for Debian installer if that OS is detected.
@@ -134,7 +136,7 @@ fi
 
 echo "Now it is possible to login using this computer hostname/ip in web browser."
 echo "But give it few minutes before try, it take time for first run."
-echo "Here are Your computer IP's:
-$addr"
+echo "Here is Your computer IP to use to connect with UISP:
+https://$addr"
 unset LC_ALL
 exit 0
