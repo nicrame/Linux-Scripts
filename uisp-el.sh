@@ -94,7 +94,7 @@ then
 	# Updating OS, removing current Docker install files and installing needed packages:
 	sudo dnf update -y --quiet
 	sudo dnf remove -y docker docker-client docker-client-latest docker-common docker-latest docker-latest-logrotate docker-logrotate docker-engine --quiet
-	sudo dnf install -y device-mapper device-mapper-persistent-data device-mapper-event device-mapper-libs device-mapper-event-libs lvm2 curl net-tools --quiet
+	sudo dnf install -y device-mapper device-mapper-persistent-data device-mapper-event device-mapper-libs device-mapper-event-libs lvm2 curl net-tools wget --quiet
 
 	# Installing Docker CE with Composer:
 	sudo dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo --quiet
