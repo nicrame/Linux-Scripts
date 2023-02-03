@@ -22,6 +22,8 @@
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
 # Changelog:
+# v 1.3.1 - 03.02.2023
+# Just small tweaks.
 # v 1.3 - 01.02.2023
 # Added support for EL9
 # Added fallback for Debian installer if that OS is detected.
@@ -115,10 +117,8 @@ then
 	# sudo firewall-cmd --permanent --direct --add-rule ipv4 filter INPUT 4 -i docker0 -j ACCEPT
 	sudo firewall-cmd --reload
 	sudo rm -rf brfaces.txt
-	# Restarting docker:
-	sleep 60
 	echo "Waiting for UISP ro preconfigure itself, one minute please."
-	sudo systemctl restart docker
+	sleep 60
 fi
 
 echo "Now it is possible to login using this computer hostname/ip in web browser."
