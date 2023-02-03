@@ -68,12 +68,19 @@ el6=$( cat /etc/redhat-release | grep "release 6" )
 el7=$( cat /etc/redhat-release | grep "release 7" )
 el8=$( cat /etc/redhat-release | grep "release 8" )
 el9=$( cat /etc/redhat-release | grep "release 9" )
+str=$( cat /etc/redhat-release | grep "Stream" )
 
 if [ -n "$el6" ] || [ -n "$el7" ]
 then
 	echo "Too old EL version. Pleasu upgrade to EL 8 or 9."
 	echo "Mission aborted!."
 	exit 0
+fi
+
+if [ -n "$str" ]
+then
+	setenforce 0
+	grubby --update-kernel ALL --args selinux=0 
 fi
 
 if [ -n "$el9" ] || [ -n "$el8" ]
@@ -90,6 +97,7 @@ then
 	sudo dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo --quiet
 	sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin --allowerasing --nobest --quiet
 	sudo systemctl enable --now docker
+	sudo systemctl enable --now containerd
 	sudo usermod -aG docker $USER
 
 	# Opening Firewall ports:
@@ -125,5 +133,7 @@ fi
 
 echo "Now it is possible to login using this computer hostname/ip in web browser."
 echo "But give it few minutes before try, it take time for first run."
+echo "Here are Your computer IP's:
+$addr"
 unset LC_ALL
 exit 0
