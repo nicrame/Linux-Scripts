@@ -22,6 +22,8 @@
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
 # Changelog:
+# v 1.5 - 06.02.2023
+# Changed the way ulimits are configured from UISP files, to docker service configuration. It's much more clean now and better for updates of UISP.
 # v 1.4 - 05.02.2023
 # Found fix for starting up on on EL9 / Stream distributions - rabbit-mq container had too high open files limit (ulimit -n 1073741816).
 # Revert SELinux change to not disabled.
@@ -56,7 +58,8 @@ addr=$( hostname -I )
 export LC_ALL=C
 if [ -e /etc/redhat-release ]
 then
-	echo "EL detected, going forward with installation process."
+	echo "Reading OS and version:"
+	cat /etc/redhat-release
 else
 	echo "No EL detected, trying Debian...."
 	if [ -e /etc/debian_version ]
@@ -70,13 +73,14 @@ else
 	fi
 fi
 
+el5=$( cat /etc/redhat-release | grep "release 5" )
 el6=$( cat /etc/redhat-release | grep "release 6" )
 el7=$( cat /etc/redhat-release | grep "release 7" )
 el8=$( cat /etc/redhat-release | grep "release 8" )
 el9=$( cat /etc/redhat-release | grep "release 9" )
 str=$( cat /etc/redhat-release | grep "Stream" )
 
-if [ -n "$el6" ] || [ -n "$el7" ]
+if [ -n "$el5" ] || [ -n "$el6" ] || [ -n "$el7" ]
 then
 	echo "Too old EL version. Pleasu upgrade to EL 8 or 9."
 	echo "Mission aborted!."
@@ -92,8 +96,6 @@ fi
 
 if [ -n "$el9" ] || [ -n "$el8" ]
 then
-	echo "Reading OS and version:"
-	cat /etc/redhat-release
 	echo "Updating and installing additional packages. Some may be removed before reinstalling."
 	# Updating OS, removing current Docker install files and installing needed packages:
 	sudo dnf update -y --quiet
@@ -124,40 +126,17 @@ then
 	sudo firewall-cmd --zone=public --add-port=80/tcp --permanent
 	sudo firewall-cmd --zone=public --add-port=22/tcp --permanent
 	sudo firewall-cmd --reload
-	if [ -n "$el8" ]
-	then
-		# Installing UISP/UNMS:
-		sudo curl -fsSL https://uisp.ui.com/v1/install > /tmp/uisp_inst.sh && sudo bash /tmp/uisp_inst.sh --unattended
-	fi
 	
 	if [ -n "$el9" ]
 	then
-		# Installing UISP/UNMS:
-		sudo curl -fsSL https://uisp.ui.com/v1/install > /tmp/uisp_inst.sh && sudo bash /tmp/uisp_inst.sh --unattended
-
-		echo "Fixing EL9/Stream distros options. It may take some time."
-		sudo /home/unms/app/unms-cli stop >> /dev/null
-		sudo sed -i '/  rabbitmq:/a\\ \ \ \ ulimits:\n\ \ \ \ \ \ nofile:\n\ \ \ \ \ \ \ \ soft:\ "1048576"\n\ \ \ \ \ \ \ \ hard:\ "1048576"' /home/unms/app/docker-compose.yml
-		sudo sed -i '/  fluentd:/a\\ \ \ \ ulimits:\n\ \ \ \ \ \ nofile:\n\ \ \ \ \ \ \ \ soft:\ "1048576"\n\ \ \ \ \ \ \ \ hard:\ "1048576"' /home/unms/app/docker-compose.yml
-		sudo sed -i '/  siridb:/a\\ \ \ \ ulimits:\n\ \ \ \ \ \ nofile:\n\ \ \ \ \ \ \ \ soft:\ "1048576"\n\ \ \ \ \ \ \ \ hard:\ "1048576"' /home/unms/app/docker-compose.yml
-		sudo sed -i '/  postgres:/a\\ \ \ \ ulimits:\n\ \ \ \ \ \ nofile:\n\ \ \ \ \ \ \ \ soft:\ "1048576"\n\ \ \ \ \ \ \ \ hard:\ "1048576"' /home/unms/app/docker-compose.yml
-		sudo sed -i '/  unms:/a\\ \ \ \ ulimits:\n\ \ \ \ \ \ nofile:\n\ \ \ \ \ \ \ \ soft:\ "1048576"\n\ \ \ \ \ \ \ \ hard:\ "1048576"' /home/unms/app/docker-compose.yml
-		sudo sed -i '/  ucrm:/a\\ \ \ \ ulimits:\n\ \ \ \ \ \ nofile:\n\ \ \ \ \ \ \ \ soft:\ "1048576"\n\ \ \ \ \ \ \ \ hard:\ "1048576"' /home/unms/app/docker-compose.yml
-		sudo sed -i '/  nginx:/a\\ \ \ \ ulimits:\n\ \ \ \ \ \ nofile:\n\ \ \ \ \ \ \ \ soft:\ "1048576"\n\ \ \ \ \ \ \ \ hard:\ "1048576"' /home/unms/app/docker-compose.yml
-		sudo sed -i '/  netflow:/a\\ \ \ \ ulimits:\n\ \ \ \ \ \ nofile:\n\ \ \ \ \ \ \ \ soft:\ "1048576"\n\ \ \ \ \ \ \ \ hard:\ "1048576"' /home/unms/app/docker-compose.yml
-		sudo sed -i '/  rabbitmq:/a\\ \ \ \ ulimits:\n\ \ \ \ \ \ nofile:\n\ \ \ \ \ \ \ \ soft:\ "1048576"\n\ \ \ \ \ \ \ \ hard:\ "1048576"' /home/unms/app/docker-compose.yml.template
-		sudo sed -i '/  fluentd:/a\\ \ \ \ ulimits:\n\ \ \ \ \ \ nofile:\n\ \ \ \ \ \ \ \ soft:\ "1048576"\n\ \ \ \ \ \ \ \ hard:\ "1048576"' /home/unms/app/docker-compose.yml.template
-		sudo sed -i '/  siridb:/a\\ \ \ \ ulimits:\n\ \ \ \ \ \ nofile:\n\ \ \ \ \ \ \ \ soft:\ "1048576"\n\ \ \ \ \ \ \ \ hard:\ "1048576"' /home/unms/app/docker-compose.yml.template
-		sudo sed -i '/  postgres:/a\\ \ \ \ ulimits:\n\ \ \ \ \ \ nofile:\n\ \ \ \ \ \ \ \ soft:\ "1048576"\n\ \ \ \ \ \ \ \ hard:\ "1048576"' /home/unms/app/docker-compose.yml.template
-		sudo sed -i '/  unms:/a\\ \ \ \ ulimits:\n\ \ \ \ \ \ nofile:\n\ \ \ \ \ \ \ \ soft:\ "1048576"\n\ \ \ \ \ \ \ \ hard:\ "1048576"' /home/unms/app/docker-compose.yml.template
-		sudo sed -i '/  ucrm:/a\\ \ \ \ ulimits:\n\ \ \ \ \ \ nofile:\n\ \ \ \ \ \ \ \ soft:\ "1048576"\n\ \ \ \ \ \ \ \ hard:\ "1048576"' /home/unms/app/docker-compose.yml.template
-		sudo sed -i '/  nginx:/a\\ \ \ \ ulimits:\n\ \ \ \ \ \ nofile:\n\ \ \ \ \ \ \ \ soft:\ "1048576"\n\ \ \ \ \ \ \ \ hard:\ "1048576"' /home/unms/app/docker-compose.yml.template
-		sudo sed -i '/  netflow:/a\\ \ \ \ ulimits:\n\ \ \ \ \ \ nofile:\n\ \ \ \ \ \ \ \ soft:\ "1048576"\n\ \ \ \ \ \ \ \ hard:\ "1048576"' /home/unms/app/docker-compose.yml.template
-		sudo rm -rf /home/unms/data
-		sudo docker image prune -a --force > /dev/null
-		sudo docker system prune --force > /dev/null
-		sudo /home/unms/app/unms-cli start
+		echo "Configurind docker service for EL9/Stream distros to work correctly with UISP."
+		sudo sed -i 's/containerd.sock/& --default-ulimit nofile=1048576:1048576/' /usr/lib/systemd/system/docker.service
+		sudo systemctl daemon-reload
+		sudo systemctl restart docker
 	fi
+	
+	# Installing UISP/UNMS:
+	sudo curl -fsSL https://uisp.ui.com/v1/install > /tmp/uisp_inst.sh && sudo bash /tmp/uisp_inst.sh --unattended
 	
 	# Adding Docker netowrk interfaces to trusted zone in firewall:
 	sudo ip -o link show | awk -F': ' '{if ($2 ~/^br/) {print $2}}' >> brfaces.txt
