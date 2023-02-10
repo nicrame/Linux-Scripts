@@ -35,6 +35,8 @@
 # 1. You use it at your own risk. Author is not responsible for any damage made with that script.
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
+# V 1.4.2 - 10.02.2023
+# - completely disable opcache because of many segfaults even when JIT is completely disabled
 # V 1.4.1 - 08.02.2023
 # - opcache jit cache in php has been disabled because of many segfaults reported
 # V 1.4 - 31.01.2023
@@ -239,13 +241,14 @@ sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.1/cli/p
 sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.1/cli/php.ini
 sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.1/cli/php.ini
 
-echo 'opcache.enable_cli=1' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
-echo 'opcache.interned_strings_buffer=32' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
-echo 'opcache.max_accelerated_files=10000' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
+# echo 'opcache.enable_cli=1' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
+echo 'opcache.interned_strings_buffer=64' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
+echo 'opcache.max_accelerated_files=20000' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
 echo 'opcache.memory_consumption=256' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
 echo 'opcache.save_comments=1' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
 echo 'opcache.revalidate_freq=1' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
-echo 'opcache.jit=disable' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
+echo 'opcache.enable=0' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
+# echo 'opcache.jit=disable' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
 
 # Creating certificate for localhost
 cd /opt/
