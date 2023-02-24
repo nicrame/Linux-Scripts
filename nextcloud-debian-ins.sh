@@ -19,7 +19,7 @@
 # Both HTTP and HTTPS protocols are enabled by default (localhost certificate is generated
 # bu default, and domain certificate with Let's encrypt if You use add it as command argument).
 #
-# It was tested with Nextcloud v25.0.3.
+# It was tested with Nextcloud v25
 # 
 # In case of problems, LOG output is generated at /var/log/nextcloud-installer.log.
 # Attach it if You want to report errors.
@@ -35,6 +35,8 @@
 # 1. You use it at your own risk. Author is not responsible for any damage made with that script.
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
+# V 1.4.3 - 24.02.2023
+# - allow self-signed certificate config option in nextcloud (it may be needed sometimes)
 # V 1.4.2 - 10.02.2023
 # - completely disable opcache because of many segfaults even when JIT is completely disabled
 # V 1.4.1 - 08.02.2023
@@ -450,6 +452,7 @@ hostname -I | xargs -n1 >> /root/ips.local
 sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:set trusted_domains 97 --value="127.0.0.1" >> $insl
 sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:set trusted_domains 98 --value="nextdrive" >> $insl
 sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:set trusted_domains 99 --value="nextcloud" >> $insl
+sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:set ALLOW_SELF_SIGNED --value="true" >> $insl
 # sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:set default_phone_region --value="PL"
 sudo -u www-data php8.1 /var/www/nextcloud/occ app:install contacts >> $insl
 sudo -u www-data php8.1 /var/www/nextcloud/occ app:install notes >> $insl
