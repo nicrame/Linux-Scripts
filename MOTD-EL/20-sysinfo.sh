@@ -5,6 +5,7 @@ if [ "Z$(ps o comm="" -p $(ps o ppid="" -p $$))" == "Zcron" -o \
 then
     :
 else
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 # get load averages
 IFS=" " read LOAD1 LOAD5 LOAD15 <<<$(cat /proc/loadavg | awk '{ print $1,$2,$3 }')
 # get free memory
