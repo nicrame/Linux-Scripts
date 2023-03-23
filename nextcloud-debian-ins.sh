@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Nextcloud Debian 11 Install Script
-# Version 1.4 for x86_64
+# for x86_64
 #
 # This script is made for Debian 11 on AMD64 CPU architecture.
 # It will update OS, install neeeded packages, and preconfigure everything to run Nextcloud.
@@ -10,12 +10,15 @@
 # Also new service for Nextcloud cron is generated that starts every 5 minutes.
 # To use it just download it, make it executable and start with this command:
 # sudo sh -c "wget -q https://github.com/nicrame/Linux-Scripts/raw/master/nextcloud-debian-ins.sh && chmod +x nextcloud-debian-ins.sh && ./nextcloud-debian-ins.sh"
-# You may also add specific domain name that will be used, by adding it as argument to command above:
-# sudo sh -c "wget -q https://github.com/nicrame/Linux-Scripts/raw/master/nextcloud-debian-ins.sh && chmod +x nextcloud-debian-ins.sh && ./nextcloud-debian-ins.sh domain.com"
+# You may also add specific arguments (lang, mail, dns) that will be used, by adding them to command above:
+# sudo sh -c "wget -q https://github.com/nicrame/Linux-Scripts/raw/master/nextcloud-debian-ins.sh && chmod +x nextcloud-debian-ins.sh && ./nextcloud-debian-ins.sh -lang=pl -mail=my@email.com dm=domain.com"
+# -lang (for language) argument will instal additional packages specific for choosed language and setup best matching timezone setting.
+# Currently supported languages are: pl (default value is empty).
+# -mail argument is for information about Your email address, that will be presented to let's encrypt, so you'll be informed if domain name SSL certificate couldn't be refreshed (default value is empty).
+# -dm argument is used when you got (already prepared and configured) domain name, it will be configured for Nextcloud server and Let's encrypt SSL (default value is empty).
 #
 # After install You may use Your web browser to access Nextcloud using local IP address,
-# or domain name that You have configured before (DNS setting, router configuration
-# should be done earlier). 
+# or domain name that You have configured before (DNS setting, router configuration should be done earlier). 
 # Both HTTP and HTTPS protocols are enabled by default (localhost certificate is generated
 # bu default, and domain certificate with Let's encrypt if You use add it as command argument).
 #
@@ -35,6 +38,15 @@
 # 1. You use it at your own risk. Author is not responsible for any damage made with that script.
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
+# V 1.5 - 25.03.2023
+# - use Nextcloud Hub 4 (v26)
+# - enable opcache again (it looks it's working fine now)
+# - use PHP version 8.2
+# - install ddclient (dynamic DNS client - https://ddclient.net/)
+# - install miniupnpc ans start it for port 80 and 443 to open ports (it should be unncessary)
+# - added more arguments to use (language, e_mail)
+# - installer is now creating file with it's version number for future upgrades
+# - installer detects if older versions of script were used, and in the next release it will upgrade everything (nextcloud included)
 # V 1.4.3 - 24.02.2023
 # - allow self-signed certificate config option in nextcloud (it may be needed sometimes)
 # V 1.4.2 - 10.02.2023
@@ -60,41 +72,104 @@
 # it is also can't support dynamic IP's so it's just useless at some enviroments.
 
 export LC_ALL=C
-ver=1.4
+
+ver=1.5
 cpu=$( uname -m )
 user=$( whoami )
 debv=$( cat /etc/debian_version )
 addr=$( hostname -I )
+addr1=$( hostname -I | awk '{print $1}' )
+lang=""
+mail=""
+dm=""
 insl=/var/log/nextcloud-installer.log
 
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        -lang=*) lang="${1#*=}" ;;
+        -mail=*) mail="${1#*=}" ;;
+		-dm=*) dm="${1#*=}" ;;
+        *) echo "Unknown parameter: $1" >&2; echo "Remember to add argumen after equals sign."; echo -e "Eg. \e[1;32m-\e[39;0mmail\e[1;32m=\e[39;0mmail@example.com"; exit 1 ;;
+    esac
+    shift
+done
+
+echo "Nextcloud installer for Debian 11 - $ver (www.marcinwilk.eu) started." >> $insl
+date >> $insl
+echo "---------------------------------------------------------------------------" >> $insl
 echo -e "\e[38;5;214mNextcloud Debian 11 Install Script\e[39;0m
 Version $ver for x86_64
 by marcin@marcinwilk.eu - www.marcinwilk.eu"
 echo "---------------------------------------------------------------------------"
+
 if [ $user != root ]
 then
     echo -e "You must be \e[38;5;214mroot\e[39;0m. Mission aborted!"
     echo -e "You are trying to start this script as: \e[1;31m$user\e[39;0m"
     exit 0
-else
-	echo "This script will install Nextcloud service."
-	echo "Additional packages will be installed too:"
-	echo "Apache, PHP 8.1, MariaDB and Let's encrypt."
-	echo ""
-	if [ $# -eq 0 ]
-	then
-		echo -e "You may add your \e[1;32m*preconfigured\e[39;0m domain name"
-		echo "as command line argument:"
-		echo "./nextcloud-debian-ins.sh mydomain.com"
-		echo ""
-		echo "You may now cancel this script with CRTL+C,"
-		echo "or wait 30 seconds so it will install without"
-		echo "additional domain name to use."
-		echo ""
-		echo -e "\e[1;32m*\e[39;0m - domain and router must be already configured to work with this server."
-		sleep 30
-	fi
 fi
+
+if [ -e /var/log/nextcloud-installer.log ]
+then
+	echo "This script will try to upgrade Nextcloud and all needed services,"
+	echo "based on what was done by previous version."
+	echo ""
+	echo "Trying to find preceding installer version."
+	if [ -e /var/local/nextcloud-installer.ver ]
+	then
+		echo "Detected previous install:"
+		pverr1=$(sed -n '1p'  /var/local/nextcloud-installer.ver)
+		echo "$pverr1"
+		echo "With parameters:"
+		pverr2=$(sed -n '2p'  /var/local/nextcloud-installer.ver)
+		echo "$pverr2"
+		echo ""
+        pver=$(echo $pverr2 | awk -F'[ =]' '/pver/ {print $2}')
+        lang=$(echo $pverr2 | awk -F'[ =]' '/lang/ {print $4}')
+        mail=$(echo $pverr2 | awk -F'[ =]' '/mail/ {print $6}')
+        dm=$(echo $pverr2 | awk -F'[ =]' '/dm/ {print $8}')
+		if [ $pver = "1.5" ]
+		then
+			echo "Detected same version already installed." >> $insl
+			echo "$pverr1" >> $insl
+			echo "$pverr2" >> $insl
+			echo "Same version already installed."
+			echo "Nothing to do."
+			exit 0
+		fi
+	fi
+else
+		echo "Detected previous install:"
+		echo "Installer version 1.4 or older."
+		$pver = "1.4"
+		echo "Please wait for next release of this script, so it will do upgrade."
+		echo "Sorry."
+		exit 0
+fi
+	
+		
+#		echo "Old settings will be used for the upgrade process."
+#		echo "You may now cancel this script with CRTL+C,"
+#		echo "or wait 35 seconds so it will upgrade old install."
+
+echo "This script will install Nextcloud service."
+echo "Additional packages will be installed too:"
+echo "Apache, PHP, MariaDB, ddclient and Let's encrypt."
+echo ""
+echo -e "You may add some arguments like -lang, -mail and -dm"
+echo "Where lang is for language (empty, pl)"
+echo "-mail is for e_mail address, and -dm for domain name"
+echo -e "that should be \e[1;32m*preconfigured\e[39;0m."
+echo ""
+echo "./nextcloud-debian-ins.sh -lang=pl -mail=my@email.com -dm=mydomain.com"
+echo ""
+echo "You may now cancel this script with CRTL+C,"
+echo "or wait 35 seconds so it will install without"
+echo "additional arguments."
+echo ""
+echo -e "\e[1;32m*\e[39;0m - domain and router must be already configured to work with this server."
+sleep 36
+
 
 if [ $cpu = x86_64 ]
 then
@@ -122,30 +197,52 @@ then
 else
 echo "Detected Debian version $debv"
 fi
-if [ $# -eq 0 ]
+
+touch /var/log/nextcloud-installer.log
+
+if [ -z "$lang" ]
+then
+	echo "No custom language argument used." >> $insl
+else
+	echo -e "Using language argument: \e[1;32m$lang\e[39;0m"
+	echo "Using language argument: $lang" >> $insl
+fi
+
+if [ -z "$mail" ]
+then
+	echo "No e_mail argument used." >> $insl
+else
+	echo -e "Using e_mail argument: \e[1;32m$mail\e[39;0m"
+	echo "Using e_mail argument: $mail" >> $insl
+fi
+
+if [ -z "$dm" ]
 then
 	echo "No custom domain name argument used." >> $insl
 else
-	echo -e "Using domain argument: \e[1;32m$1\e[39;0m!"
-	fi
+	echo -e "Using domain argument: \e[1;32m$dm\e[39;0m"
+	echo "Using domain argument: $dm" >> $insl
+fi
 
-touch /var/log/nextcloud-installer.log
-echo "Nextcloud installer for Debian 11 - $ver (www.marcinwilk.eu) started." >> $insl
-date >> $insl
-echo "---------------------------------------------------------------------------" >> $insl
 # Generating passwords for database and SuperAdmin user.
 openssl rand -base64 30 > /root/dbpass
 openssl rand -base64 30 > /root/superadminpass
 mp=$( cat /root/dbpass )
 mp2=$( cat /root/superadminpass )
 
-# timedatectl set-timezone Europe/Warsaw
 echo "Updating OS."
 apt-get update >> $insl && apt-get upgrade -y >> $insl && apt-get autoremove -y >> $insl
+### ./i.sh: line 202: [: =: unary operator expected
+if [ $lang = "pl" ]
+then
+	apt-get install -y task-polish >> $insl
+	timedatectl set-timezone Europe/Warsaw >> $insl
+	localectl set-locale LANG=pl_PL.UTF-8 >> $insl
+fi
+
 echo "Installing standard packages. It may take some time - be patient."
-apt-get install -y git bzip2 unzip zip lsb-release locales-all rsync wget curl sed screen gawk mc sudo net-tools ethtool vim nano ufw apt-transport-https ca-certificates ntp software-properties-common >> $insl
-# apt-get install -y task-polish
-# localectl set-locale LANG=pl_PL.UTF-8
+apt-get install -y git lbzip2 unzip zip lsb-release locales-all rsync wget curl sed screen gawk mc sudo net-tools ethtool vim nano ufw apt-transport-https ca-certificates ntp software-properties-common miniupnpc >> $insl
+yes | sudo DEBIAN_FRONTEND=noninteractive apt-get -yqq install ddclient  >> $insl
 systemctl enable ntp >> $insl
 systemctl restart ntp >> $insl
 
@@ -155,7 +252,7 @@ sh -c 'echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://pa
 apt-get update >> $insl
 apt-get upgrade -y >> $insl
 apt-get install -y apache2 apache2-utils >> $insl
-apt-get install -y php8.1 libapache2-mod-php8.1 libmagickcore-6.q16-6-extra php8.1-mysql php8.1-common php8.1-redis php8.1-dom php8.1-curl php8.1-exif php8.1-fileinfo php8.1-bcmath php8.1-gmp php8.1-imagick php8.1-mbstring php8.1-xml php8.1-zip php8.1-iconv php8.1-intl php8.1-simplexml php8.1-xmlreader php8.1-ftp php8.1-ssh2 php8.1-sockets php8.1-gd php8.1-imap php8.1-soap php8.1-xmlrpc php8.1-apcu php8.1-dev php8.1-cli >> $insl
+apt-get install -y php8.2 libapache2-mod-php8.2 libmagickcore-6.q16-6-extra php8.2-mysql php8.2-common php8.2-redis php8.2-dom php8.2-curl php8.2-exif php8.2-fileinfo php8.2-bcmath php8.2-gmp php8.2-imagick php8.2-mbstring php8.2-xml php8.2-zip php8.2-iconv php8.2-intl php8.2-simplexml php8.2-xmlreader php8.2-ftp php8.2-ssh2 php8.2-sockets php8.2-gd php8.2-imap php8.2-soap php8.2-xmlrpc php8.2-apcu php8.2-dev php8.2-cli >> $insl
 systemctl restart apache2 >> $insl
 systemctl enable apache2 >> $insl
 a2dissite 000-default >> $insl
@@ -219,38 +316,38 @@ systemctl restart redis >> $insl
 apt-get install -y ffmpeg >> $insl
 
 #Enable APCu command line support
-echo 'apc.enable_cli=1' >> /etc/php/8.1/cli/conf.d/20-apcu.ini
+echo 'apc.enable_cli=1' >> /etc/php/8.2/cli/conf.d/20-apcu.ini
 
-sed -i 's/\b128M\b/1024M/g' /etc/php/8.1/apache2/php.ini
-sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.1/apache2/php.ini
-sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.1/apache2/php.ini
-sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.1/apache2/php.ini
-sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.1/apache2/php.ini
-sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.1/apache2/php.ini
-sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.1/apache2/php.ini
-sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.1/apache2/php.ini
-sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.1/apache2/php.ini
-sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.1/apache2/php.ini
+sed -i 's/\b128M\b/1024M/g' /etc/php/8.2/apache2/php.ini
+sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.2/apache2/php.ini
+sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.2/apache2/php.ini
+sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.2/apache2/php.ini
+sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.2/apache2/php.ini
+sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.2/apache2/php.ini
+sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.2/apache2/php.ini
+sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.2/apache2/php.ini
+sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.2/apache2/php.ini
+sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.2/apache2/php.ini
 
-sed -i 's/\b128M\b/1024M/g' /etc/php/8.1/cli/php.ini
-sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.1/cli/php.ini
-sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.1/cli/php.ini
-sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.1/cli/php.ini
-sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.1/cli/php.ini
-sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.1/cli/php.ini
-sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.1/cli/php.ini
-sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.1/cli/php.ini
-sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.1/cli/php.ini
-sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.1/cli/php.ini
+sed -i 's/\b128M\b/1024M/g' /etc/php/8.2/cli/php.ini
+sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.2/cli/php.ini
+sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.2/cli/php.ini
+sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.2/cli/php.ini
+sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.2/cli/php.ini
+sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.2/cli/php.ini
+sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.2/cli/php.ini
+sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.2/cli/php.ini
+sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.2/cli/php.ini
+sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.2/cli/php.ini
 
-# echo 'opcache.enable_cli=1' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
-echo 'opcache.interned_strings_buffer=64' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
-echo 'opcache.max_accelerated_files=20000' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
-echo 'opcache.memory_consumption=256' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
-echo 'opcache.save_comments=1' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
-echo 'opcache.revalidate_freq=1' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
-echo 'opcache.enable=0' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
-# echo 'opcache.jit=disable' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
+echo 'opcache.enable_cli=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+echo 'opcache.interned_strings_buffer=64' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+echo 'opcache.max_accelerated_files=20000' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+echo 'opcache.memory_consumption=256' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+echo 'opcache.save_comments=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+# echo 'opcache.revalidate_freq=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+echo 'opcache.enable=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+# echo 'opcache.jit=disable' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
 
 # Creating certificate for localhost
 cd /opt/
@@ -401,8 +498,10 @@ apt-get install -y python3-certbot-apache >> $insl
 # Downloading and installing Nextcloud
 mkdir /var/www/nextcloud
 mkdir /var/www/nextcloud/data
-wget -q https://download.nextcloud.com/server/releases/latest.tar.bz2 >> $insl
-tar -xjf latest.tar.bz2 -C /var/www/ >> $insl
+# wget -q https://download.nextcloud.com/server/releases/latest.tar.bz2 >> $insl
+wget -q https://download.nextcloud.com/server/releases/latest.zip >> $insl
+#tar -xjf latest.tar.bz2 -C /var/www/ >> $insl
+unzip -q latest.zip -d /var/www >> $insl
 chown -R www-data:www-data /var/www/
 
 # Making Nextcloud preconfiguration
@@ -421,16 +520,19 @@ echo '  "adminlogin"    => "SuperAdmin",' >> /var/www/nextcloud/config/autoconfi
 echo '  "adminpass"     => "Haslo.serwisoweX32*L",' >> /var/www/nextcloud/config/autoconfig.php
 echo ');' >> /var/www/nextcloud/config/autoconfig.php
 
-sudo -u www-data php8.1 /var/www/nextcloud/occ maintenance:install --database \
+sudo -u www-data php8.2 /var/www/nextcloud/occ maintenance:install --database \
 "mysql" --database-name "nextdrive"  --database-user "nextcloud" --database-pass \
 "$mp" --admin-user "SuperAdmin" --admin-pass "$mp2" >> $insl
 
-# Adding default language and locales to pl_PL and setting up email sending
-#  'default_language' => 'pl',
-#  'default_locale' => 'pl',
-
-# sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:set default_language --value="pl"
-# sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:set default_locale --value="pl"
+if [ $lang = "pl" ]
+then
+	# Adding default language and locales to pl_PL and setting up email sending
+	#  'default_language' => 'pl',
+	#  'default_locale' => 'pl',
+	sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set default_language --value="pl" >> $insl
+	sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set default_locale --value="pl_PL" >> $insl
+	sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set default_phone_region --value="PL" >> $insl
+fi
 
 # Enabling Redis in config file - default cache engine now
 sed -i "/installed' => true,/a\ \ 'memcache.local' => '\\\OC\\\Memcache\\\Redis',\n\ \ 'filelocking.enabled' => true,\n \ 'memcache.locking' => '\\\OC\\\Memcache\\\Redis',\n \ 'memcache.distributed' => '\\\OC\\\Memcache\\\Redis',\n \ 'redis' =>\n \ array (\n \  \ 'host' => '/var/run/redis/redis.sock',\n \  \ 'port' => 0,\n \  \ 'dbindex' => 0,\n \  \ 'timeout' => 600.0,\n \ )," /var/www/nextcloud/config/config.php
@@ -442,28 +544,40 @@ sed -i "/installed' => true,/a\ \ 'memcache.local' => '\\\OC\\\Memcache\\\Redis'
 sed -i "/installed' => true,/a\ \ 'simpleSignUpLink.shown' => false," /var/www/nextcloud/config/config.php
 
 # Command below should do nothing, but once in the past i needed that, so let it stay here...
-sudo -u www-data php8.1 /var/www/nextcloud/occ db:add-missing-indices >> $insl
+sudo -u www-data php8.2 /var/www/nextcloud/occ db:add-missing-indices >> $insl
 
 # Enabling plugins. Adding more trusted domains.
 # Preparing list of local IP addresses to add.
 hostname -I | xargs -n1 >> /root/ips.local
 
-</root/ips.local awk '{print "sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:set trusted_domains " NR " --value=\x22" $1 "\x22"}' | xargs -L 1 -0  | bash;
-sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:set trusted_domains 97 --value="127.0.0.1" >> $insl
-sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:set trusted_domains 98 --value="nextdrive" >> $insl
-sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:set trusted_domains 99 --value="nextcloud" >> $insl
-sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:set ALLOW_SELF_SIGNED --value="true" >> $insl
-# sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:set default_phone_region --value="PL"
-sudo -u www-data php8.1 /var/www/nextcloud/occ app:install contacts >> $insl
-sudo -u www-data php8.1 /var/www/nextcloud/occ app:install notes >> $insl
-sudo -u www-data php8.1 /var/www/nextcloud/occ app:install deck >> $insl
-# sudo -u www-data php8.1 /var/www/nextcloud/occ app:install spreed >> $insl
-sudo -u www-data php8.1 /var/www/nextcloud/occ app:install calendar >> $insl
-sudo -u www-data php8.1 /var/www/nextcloud/occ app:install files_rightclick >> $insl
-sudo -u www-data php8.1 /var/www/nextcloud/occ app:disable updatenotification >> $insl
-sudo -u www-data php8.1 /var/www/nextcloud/occ app:install tasks >> $insl
-sudo -u www-data php8.1 /var/www/nextcloud/occ app:install groupfolders >> $insl
-sudo -u www-data php8.1 /var/www/nextcloud/occ config:app:set files max_chunk_size --value 20971520 >> $insl
+</root/ips.local awk '{print "sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set trusted_domains " NR " --value=\x22" $1 "\x22"}' | xargs -L 1 -0  | bash;
+sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set trusted_domains 97 --value="127.0.0.1" >> $insl
+sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set trusted_domains 98 --value="nextdrive" >> $insl
+sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set trusted_domains 99 --value="nextcloud" >> $insl
+sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set ALLOW_SELF_SIGNED --value="true" >> $insl
+sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set enable_previews --value="true" >> $insl
+sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set preview_max_memory --value="512" >> $insl
+sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set preview_max_x --value="12288" >> $insl
+sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set preview_max_y --value="6912" >> $insl
+sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set auth.bruteforce.protection.enabled --value="true" >> $insl
+mkdir /var/www/nextcloud/core/.null >> $insl
+sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set skeletondirectory --value="core/.null" >> $insl
+sudo -u www-data php8.2 /var/www/nextcloud/occ app:install contacts >> $insl
+sudo -u www-data php8.2 /var/www/nextcloud/occ app:install notes >> $insl
+sudo -u www-data php8.2 /var/www/nextcloud/occ app:install deck >> $insl
+# sudo -u www-data php8.2 /var/www/nextcloud/occ app:install spreed >> $insl
+sudo -u www-data php8.2 /var/www/nextcloud/occ app:install calendar >> $insl
+sudo -u www-data php8.2 /var/www/nextcloud/occ app:enable calendar >> $insl
+sudo -u www-data php8.2 /var/www/nextcloud/occ app:install files_rightclick >> $insl
+sudo -u www-data php8.2 /var/www/nextcloud/occ app:enable files_rightclick >> $insl
+sudo -u www-data php8.2 /var/www/nextcloud/occ app:disable updatenotification >> $insl
+sudo -u www-data php8.2 /var/www/nextcloud/occ app:install tasks >> $insl
+sudo -u www-data php8.2 /var/www/nextcloud/occ app:enable tasks >> $insl
+sudo -u www-data php8.2 /var/www/nextcloud/occ app:install groupfolders >> $insl
+sudo -u www-data php8.2 /var/www/nextcloud/occ app:enable groupfolders >> $insl
+sudo -u www-data php8.2 /var/www/nextcloud/occ app:install twofactor_totp >> $insl
+sudo -u www-data php8.2 /var/www/nextcloud/occ app:enable twofactor_totp >> $insl
+sudo -u www-data php8.2 /var/www/nextcloud/occ config:app:set files max_chunk_size --value="20971520" >> $insl
 
 # Below lines will give more data if something goes wrong!
 curl -I http://127.0.0.1/  >> $insl
@@ -474,9 +588,9 @@ cat /var/www/nextcloud/data/nextcloud.log >> $insl
 
 systemctl stop apache2
 # Another lines that helped me in the past are here to stay...
-sudo -u www-data php8.1 /var/www/nextcloud/occ maintenance:mode --on >> $insl
-sudo -u www-data php8.1 /var/www/nextcloud/occ db:convert-filecache-bigint --no-interaction >> $insl
-sudo -u www-data php8.1 /var/www/nextcloud/occ maintenance:mode --off >> $insl
+# sudo -u www-data php8.2 /var/www/nextcloud/occ maintenance:mode --on >> $insl
+sudo -u www-data php8.2 /var/www/nextcloud/occ db:convert-filecache-bigint --no-interaction >> $insl
+# sudo -u www-data php8.2 /var/www/nextcloud/occ maintenance:mode --off >> $insl
 
 # Preparing cron service to run cron.php every 5 minute
 touch /etc/systemd/system/nextcloudcron.service
@@ -487,7 +601,7 @@ echo 'Description=Nextcloud cron.php job' >> /etc/systemd/system/nextcloudcron.s
 echo '' >> /etc/systemd/system/nextcloudcron.service
 echo '[Service]' >> /etc/systemd/system/nextcloudcron.service
 echo 'User=www-data' >> /etc/systemd/system/nextcloudcron.service
-echo 'ExecStart=php8.1 -f /var/www/nextcloud/cron.php' >> /etc/systemd/system/nextcloudcron.service
+echo 'ExecStart=php8.2 -f /var/www/nextcloud/cron.php' >> /etc/systemd/system/nextcloudcron.service
 echo '' >> /etc/systemd/system/nextcloudcron.service
 echo '[Install]' >> /etc/systemd/system/nextcloudcron.service
 echo 'WantedBy=basic.target' >> /etc/systemd/system/nextcloudcron.service
@@ -511,33 +625,44 @@ systemctl restart apache2
 chown -R www-data:www-data /var/www/nextcloud
 chmod 775 /var/www/nextcloud
 
-sudo -u www-data php8.1 /var/www/nextcloud/occ maintenance:repair >> $insl
+sudo -u www-data php8.2 /var/www/nextcloud/occ maintenance:repair >> $insl
 
-sudo -u www-data php8.1 /var/www/nextcloud/occ files:scan-app-data >> $insl
-sudo -u www-data php8.1 /var/www/nextcloud/occ files:scan  --all; >> $insl
-sudo -u www-data php8.1 /var/www/nextcloud/occ files:cleanup; >> $insl
+sudo -u www-data php8.2 /var/www/nextcloud/occ files:scan-app-data >> $insl
+sudo -u www-data php8.2 /var/www/nextcloud/occ files:scan  --all; >> $insl
+sudo -u www-data php8.2 /var/www/nextcloud/occ files:cleanup; >> $insl
 # sudo -u www-data php /var/www/nextcloud/occ preview:generate-all -vvv
 
 # hide index.php from urls
 sed -i "/installed' => true,/a\ \ 'htaccess.RewriteBase' => '/'," /var/www/nextcloud/config/config.php
-sudo -u www-data php8.1 /var/www/nextcloud/occ maintenance:update:htaccess >> $insl
+sudo -u www-data php8.2 /var/www/nextcloud/occ maintenance:update:htaccess >> $insl
 
-if [ $# -eq 0 ]
+echo "Using UPNP to open ports for now." >> $insl
+upnpc -e "Web Server HTTP" -a $addr1 80 80 TCP >> $insl 2>&1
+upnpc -e "Web Server HTTPS" -a $addr1 443 443 TCP >> $insl 2>&1
+
+if [ -z "$dm" ]
 then
 	echo "Skipping additional domain configuration."
 else
 	echo "Configuring additional domain name."
-	sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:set trusted_domains 96 --value="$1" >> $insl
-	sed -i '/ServerName localhost/aServerName '"$1"'' /etc/apache2/sites-available/nextcloud.conf >> $insl
+	sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set trusted_domains 96 --value="$dm" >> $insl
+	sed -i '/ServerName localhost/aServerName '"$dm"'' /etc/apache2/sites-available/nextcloud.conf >> $insl
 	echo "Configuring Let's encrypt."
-	certbot --register-unsafely-without-email --apache --agree-tos -d $1 >> $insl
-	(crontab -l 2>/dev/null; echo "0 4 1,15 * * /usr/bin/certbot renew") | crontab -
+	if [ -z "$mail" ]
+	then
+		echo "Skipping adding email configuration for Let's encrypt."
+		certbot --register-unsafely-without-email --apache --agree-tos -d $dm >> $insl
+		(crontab -l 2>/dev/null; echo "0 4 1,15 * * /usr/bin/certbot renew") | crontab -
+	else
+		certbot --email $mail --apache --agree-tos -d $dm >> $insl
+		(crontab -l 2>/dev/null; echo "0 4 1,15 * * /usr/bin/certbot renew") | crontab -
+	fi
 fi
 
 # HPB Configuration
 # gwaddr=$( route -n | grep 'UG[ \t]' | awk '{print $2}' )
 # echo "Enabling HPB" >> $insl
-# sudo -u www-data php8.1 /var/www/nextcloud/occ app:install notify_push >> $insl
+# sudo -u www-data php8.2 /var/www/nextcloud/occ app:install notify_push >> $insl
 # touch /etc/systemd/system/nextcloud_hpb.service
 # echo '[Unit]
 # Description = Nextcloud High Performance Backend Push Service
@@ -553,15 +678,15 @@ fi
 # ' >> /etc/systemd/system/nextcloud_hpb.service
 # systemctl enable nextcloud_hpb >> $insl
 # service nextcloud_hpb start >> $insl
-# echo -ne '\n' | sudo -u www-data php8.1 /var/www/nextcloud/occ notify_push:setup >> $insl
-# </root/ips.local awk '{print "sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:set trusted_proxies " NR " --value=\x22" $1 "\x22"}' | xargs -L 1 -0  | bash;
-# sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:set trusted_proxies 97 --value="$gwaddr" >> $insl
-# sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:set trusted_proxies 98 --value="$addr" >> $insl
+# echo -ne '\n' | sudo -u www-data php8.2 /var/www/nextcloud/occ notify_push:setup >> $insl
+# </root/ips.local awk '{print "sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set trusted_proxies " NR " --value=\x22" $1 "\x22"}' | xargs -L 1 -0  | bash;
+# sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set trusted_proxies 97 --value="$gwaddr" >> $insl
+# sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set trusted_proxies 98 --value="$addr" >> $insl
 #if [ $# -eq 0 ]
 #then
-#	sudo -u www-data php8.1 /var/www/nextcloud/occ notify_push:setup https://$addr/push >> $insl
+#	sudo -u www-data php8.2 /var/www/nextcloud/occ notify_push:setup https://$addr/push >> $insl
 #else
-#	sudo -u www-data php8.1 /var/www/nextcloud/occ notify_push:setup https://$1/push >> $insl
+#	sudo -u www-data php8.2 /var/www/nextcloud/occ notify_push:setup https://$1/push >> $insl
 #fi
 
 # Finished!!!
@@ -569,7 +694,7 @@ echo ""
 echo "Job done! Now make last steps in Your web browser!"
 echo "Use # certbot if You want SSL"
 echo ""
-if [ $# -eq 0 ]
+if [ -z "$dm" ]
 then
 	echo "You may access Your Nextcloud instalation using this address:
 	http://$addr or
@@ -578,7 +703,7 @@ else
 	echo "You may access Your Nextcloud instalation using this address:
 	http://$addr or
 	https://$addr or
-	https://$1"
+	https://$dm"
 fi
 
 echo ""
@@ -604,5 +729,8 @@ rm -rf /opt/localhost.crt
 rm -rf /opt/localhost.key
 rm -rf /opt/open_ssl.conf
 systemctl restart apache2
+touch /var/local/nextcloud-installer.ver
+echo "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)" >> /var/local/nextcloud-installer.ver
+echo "pver=$ver lang=$lang mail=$mail dm=$dm" >> /var/local/nextcloud-installer.ver
 unset LC_ALL
 exit 0
