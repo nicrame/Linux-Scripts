@@ -22,7 +22,7 @@
 # Both HTTP and HTTPS protocols are enabled by default (localhost certificate is generated
 # bu default, and domain certificate with Let's encrypt if You use add it as command argument).
 #
-# It was tested with Nextcloud v25
+# It was tested with Nextcloud v25, v26
 # 
 # In case of problems, LOG output is generated at /var/log/nextcloud-installer.log.
 # Attach it if You want to report errors.
@@ -38,6 +38,8 @@
 # 1. You use it at your own risk. Author is not responsible for any damage made with that script.
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
+# V 1.5.1 - 05.04.2023
+# - upgrading from 1.4 and lower added to the script
 # V 1.5 - 25.03.2023
 # - use Nextcloud Hub 4 (v26)
 # - enable opcache again (it looks it's working fine now)
@@ -112,7 +114,7 @@ fi
 if [ -e /var/log/nextcloud-installer.log ]
 then
 	echo "This script will try to upgrade Nextcloud and all needed services,"
-	echo "based on what was done by previous version."
+	echo "based on what was done by previous version of this script."
 	echo ""
 	echo "Trying to find preceding installer version."
 	if [ -e /var/local/nextcloud-installer.ver ]
@@ -137,17 +139,113 @@ then
 			echo "Nothing to do."
 			exit 0
 		fi
+	else
+		echo "Detected installer version 1.4 or older already used."
+		echo "Detected installer version 1.4 or older already used." >> $insl
+		echo "Upgrading in progress..."
+		echo "Updating OS."
+		echo "Updating OS." >> $insl
+		apt-get update >> $insl && apt-get upgrade -y >> $insl && apt-get autoremove -y >> $insl
+		echo "Installing additional packages."
+		apt-get install -y lbzip2 software-properties-common miniupnpc >> $insl
+		yes | sudo DEBIAN_FRONTEND=noninteractive apt-get -yqq install ddclient >> $insl
+		echo "Removing PHP 8.1"
+		apt-get remove -y php8.1 php8.1-* >> $insl
+		echo "Installing PHP 8.2"
+		apt-get install -y php8.2 libapache2-mod-php8.2 libmagickcore-6.q16-6-extra php8.2-mysql php8.2-common php8.2-redis php8.2-dom php8.2-curl php8.2-exif php8.2-fileinfo php8.2-bcmath php8.2-gmp php8.2-imagick php8.2-mbstring php8.2-xml php8.2-zip php8.2-iconv php8.2-intl php8.2-simplexml php8.2-xmlreader php8.2-ftp php8.2-ssh2 php8.2-sockets php8.2-gd php8.2-imap php8.2-soap php8.2-xmlrpc php8.2-apcu php8.2-dev php8.2-cli >> $insl
+		systemctl restart apache2 >> $insl
+		echo "Setting up firewall"
+		echo "Setting up firewall" >> $insl
+		ufw default allow  >> $insl
+		ufw --force enable >> $insl
+		ufw allow OpenSSH >> $insl
+		ufw allow 'WWW Full' >> $insl
+		ufw allow 7867/tcp >> $insl
+		ufw default deny >> $insl
+		ufw show added >> $insl
+		echo "OS tweaking for Redis."
+		sysctl vm.overcommit_memory=1 >> $insl
+		echo "vm.overcommit_memory = 1" >> /etc/sysctl.conf
+		echo "#!/bin/sh -e
+		#
+		# rc.local
+		#
+		# This script is executed at the end of each multiuser runlevel.
+		# Make sure that the script will "exit 0" on success or any other
+		# value on error.
+		#
+		# In order to enable or disable this script just change the execution
+		# bits.
+		#
+		# By default this script does nothing.
+		
+		echo madvise > /sys/kernel/mm/transparent_hugepage/enabled
+		exit 0
+		" >> /etc/rc.local
+		chmod +x /etc/rc.local
+		systemctl daemon-reload
+		systemctl start rc-local
+		echo "PHP config files tweaking."
+		echo 'apc.enable_cli=1' >> /etc/php/8.2/cli/conf.d/20-apcu.ini
+		sed -i 's/\b128M\b/1024M/g' /etc/php/8.2/apache2/php.ini
+		sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.2/apache2/php.ini
+		sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.2/apache2/php.ini
+		sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.2/apache2/php.ini
+		sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.2/apache2/php.ini
+		sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.2/apache2/php.ini
+		sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.2/apache2/php.ini
+		sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.2/apache2/php.ini
+		sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.2/apache2/php.ini
+		sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.2/apache2/php.ini
+		sed -i 's/\b128M\b/1024M/g' /etc/php/8.2/cli/php.ini
+		sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.2/cli/php.ini
+		sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.2/cli/php.ini
+		sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.2/cli/php.ini
+		sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.2/cli/php.ini
+		sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.2/cli/php.ini
+		sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.2/cli/php.ini
+		sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.2/cli/php.ini
+		sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.2/cli/php.ini
+		sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.2/cli/php.ini
+		echo 'opcache.enable_cli=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+		echo 'opcache.interned_strings_buffer=64' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+		echo 'opcache.max_accelerated_files=20000' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+		echo 'opcache.memory_consumption=256' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+		echo 'opcache.save_comments=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+		echo 'opcache.enable=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+		systemctl restart apache2 >> $insl
+		echo "Upgrading Nextcloud." >> $insl
+		echo "Upgrading Nextcloud."
+		sudo -u www-data php8.2 /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+		sleep 16
+		echo ""
+		echo ""
+		echo "Adding some more Nextcloud tweaks."
+		sudo -u www-data php8.2 /var/www/nextcloud/occ maintenance:repair >> $insl
+		sed -i "/installed' => true,/a\ \ 'htaccess.RewriteBase' => '/'," /var/www/nextcloud/config/config.php
+		sudo -u www-data php8.2 /var/www/nextcloud/occ maintenance:update:htaccess >> $insl
+		sudo -u www-data php8.2 /var/www/nextcloud/occ db:add-missing-indices >> $insl
+		sudo -u www-data php8.2 /var/www/nextcloud/occ db:convert-filecache-bigint --no-interaction >> $insl
+		sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set ALLOW_SELF_SIGNED --value="true" >> $insl
+		sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set enable_previews --value="true" >> $insl
+		sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set preview_max_memory --value="512" >> $insl
+		sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set preview_max_x --value="12288" >> $insl
+		sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set preview_max_y --value="6912" >> $insl
+		sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set auth.bruteforce.protection.enabled --value="true" >> $insl
+		sudo -u www-data php8.2 /var/www/nextcloud/occ app:install twofactor_totp >> $insl
+		sudo -u www-data php8.2 /var/www/nextcloud/occ app:enable twofactor_totp >> $insl
+		sudo -u www-data php8.2 /var/www/nextcloud/occ config:app:set files max_chunk_size --value="20971520" >> $insl
+		touch /var/local/nextcloud-installer.ver
+		echo "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)" >> /var/local/nextcloud-installer.ver
+		echo "pver=$ver lang=$lang mail=$mail dm=$dm" >> /var/local/nextcloud-installer.ver
+		echo "Upgrade process finished."
+		echo "Job done!"
+		exit 0
 	fi
 else
-		echo "Detected previous install:"
-		echo "Installer version 1.4 or older."
-		$pver = "1.4"
-		echo "Please wait for next release of this script, so it will do upgrade."
-		echo "Sorry."
-		exit 0
+	echo ""
 fi
 	
-		
 #		echo "Old settings will be used for the upgrade process."
 #		echo "You may now cancel this script with CRTL+C,"
 #		echo "or wait 35 seconds so it will upgrade old install."
@@ -232,7 +330,7 @@ mp2=$( cat /root/superadminpass )
 
 echo "Updating OS."
 apt-get update >> $insl && apt-get upgrade -y >> $insl && apt-get autoremove -y >> $insl
-### ./i.sh: line 202: [: =: unary operator expected
+
 if [ $lang = "pl" ]
 then
 	apt-get install -y task-polish >> $insl
@@ -517,7 +615,7 @@ echo "  \"dbpass\"        => \"$mp\"," >> /var/www/nextcloud/config/autoconfig.p
 echo '  "dbhost"        => "localhost",' >> /var/www/nextcloud/config/autoconfig.php
 echo '  "dbtableprefix" => "1c_",' >> /var/www/nextcloud/config/autoconfig.php
 echo '  "adminlogin"    => "SuperAdmin",' >> /var/www/nextcloud/config/autoconfig.php
-echo '  "adminpass"     => "Haslo.serwisoweX32*L",' >> /var/www/nextcloud/config/autoconfig.php
+echo "  \"adminpass\"     => \"$mp2\"," >> /var/www/nextcloud/config/autoconfig.php
 echo ');' >> /var/www/nextcloud/config/autoconfig.php
 
 sudo -u www-data php8.2 /var/www/nextcloud/occ maintenance:install --database \
@@ -571,9 +669,7 @@ sudo -u www-data php8.2 /var/www/nextcloud/occ app:enable calendar >> $insl
 sudo -u www-data php8.2 /var/www/nextcloud/occ app:install files_rightclick >> $insl
 sudo -u www-data php8.2 /var/www/nextcloud/occ app:enable files_rightclick >> $insl
 sudo -u www-data php8.2 /var/www/nextcloud/occ app:disable updatenotification >> $insl
-sudo -u www-data php8.2 /var/www/nextcloud/occ app:install tasks >> $insl
 sudo -u www-data php8.2 /var/www/nextcloud/occ app:enable tasks >> $insl
-sudo -u www-data php8.2 /var/www/nextcloud/occ app:install groupfolders >> $insl
 sudo -u www-data php8.2 /var/www/nextcloud/occ app:enable groupfolders >> $insl
 sudo -u www-data php8.2 /var/www/nextcloud/occ app:install twofactor_totp >> $insl
 sudo -u www-data php8.2 /var/www/nextcloud/occ app:enable twofactor_totp >> $insl
@@ -628,7 +724,7 @@ chmod 775 /var/www/nextcloud
 sudo -u www-data php8.2 /var/www/nextcloud/occ maintenance:repair >> $insl
 
 sudo -u www-data php8.2 /var/www/nextcloud/occ files:scan-app-data >> $insl
-sudo -u www-data php8.2 /var/www/nextcloud/occ files:scan  --all; >> $insl
+sudo -u www-data php8.2 /var/www/nextcloud/occ files:scan --all; >> $insl
 sudo -u www-data php8.2 /var/www/nextcloud/occ files:cleanup; >> $insl
 # sudo -u www-data php /var/www/nextcloud/occ preview:generate-all -vvv
 
