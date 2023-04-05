@@ -38,6 +38,8 @@
 # 1. You use it at your own risk. Author is not responsible for any damage made with that script.
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
+# V 1.5.2 - 05.04.2023
+# - twofactor_webauthn app installing and enabling for more security (tested with Yubikey)
 # V 1.5.1 - 05.04.2023
 # - upgrading from 1.4 and lower added to the script
 # V 1.5 - 25.03.2023
@@ -237,6 +239,8 @@ exit 0" >> /etc/rc.local
 		sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set auth.bruteforce.protection.enabled --value="true" >> $insl
 		sudo -u www-data php8.2 /var/www/nextcloud/occ app:install twofactor_totp >> $insl
 		sudo -u www-data php8.2 /var/www/nextcloud/occ app:enable twofactor_totp >> $insl
+		sudo -u www-data php8.2 /var/www/nextcloud/occ app:install twofactor_webauthn >> $insl
+		sudo -u www-data php8.2 /var/www/nextcloud/occ app:enable twofactor_webauthn >> $insl
 		sudo -u www-data php8.2 /var/www/nextcloud/occ config:app:set files max_chunk_size --value="20971520" >> $insl
 		touch /var/local/nextcloud-installer.ver
 		echo "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)" >> /var/local/nextcloud-installer.ver
@@ -676,6 +680,8 @@ sudo -u www-data php8.2 /var/www/nextcloud/occ app:enable tasks >> $insl
 sudo -u www-data php8.2 /var/www/nextcloud/occ app:enable groupfolders >> $insl
 sudo -u www-data php8.2 /var/www/nextcloud/occ app:install twofactor_totp >> $insl
 sudo -u www-data php8.2 /var/www/nextcloud/occ app:enable twofactor_totp >> $insl
+sudo -u www-data php8.2 /var/www/nextcloud/occ app:install twofactor_webauthn >> $insl
+sudo -u www-data php8.2 /var/www/nextcloud/occ app:enable twofactor_webauthn >> $insl
 sudo -u www-data php8.2 /var/www/nextcloud/occ config:app:set files max_chunk_size --value="20971520" >> $insl
 
 # Below lines will give more data if something goes wrong!
