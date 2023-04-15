@@ -38,6 +38,9 @@
 # 1. You use it at your own risk. Author is not responsible for any damage made with that script.
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
+# V 1.5.3 - 15.04.2023
+# - using older PHP (8.1) version for upgrade process before removing it (Nextcloud do not finish upgrade process on never PHP version)
+# - check for currently installed Nextcloud version and update it so many times it needs (till version 26) - when upgrading from script version 1.4 or older
 # V 1.5.2 - 05.04.2023
 # - twofactor_webauthn app installing and enabling for more security (tested with Yubikey)
 # V 1.5.1 - 05.04.2023
@@ -151,8 +154,6 @@ then
 		echo "Installing additional packages."
 		apt-get install -y lbzip2 software-properties-common miniupnpc >> $insl
 		yes | sudo DEBIAN_FRONTEND=noninteractive apt-get -yqq install ddclient >> $insl
-		echo "Removing PHP 8.1"
-		apt-get remove -y php8.1 php8.1-* >> $insl
 		echo "Installing PHP 8.2"
 		apt-get install -y php8.2 libapache2-mod-php8.2 libmagickcore-6.q16-6-extra php8.2-mysql php8.2-common php8.2-redis php8.2-dom php8.2-curl php8.2-exif php8.2-fileinfo php8.2-bcmath php8.2-gmp php8.2-imagick php8.2-mbstring php8.2-xml php8.2-zip php8.2-iconv php8.2-intl php8.2-simplexml php8.2-xmlreader php8.2-ftp php8.2-ssh2 php8.2-sockets php8.2-gd php8.2-imap php8.2-soap php8.2-xmlrpc php8.2-apcu php8.2-dev php8.2-cli >> $insl
 		systemctl restart apache2 >> $insl
@@ -217,34 +218,84 @@ exit 0" >> /etc/rc.local
 		systemctl restart apache2 >> $insl
 		echo "Upgrading Nextcloud." >> $insl
 		echo "Upgrading Nextcloud."
-		sudo -u www-data php8.2 /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+		echo "Checking currently installed version." >> $insl
+		sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version >> $insl
+		ncver=$( sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		if [ $ncver = "24" ]
+		then
+			sudo -u www-data php8.1 /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+		fi
+		unset ncver
+		ncver=$( sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		if [ $ncver = "24" ]
+		then
+			sudo -u www-data php8.1 /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+		fi
+		unset ncver
+		ncver=$( sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		if [ $ncver = "24" ]
+		then
+			sudo -u www-data php8.1 /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+		fi
+		unset ncver
+		ncver=$( sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		if [ $ncver = "24" ]
+		then
+			sudo -u www-data php8.1 /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+		fi
+		unset ncver
+		ncver=$( sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		if [ $ncver = "25" ]
+		then
+			sudo -u www-data php8.1 /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+		fi
+		unset ncver
+		ncver=$( sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		if [ $ncver = "25" ]
+		then
+			sudo -u www-data php8.1 /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+		fi
+		unset ncver
+		ncver=$( sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		if [ $ncver = "25" ]
+		then
+			sudo -u www-data php8.1 /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+		fi
+		unset ncver
+		ncver=$( sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		if [ $ncver = "25" ]
+		then
+			sudo -u www-data php8.1 /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+		fi
 		echo ""
 		echo ""
 		echo "Nextcloud upgraded to version:" >> $insl
 		echo "Nextcloud upgraded to version:"
-		sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:get version >> $insl
-		sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:get version
+		sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version >> $insl
+		sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version
 		echo "Adding some more Nextcloud tweaks."
-		sudo -u www-data php8.2 /var/www/nextcloud/occ maintenance:repair >> $insl
+		sudo -u www-data php8.1 /var/www/nextcloud/occ maintenance:repair >> $insl
 		echo ""
 		sed -i "/installed' => true,/a\ \ 'htaccess.RewriteBase' => '/'," /var/www/nextcloud/config/config.php
-		sudo -u www-data php8.2 /var/www/nextcloud/occ maintenance:update:htaccess >> $insl
-		sudo -u www-data php8.2 /var/www/nextcloud/occ db:add-missing-indices >> $insl
-		sudo -u www-data php8.2 /var/www/nextcloud/occ db:convert-filecache-bigint --no-interaction >> $insl
-		sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set ALLOW_SELF_SIGNED --value="true" >> $insl
-		sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set enable_previews --value="true" >> $insl
-		sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set preview_max_memory --value="512" >> $insl
-		sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set preview_max_x --value="12288" >> $insl
-		sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set preview_max_y --value="6912" >> $insl
-		sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set auth.bruteforce.protection.enabled --value="true" >> $insl
-		sudo -u www-data php8.2 /var/www/nextcloud/occ app:install twofactor_totp >> $insl
-		sudo -u www-data php8.2 /var/www/nextcloud/occ app:enable twofactor_totp >> $insl
-		sudo -u www-data php8.2 /var/www/nextcloud/occ app:install twofactor_webauthn >> $insl
-		sudo -u www-data php8.2 /var/www/nextcloud/occ app:enable twofactor_webauthn >> $insl
-		sudo -u www-data php8.2 /var/www/nextcloud/occ config:app:set files max_chunk_size --value="20971520" >> $insl
+		sudo -u www-data php8.1 /var/www/nextcloud/occ maintenance:update:htaccess >> $insl
+		sudo -u www-data php8.1 /var/www/nextcloud/occ db:add-missing-indices >> $insl
+		sudo -u www-data php8.1 /var/www/nextcloud/occ db:convert-filecache-bigint --no-interaction >> $insl
+		sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:set ALLOW_SELF_SIGNED --value="true" >> $insl
+		sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:set enable_previews --value="true" >> $insl
+		sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:set preview_max_memory --value="512" >> $insl
+		sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:set preview_max_x --value="12288" >> $insl
+		sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:set preview_max_y --value="6912" >> $insl
+		sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:set auth.bruteforce.protection.enabled --value="true" >> $insl
+		sudo -u www-data php8.1 /var/www/nextcloud/occ app:install twofactor_totp >> $insl
+		sudo -u www-data php8.1 /var/www/nextcloud/occ app:enable twofactor_totp >> $insl
+		sudo -u www-data php8.1 /var/www/nextcloud/occ app:install twofactor_webauthn >> $insl
+		sudo -u www-data php8.1 /var/www/nextcloud/occ app:enable twofactor_webauthn >> $insl
+		sudo -u www-data php8.1 /var/www/nextcloud/occ config:app:set files max_chunk_size --value="20971520" >> $insl
 		touch /var/local/nextcloud-installer.ver
 		echo "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)" >> /var/local/nextcloud-installer.ver
 		echo "pver=$ver lang=$lang mail=$mail dm=$dm" >> /var/local/nextcloud-installer.ver
+		echo "Removing PHP 8.1"
+		apt-get remove -y php8.1 php8.1-* >> $insl
 		echo "Upgrade process finished."
 		echo "Job done!"
 		exit 0
