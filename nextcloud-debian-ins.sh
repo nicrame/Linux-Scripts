@@ -697,7 +697,12 @@ apt-get install -y python3-certbot-apache >> $insl
 mkdir /var/www/nextcloud
 mkdir /var/www/nextcloud/data
 # wget -q https://download.nextcloud.com/server/releases/latest.tar.bz2 >> $insl
-mv latest.zip old.latest.zip >> $insl
+
+if [ -e latest.zip ]
+then
+	mv latest.zip old.latest.zip >> $insl
+fi
+
 wget -q https://download.nextcloud.com/server/releases/latest.zip >> $insl
 #tar -xjf latest.tar.bz2 -C /var/www/ >> $insl
 unzip -q latest.zip -d /var/www >> $insl
@@ -905,7 +910,7 @@ else
 	https://$dm"
 fi
 
-echo "Try to use httpS (there are known Nextcloud problems with Firefox without SSL."
+echo "Try to use httpS - there are known Nextcloud problems with Firefox without SSL."
 echo ""
 echo -e "Here are the important passwords, \e[1;31mbackup them!!!\e[39;0m"
 echo "---------------------------------------------------------------------------"
