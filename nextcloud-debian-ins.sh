@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Nextcloud Debian 11 Install Script
+# Nextcloud Debian 11/12 Install Script
 # for x86_64
 #
-# This script is made for Debian 11 on AMD64 CPU architecture.
+# This script is made for Debian 11/12 on AMD64 CPU architecture.
 # It will update OS, install neeeded packages, and preconfigure everything to run Nextcloud.
-# There are Apache (web server), MariaDB (database server), PHP 8.1 (programming language), 
+# There are Apache (web server), MariaDB (database server), PHP 8.2 (programming language), 
 # NTP (time synchronization service), and Redis (cache server) used.
 # Also new service for Nextcloud cron is generated that starts every 5 minutes.
 # To use it just download it, make it executable and start with this command:
@@ -22,7 +22,7 @@
 # Both HTTP and HTTPS protocols are enabled by default (localhost certificate is generated
 # bu default, and domain certificate with Let's encrypt if You use add it as command argument).
 #
-# It was tested with Nextcloud v25, v26
+# It was tested with Nextcloud v25, v26, v27
 # 
 # In case of problems, LOG output is generated at /var/log/nextcloud-installer.log.
 # Attach it if You want to report errors.
@@ -38,6 +38,10 @@
 # 1. You use it at your own risk. Author is not responsible for any damage made with that script.
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
+# V 1.5.4 - 07.07.2023
+# - Fixed some logical problem
+# - Add support for Debian 12
+# - Add support for Nextcloud Hub 5 (v27)
 # V 1.5.3 - 15.04.2023
 # - using older PHP (8.1) version for upgrade process before removing it (Nextcloud do not finish upgrade process on never PHP version)
 # - check for currently installed Nextcloud version and update it so many times it needs (till version 26) - when upgrading from script version 1.4 or older
@@ -101,10 +105,7 @@ while [ "$#" -gt 0 ]; do
     shift
 done
 
-echo "Nextcloud installer for Debian 11 - $ver (www.marcinwilk.eu) started." >> $insl
-date >> $insl
-echo "---------------------------------------------------------------------------" >> $insl
-echo -e "\e[38;5;214mNextcloud Debian 11 Install Script\e[39;0m
+echo -e "\e[38;5;214mNextcloud Debian 11/12 Install Script\e[39;0m
 Version $ver for x86_64
 by marcin@marcinwilk.eu - www.marcinwilk.eu"
 echo "---------------------------------------------------------------------------"
@@ -118,6 +119,9 @@ fi
 
 if [ -e /var/log/nextcloud-installer.log ]
 then
+	echo "Nextcloud installer for Debian 11/12 - $ver (www.marcinwilk.eu) started." >> $insl
+	date >> $insl
+	echo "---------------------------------------------------------------------------" >> $insl
 	echo "This script will try to upgrade Nextcloud and all needed services,"
 	echo "based on what was done by previous version of this script."
 	echo ""
@@ -135,7 +139,7 @@ then
         lang=$(echo $pverr2 | awk -F'[ =]' '/lang/ {print $4}')
         mail=$(echo $pverr2 | awk -F'[ =]' '/mail/ {print $6}')
         dm=$(echo $pverr2 | awk -F'[ =]' '/dm/ {print $8}')
-		if [ $pver = "1.5" ]
+		if [ "$pver" = "1.5" ]
 		then
 			echo "Detected same version already installed." >> $insl
 			echo "$pverr1" >> $insl
@@ -221,49 +225,73 @@ exit 0" >> /etc/rc.local
 		echo "Checking currently installed version." >> $insl
 		sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version >> $insl
 		ncver=$( sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-		if [ $ncver = "24" ]
+		if [ "$ncver" = "24" ]
 		then
 			sudo -u www-data php8.1 /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 		fi
 		unset ncver
 		ncver=$( sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-		if [ $ncver = "24" ]
+		if [ "$ncver" = "24" ]
 		then
 			sudo -u www-data php8.1 /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 		fi
 		unset ncver
 		ncver=$( sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-		if [ $ncver = "24" ]
+		if [ "$ncver" = "24" ]
 		then
 			sudo -u www-data php8.1 /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 		fi
 		unset ncver
 		ncver=$( sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-		if [ $ncver = "24" ]
+		if [ "$ncver" = "24" ]
 		then
 			sudo -u www-data php8.1 /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 		fi
 		unset ncver
 		ncver=$( sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-		if [ $ncver = "25" ]
+		if [ "$ncver" = "25" ]
 		then
 			sudo -u www-data php8.1 /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 		fi
 		unset ncver
 		ncver=$( sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-		if [ $ncver = "25" ]
+		if [ "$ncver" = "25" ]
 		then
 			sudo -u www-data php8.1 /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 		fi
 		unset ncver
 		ncver=$( sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-		if [ $ncver = "25" ]
+		if [ "$ncver" = "25" ]
 		then
 			sudo -u www-data php8.1 /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 		fi
 		unset ncver
 		ncver=$( sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-		if [ $ncver = "25" ]
+		if [ "$ncver" = "25" ]
+		then
+			sudo -u www-data php8.1 /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+		fi
+		unset ncver
+		ncver=$( sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		if [ "$ncver" = "26" ]
+		then
+			sudo -u www-data php8.1 /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+		fi
+		unset ncver
+		ncver=$( sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		if [ "$ncver" = "26" ]
+		then
+			sudo -u www-data php8.1 /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+		fi
+		unset ncver
+		ncver=$( sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		if [ "$ncver" = "26" ]
+		then
+			sudo -u www-data php8.1 /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+		fi
+		unset ncver
+		ncver=$( sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		if [ "$ncver" = "26" ]
 		then
 			sudo -u www-data php8.1 /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 		fi
@@ -303,7 +331,7 @@ exit 0" >> /etc/rc.local
 else
 	echo ""
 fi
-	
+
 #		echo "Old settings will be used for the upgrade process."
 #		echo "You may now cancel this script with CRTL+C,"
 #		echo "or wait 35 seconds so it will upgrade old install."
@@ -356,6 +384,10 @@ fi
 
 touch /var/log/nextcloud-installer.log
 
+echo "Nextcloud installer for Debian 11/12 - $ver (www.marcinwilk.eu) started." >> $insl
+date >> $insl
+echo "---------------------------------------------------------------------------" >> $insl
+
 if [ -z "$lang" ]
 then
 	echo "No custom language argument used." >> $insl
@@ -389,7 +421,7 @@ mp2=$( cat /root/superadminpass )
 echo "Updating OS."
 apt-get update >> $insl && apt-get upgrade -y >> $insl && apt-get autoremove -y >> $insl
 
-if [ $lang = "pl" ]
+if [ "$lang" = "pl" ]
 then
 	apt-get install -y task-polish >> $insl
 	timedatectl set-timezone Europe/Warsaw >> $insl
@@ -397,10 +429,20 @@ then
 fi
 
 echo "Installing standard packages. It may take some time - be patient."
-apt-get install -y git lbzip2 unzip zip lsb-release locales-all rsync wget curl sed screen gawk mc sudo net-tools ethtool vim nano ufw apt-transport-https ca-certificates ntp software-properties-common miniupnpc >> $insl
+apt-get install -y git lbzip2 unzip zip lsb-release locales-all rsync wget curl sed screen gawk mc sudo net-tools ethtool vim nano ufw apt-transport-https ca-certificates software-properties-common miniupnpc >> $insl
 yes | sudo DEBIAN_FRONTEND=noninteractive apt-get -yqq install ddclient  >> $insl
-systemctl enable ntp >> $insl
-systemctl restart ntp >> $insl
+
+deb12=$( sudo cat /etc/debian_version | awk -F '.' '{print $1}' )
+if [ "$deb12" = "12" ]
+then
+	apt-get install -y systemd-timesyncd >> $insl
+	systemctl enable systemd-timesyncd >> $insl
+	systemctl restart systemd-timesyncd >> $insl
+else
+	apt-get install -y ntp >> $insl
+	systemctl enable ntp >> $insl
+	systemctl restart ntp >> $insl
+fi
 
 echo "Installing web server with PHP."
 curl -sSLo /usr/share/keyrings/deb.sury.org-php.gpg https://packages.sury.org/php/apt.gpg >> $insl
@@ -655,6 +697,7 @@ apt-get install -y python3-certbot-apache >> $insl
 mkdir /var/www/nextcloud
 mkdir /var/www/nextcloud/data
 # wget -q https://download.nextcloud.com/server/releases/latest.tar.bz2 >> $insl
+mv latest.zip old.latest.zip >> $insl
 wget -q https://download.nextcloud.com/server/releases/latest.zip >> $insl
 #tar -xjf latest.tar.bz2 -C /var/www/ >> $insl
 unzip -q latest.zip -d /var/www >> $insl
@@ -680,7 +723,7 @@ sudo -u www-data php8.2 /var/www/nextcloud/occ maintenance:install --database \
 "mysql" --database-name "nextdrive"  --database-user "nextcloud" --database-pass \
 "$mp" --admin-user "SuperAdmin" --admin-pass "$mp2" >> $insl
 
-if [ $lang = "pl" ]
+if [ "$lang" = "pl" ]
 then
 	# Adding default language and locales to pl_PL and setting up email sending
 	#  'default_language' => 'pl',
@@ -862,6 +905,7 @@ else
 	https://$dm"
 fi
 
+echo "Try to use httpS (there are known Nextcloud problems with Firefox without SSL."
 echo ""
 echo -e "Here are the important passwords, \e[1;31mbackup them!!!\e[39;0m"
 echo "---------------------------------------------------------------------------"
@@ -884,6 +928,7 @@ rm -rf /opt/latest.tar.bz2
 rm -rf /opt/localhost.crt
 rm -rf /opt/localhost.key
 rm -rf /opt/open_ssl.conf
+apt-get autoremove -y >> $insl
 systemctl restart apache2
 touch /var/local/nextcloud-installer.ver
 echo "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)" >> /var/local/nextcloud-installer.ver
