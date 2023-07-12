@@ -11,7 +11,7 @@
 # To use it just download it, make it executable and start with this command:
 # sudo sh -c "wget -q https://github.com/nicrame/Linux-Scripts/raw/master/nextcloud-debian-ins.sh && chmod +x nextcloud-debian-ins.sh && ./nextcloud-debian-ins.sh"
 # You may also add specific arguments (lang, mail, dns) that will be used, by adding them to command above:
-# sudo sh -c "wget -q https://github.com/nicrame/Linux-Scripts/raw/master/nextcloud-debian-ins.sh && chmod +x nextcloud-debian-ins.sh && ./nextcloud-debian-ins.sh -lang=pl -mail=my@email.com dm=domain.com"
+# sudo sh -c "wget -q https://github.com/nicrame/Linux-Scripts/raw/master/nextcloud-debian-ins.sh && chmod +x nextcloud-debian-ins.sh && ./nextcloud-debian-ins.sh -lang=pl -mail=my@email.com -dm=domain.com"
 # -lang (for language) argument will instal additional packages specific for choosed language and setup best matching timezone setting.
 # Currently supported languages are: pl (default value is empty).
 # -mail argument is for information about Your email address, that will be presented to let's encrypt, so you'll be informed if domain name SSL certificate couldn't be refreshed (default value is empty).
@@ -38,6 +38,8 @@
 # 1. You use it at your own risk. Author is not responsible for any damage made with that script.
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
+# V 1.5.5 - 12.07.2023
+# - Better description of arguments use on error.
 # V 1.5.4 - 07.07.2023
 # - Fixed some logical problem
 # - Add support for Debian 12
@@ -100,7 +102,7 @@ while [ "$#" -gt 0 ]; do
         -lang=*) lang="${1#*=}" ;;
         -mail=*) mail="${1#*=}" ;;
 		-dm=*) dm="${1#*=}" ;;
-        *) echo "Unknown parameter: $1" >&2; echo "Remember to add argumen after equals sign."; echo -e "Eg. \e[1;32m-\e[39;0mmail\e[1;32m=\e[39;0mmail@example.com"; exit 1 ;;
+        *) echo "Unknown parameter: $1" >&2; echo "Remember to add one, or more arguments after equals sign."; echo -e "Eg. \e[1;32m-\e[39;0mmail\e[1;32m=\e[39;0mmail@example.com \e[1;32m-\e[39;0mlang\e[1;32m=\e[39;0mpl \e[1;32m-\e[39;0mdm\e[1;32m=\e[39;0mdomain.com"; exit 1 ;;
     esac
     shift
 done
