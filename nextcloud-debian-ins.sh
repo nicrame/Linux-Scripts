@@ -10,19 +10,20 @@
 # Also new service for Nextcloud cron is generated that starts every 5 minutes.
 # To use it just download it, make it executable and start with this command:
 # sudo sh -c "wget -q https://github.com/nicrame/Linux-Scripts/raw/master/nextcloud-debian-ins.sh && chmod +x nextcloud-debian-ins.sh && ./nextcloud-debian-ins.sh"
-# You may also add specific arguments (lang, mail, dns) that will be used, by adding them to command above:
-# sudo sh -c "wget -q https://github.com/nicrame/Linux-Scripts/raw/master/nextcloud-debian-ins.sh && chmod +x nextcloud-debian-ins.sh && ./nextcloud-debian-ins.sh -lang=pl -mail=my@email.com -dm=domain.com"
-# -lang (for language) argument will instal additional packages specific for choosed language and setup best matching timezone setting.
-# Currently supported languages are: pl (default value is empty).
-# -mail argument is for information about Your email address, that will be presented to let's encrypt, so you'll be informed if domain name SSL certificate couldn't be refreshed (default value is empty).
-# -dm argument is used when you got (already prepared and configured) domain name, it will be configured for Nextcloud server and Let's encrypt SSL (default value is empty).
+# You may also add specific variables (lang, mail, dns) that will be used, by adding them to command above:
+# sudo sh -c "wget -q https://github.com/nicrame/Linux-Scripts/raw/master/nextcloud-debian-ins.sh && chmod +x nextcloud-debian-ins.sh && ./nextcloud-debian-ins.sh -lang=pl -mail=my@email.com -dm=domain.com -nv=24"
+# -lang (for language) variable will instal additional packages specific for choosed language and setup best matching timezone setting.
+# Currently supported languages are: none, pl (default value is none/empty that will You OS language).
+# -mail variable is for information about Your email address, that will be presented to let's encrypt, so you'll be informed if domain name SSL certificate couldn't be refreshed (default value is empty).
+# -dm variable is used when you got (already prepared and configured) domain name, it will be configured for Nextcloud server and Let's encrypt SSL (default value is empty).
+# -nv variable allows You to choose older version to install, supported version are: 24, 25, 26, empty (it will install newest, currently v27)
 #
 # After install You may use Your web browser to access Nextcloud using local IP address,
 # or domain name that You have configured before (DNS setting, router configuration should be done earlier). 
 # Both HTTP and HTTPS protocols are enabled by default (localhost certificate is generated
-# bu default, and domain certificate with Let's encrypt if You use add it as command argument).
+# bu default, and domain certificate with Let's encrypt if You use add it as command variable).
 #
-# It was tested with Nextcloud v25, v26, v27
+# It was tested with Nextcloud v24, v25, v26, v27
 # 
 # In case of problems, LOG output is generated at /var/log/nextcloud-installer.log.
 # Attach it if You want to report errors.
@@ -38,8 +39,12 @@
 # 1. You use it at your own risk. Author is not responsible for any damage made with that script.
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
+# V 1.6 - 03.08.2023
+# - New variable that allows installing older version of Nextcloud (users reported problems with NC27).
+# - The script rename itself after finished work (so installer command always refer to newest version).
+# - Script is prepared now for few future updates (up to Nextcloud v28).
 # V 1.5.5 - 12.07.2023
-# - Better description of arguments use on error.
+# - Better description of variables use on error.
 # V 1.5.4 - 07.07.2023
 # - Fixed some logical problem
 # - Add support for Debian 12
@@ -57,7 +62,7 @@
 # - use PHP version 8.2
 # - install ddclient (dynamic DNS client - https://ddclient.net/)
 # - install miniupnpc ans start it for port 80 and 443 to open ports (it should be unncessary)
-# - added more arguments to use (language, e_mail)
+# - added more variables to use (language, e_mail)
 # - installer is now creating file with it's version number for future upgrades
 # - installer detects if older versions of script were used, and in the next release it will upgrade everything (nextcloud included)
 # V 1.4.3 - 24.02.2023
@@ -74,7 +79,7 @@
 # V 1.2 - 23.01.2023
 # - some performance fixes (better support for large files)
 # V 1.1 - 04.08.2022
-# - added support for adding domain name as command line argument (with let's ecnrypt support)
+# - added support for adding domain name as command line variable (with let's ecnrypt support)
 # - added crontab job for certbot (Let's encrypt) and some more description
 # V 1.0 - 20.06.2022
 # - initial version based on private install script (for EL)
@@ -82,19 +87,21 @@
 # Future plans:
 # - add High Performance Backend (HPB) for Nextcloud (Push Service) 
 # Currently the way it have to be configured when installing is so unpleasent that this is no go for ordinary users,
-# it is also can't support dynamic IP's so it's just useless at some enviroments.
+# also it don't support dynamic IP's, so it's just useless at some enviroments.
 
 export LC_ALL=C
 
-ver=1.5
+ver=1.6
 cpu=$( uname -m )
 user=$( whoami )
 debv=$( cat /etc/debian_version )
 addr=$( hostname -I )
 addr1=$( hostname -I | awk '{print $1}' )
+cdir=$( pwd )
 lang=""
 mail=""
 dm=""
+nv=""
 insl=/var/log/nextcloud-installer.log
 
 while [ "$#" -gt 0 ]; do
@@ -102,7 +109,8 @@ while [ "$#" -gt 0 ]; do
         -lang=*) lang="${1#*=}" ;;
         -mail=*) mail="${1#*=}" ;;
 		-dm=*) dm="${1#*=}" ;;
-        *) echo "Unknown parameter: $1" >&2; echo "Remember to add one, or more arguments after equals sign."; echo -e "Eg. \e[1;32m-\e[39;0mmail\e[1;32m=\e[39;0mmail@example.com \e[1;32m-\e[39;0mlang\e[1;32m=\e[39;0mpl \e[1;32m-\e[39;0mdm\e[1;32m=\e[39;0mdomain.com"; exit 1 ;;
+		-nv=*) nv="${1#*=}" ;;
+        *) echo "Unknown parameter: $1" >&2; echo "Remember to add one, or more variables after equals sign."; echo -e "Eg. \e[1;32m-\e[39;0mmail\e[1;32m=\e[39;0mmail@example.com \e[1;32m-\e[39;0mlang\e[1;32m=\e[39;0mpl \e[1;32m-\e[39;0mdm\e[1;32m=\e[39;0mdomain.com \e[1;32m-\e[39;0mnv\e[1;32m=\e[39;024"; exit 1 ;;
     esac
     shift
 done
@@ -141,13 +149,179 @@ then
         lang=$(echo $pverr2 | awk -F'[ =]' '/lang/ {print $4}')
         mail=$(echo $pverr2 | awk -F'[ =]' '/mail/ {print $6}')
         dm=$(echo $pverr2 | awk -F'[ =]' '/dm/ {print $8}')
+		nv=$(echo $pverr2 | awk -F'[ =]' '/nv/ {print $10}')
 		if [ "$pver" = "1.5" ]
 		then
-			echo "Detected same version already installed." >> $insl
+			echo "Detected previous version installer." >> $insl
 			echo "$pverr1" >> $insl
 			echo "$pverr2" >> $insl
-			echo "Same version already installed."
-			echo "Nothing to do."
+			echo "Version 1.5 has been used previosly."
+			echo "Doing some update for Nextcloud only."
+			if [ "$nv" = "24" ]
+			then
+				echo "Older version of Nextcloud configured, skipping updates and exit."
+				echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
+				mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
+				unset LC_ALL
+				exit 0
+			fi
+			if [ "$nv" = "25" ]
+			then
+				echo "Older version of Nextcloud configured, skipping updates and exit."
+				echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
+				mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
+				unset LC_ALL
+				exit 0
+			fi
+			if [ "$nv" = "26" ]
+			then
+				echo "Older version of Nextcloud configured, skipping updates and exit."
+				echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
+				mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
+				unset LC_ALL
+				exit 0
+			fi
+			if [ "$nv" = "27" ]
+			then
+				echo "Older version of Nextcloud configured, skipping updates and exit."
+				echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
+				mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
+				unset LC_ALL
+				exit 0
+			fi
+			unset ncver
+			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+			if [ "$ncver" = "26" ]
+			then
+				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			fi
+			unset ncver
+			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+			if [ "$ncver" = "26" ]
+			then
+				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			fi
+			unset ncver
+			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+			if [ "$ncver" = "26" ]
+			then
+				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			fi
+			unset ncver
+			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+			if [ "$ncver" = "27" ]
+			then
+				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			fi
+			unset ncver
+			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+			if [ "$ncver" = "27" ]
+			then
+				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			fi
+			unset ncver
+			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+			if [ "$ncver" = "27" ]
+			then
+				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			fi
+			unset ncver
+			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+			if [ "$ncver" = "28" ]
+			then
+				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			fi
+			unset ncver
+			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+			if [ "$ncver" = "28" ]
+			then
+				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			fi
+			unset ncver
+			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+			if [ "$ncver" = "28" ]
+			then
+				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			fi
+			exit 0
+		fi
+		if [ "$pver" = "1.6" ]
+		then
+			echo "Detected same version already used." >> $insl
+			echo "$pverr1" >> $insl
+			echo "$pverr2" >> $insl
+			echo "Same version already used."
+			if [ "$nv" = "24" ]
+			then
+				echo "Older version of Nextcloud configured, skipping updates and exit."
+				echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
+				mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
+				unset LC_ALL
+				exit 0
+			fi
+			if [ "$nv" = "25" ]
+			then
+				echo "Older version of Nextcloud configured, skipping updates and exit."
+				echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
+				mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
+				unset LC_ALL
+				exit 0
+			fi
+			if [ "$nv" = "26" ]
+			then
+				echo "Older version of Nextcloud configured, skipping updates and exit."
+				echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
+				mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
+				unset LC_ALL
+				exit 0
+			fi
+			if [ "$nv" = "27" ]
+			then
+				echo "Older version of Nextcloud configured, skipping updates and exit."
+				echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
+				mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
+				unset LC_ALL
+				exit 0
+			fi
+			echo "Doing some update for Nextcloud only."
+			unset ncver
+			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+			if [ "$ncver" = "27" ]
+			then
+				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			fi
+			unset ncver
+			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+			if [ "$ncver" = "27" ]
+			then
+				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			fi
+			unset ncver
+			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+			if [ "$ncver" = "27" ]
+			then
+				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			fi
+			unset ncver
+			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+			if [ "$ncver" = "28" ]
+			then
+				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			fi
+			unset ncver
+			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+			if [ "$ncver" = "28" ]
+			then
+				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			fi
+			unset ncver
+			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+			if [ "$ncver" = "28" ]
+			then
+				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			fi
+			mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
+			unset LC_ALL
 			exit 0
 		fi
 	else
@@ -225,102 +399,102 @@ exit 0" >> /etc/rc.local
 		echo "Upgrading Nextcloud." >> $insl
 		echo "Upgrading Nextcloud."
 		echo "Checking currently installed version." >> $insl
-		sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version >> $insl
-		ncver=$( sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		sudo -u www-data php /var/www/nextcloud/occ config:system:get version >> $insl
+		ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 		if [ "$ncver" = "24" ]
 		then
-			sudo -u www-data php8.1 /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 		fi
 		unset ncver
-		ncver=$( sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 		if [ "$ncver" = "24" ]
 		then
-			sudo -u www-data php8.1 /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 		fi
 		unset ncver
-		ncver=$( sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 		if [ "$ncver" = "24" ]
 		then
-			sudo -u www-data php8.1 /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 		fi
 		unset ncver
-		ncver=$( sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 		if [ "$ncver" = "24" ]
 		then
-			sudo -u www-data php8.1 /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 		fi
 		unset ncver
-		ncver=$( sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 		if [ "$ncver" = "25" ]
 		then
-			sudo -u www-data php8.1 /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 		fi
 		unset ncver
-		ncver=$( sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 		if [ "$ncver" = "25" ]
 		then
-			sudo -u www-data php8.1 /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 		fi
 		unset ncver
-		ncver=$( sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 		if [ "$ncver" = "25" ]
 		then
-			sudo -u www-data php8.1 /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 		fi
 		unset ncver
-		ncver=$( sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 		if [ "$ncver" = "25" ]
 		then
-			sudo -u www-data php8.1 /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 		fi
 		unset ncver
-		ncver=$( sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 		if [ "$ncver" = "26" ]
 		then
-			sudo -u www-data php8.1 /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 		fi
 		unset ncver
-		ncver=$( sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 		if [ "$ncver" = "26" ]
 		then
-			sudo -u www-data php8.1 /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 		fi
 		unset ncver
-		ncver=$( sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 		if [ "$ncver" = "26" ]
 		then
-			sudo -u www-data php8.1 /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 		fi
 		unset ncver
-		ncver=$( sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 		if [ "$ncver" = "26" ]
 		then
-			sudo -u www-data php8.1 /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 		fi
 		echo ""
 		echo ""
 		echo "Nextcloud upgraded to version:" >> $insl
 		echo "Nextcloud upgraded to version:"
-		sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version >> $insl
-		sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:get version
+		sudo -u www-data php /var/www/nextcloud/occ config:system:get version >> $insl
+		sudo -u www-data php /var/www/nextcloud/occ config:system:get version
 		echo "Adding some more Nextcloud tweaks."
-		sudo -u www-data php8.1 /var/www/nextcloud/occ maintenance:repair >> $insl
+		sudo -u www-data php /var/www/nextcloud/occ maintenance:repair >> $insl
 		echo ""
 		sed -i "/installed' => true,/a\ \ 'htaccess.RewriteBase' => '/'," /var/www/nextcloud/config/config.php
-		sudo -u www-data php8.1 /var/www/nextcloud/occ maintenance:update:htaccess >> $insl
-		sudo -u www-data php8.1 /var/www/nextcloud/occ db:add-missing-indices >> $insl
-		sudo -u www-data php8.1 /var/www/nextcloud/occ db:convert-filecache-bigint --no-interaction >> $insl
-		sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:set ALLOW_SELF_SIGNED --value="true" >> $insl
-		sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:set enable_previews --value="true" >> $insl
-		sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:set preview_max_memory --value="512" >> $insl
-		sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:set preview_max_x --value="12288" >> $insl
-		sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:set preview_max_y --value="6912" >> $insl
-		sudo -u www-data php8.1 /var/www/nextcloud/occ config:system:set auth.bruteforce.protection.enabled --value="true" >> $insl
-		sudo -u www-data php8.1 /var/www/nextcloud/occ app:install twofactor_totp >> $insl
-		sudo -u www-data php8.1 /var/www/nextcloud/occ app:enable twofactor_totp >> $insl
-		sudo -u www-data php8.1 /var/www/nextcloud/occ app:install twofactor_webauthn >> $insl
-		sudo -u www-data php8.1 /var/www/nextcloud/occ app:enable twofactor_webauthn >> $insl
-		sudo -u www-data php8.1 /var/www/nextcloud/occ config:app:set files max_chunk_size --value="20971520" >> $insl
+		sudo -u www-data php /var/www/nextcloud/occ maintenance:update:htaccess >> $insl
+		sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices >> $insl
+		sudo -u www-data php /var/www/nextcloud/occ db:convert-filecache-bigint --no-interaction >> $insl
+		sudo -u www-data php /var/www/nextcloud/occ config:system:set ALLOW_SELF_SIGNED --value="true" >> $insl
+		sudo -u www-data php /var/www/nextcloud/occ config:system:set enable_previews --value="true" >> $insl
+		sudo -u www-data php /var/www/nextcloud/occ config:system:set preview_max_memory --value="512" >> $insl
+		sudo -u www-data php /var/www/nextcloud/occ config:system:set preview_max_x --value="12288" >> $insl
+		sudo -u www-data php /var/www/nextcloud/occ config:system:set preview_max_y --value="6912" >> $insl
+		sudo -u www-data php /var/www/nextcloud/occ config:system:set auth.bruteforce.protection.enabled --value="true" >> $insl
+		sudo -u www-data php /var/www/nextcloud/occ app:install twofactor_totp >> $insl
+		sudo -u www-data php /var/www/nextcloud/occ app:enable twofactor_totp >> $insl
+		sudo -u www-data php /var/www/nextcloud/occ app:install twofactor_webauthn >> $insl
+		sudo -u www-data php /var/www/nextcloud/occ app:enable twofactor_webauthn >> $insl
+		sudo -u www-data php /var/www/nextcloud/occ config:app:set files max_chunk_size --value="20971520" >> $insl
 		touch /var/local/nextcloud-installer.ver
 		echo "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)" >> /var/local/nextcloud-installer.ver
 		echo "pver=$ver lang=$lang mail=$mail dm=$dm" >> /var/local/nextcloud-installer.ver
@@ -328,6 +502,8 @@ exit 0" >> /etc/rc.local
 		apt-get remove -y php8.1 php8.1-* >> $insl
 		echo "Upgrade process finished."
 		echo "Job done!"
+		mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
+		unset LC_ALL
 		exit 0
 	fi
 else
@@ -342,16 +518,17 @@ echo "This script will install Nextcloud service."
 echo "Additional packages will be installed too:"
 echo "Apache, PHP, MariaDB, ddclient and Let's encrypt."
 echo ""
-echo -e "You may add some arguments like -lang, -mail and -dm"
-echo "Where lang is for language (empty, pl)"
-echo "-mail is for e_mail address, and -dm for domain name"
-echo -e "that should be \e[1;32m*preconfigured\e[39;0m."
+echo -e "You may add some variables like -lang=, -mail=, -dm= and nv="
+echo "Where lang is for language (empty is OS default, pl)"
+echo "-mail is for e_mail address of admin, -dm for domain name,"
+echo -e "that should be \e[1;32m*preconfigured\e[39;0m,"
+echo "and -nv for installing older versions (24, 25, 26 & 27, empty means latest)."
 echo ""
-echo "./nextcloud-debian-ins.sh -lang=pl -mail=my@email.com -dm=mydomain.com"
+echo "./nextcloud-debian-ins.sh -lang=pl -mail=my@email.com -dm=mydomain.com -nv=24"
 echo ""
 echo "You may now cancel this script with CRTL+C,"
 echo "or wait 35 seconds so it will install without"
-echo "additional arguments."
+echo "additional variables."
 echo ""
 echo -e "\e[1;32m*\e[39;0m - domain and router must be already configured to work with this server."
 sleep 36
@@ -392,45 +569,57 @@ echo "--------------------------------------------------------------------------
 
 if [ -z "$lang" ]
 then
-	echo "No custom language argument used." >> $insl
+	echo "No custom language variable used." >> $insl
 else
-	echo -e "Using language argument: \e[1;32m$lang\e[39;0m"
-	echo "Using language argument: $lang" >> $insl
+	echo -e "Using language variable: \e[1;32m$lang\e[39;0m"
+	echo "Using language variable: $lang" >> $insl
 fi
 
 if [ -z "$mail" ]
 then
-	echo "No e_mail argument used." >> $insl
+	echo "No e_mail variable used." >> $insl
 else
-	echo -e "Using e_mail argument: \e[1;32m$mail\e[39;0m"
-	echo "Using e_mail argument: $mail" >> $insl
+	echo -e "Using e_mail variable: \e[1;32m$mail\e[39;0m"
+	echo "Using e_mail variable: $mail" >> $insl
 fi
 
 if [ -z "$dm" ]
 then
-	echo "No custom domain name argument used." >> $insl
+	echo "No custom domain name variable used." >> $insl
 else
-	echo -e "Using domain argument: \e[1;32m$dm\e[39;0m"
-	echo "Using domain argument: $dm" >> $insl
+	echo -e "Using domain variable: \e[1;32m$dm\e[39;0m"
+	echo "Using domain variable: $dm" >> $insl
+fi
+
+if [ -z "$nv" ]
+then
+	echo "No older version variable used." >> $insl
+else
+	echo -e "Using version variable: \e[1;32m$nv\e[39;0m"
+	echo "Using version variable: $nv" >> $insl
 fi
 
 # Generating passwords for database and SuperAdmin user.
+echo "!!!!!!! Generating passwords for database and SuperAdmin user" >> $insl
 openssl rand -base64 30 > /root/dbpass
 openssl rand -base64 30 > /root/superadminpass
 mp=$( cat /root/dbpass )
 mp2=$( cat /root/superadminpass )
 
 echo "Updating OS."
+echo "!!!!!!! Updating OS" >> $insl
 apt-get update >> $insl && apt-get upgrade -y >> $insl && apt-get autoremove -y >> $insl
 
 if [ "$lang" = "pl" ]
 then
+	echo "!!!!!!! Installing language packages - Polish" >> $insl
 	apt-get install -y task-polish >> $insl
 	timedatectl set-timezone Europe/Warsaw >> $insl
 	localectl set-locale LANG=pl_PL.UTF-8 >> $insl
 fi
 
 echo "Installing standard packages. It may take some time - be patient."
+echo "!!!!!!! Installing standard packages" >> $insl
 apt-get install -y git lbzip2 unzip zip lsb-release locales-all rsync wget curl sed screen gawk mc sudo net-tools ethtool vim nano ufw apt-transport-https ca-certificates software-properties-common miniupnpc >> $insl
 yes | sudo DEBIAN_FRONTEND=noninteractive apt-get -yqq install ddclient  >> $insl
 
@@ -447,18 +636,41 @@ else
 fi
 
 echo "Installing web server with PHP."
+echo "!!!!!!! Installing web server with PHP" >> $insl
 curl -sSLo /usr/share/keyrings/deb.sury.org-php.gpg https://packages.sury.org/php/apt.gpg >> $insl
 sh -c 'echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.sury.org/php/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/php.list' >> $insl
 apt-get update >> $insl
 apt-get upgrade -y >> $insl
 apt-get install -y apache2 apache2-utils >> $insl
-apt-get install -y php8.2 libapache2-mod-php8.2 libmagickcore-6.q16-6-extra php8.2-mysql php8.2-common php8.2-redis php8.2-dom php8.2-curl php8.2-exif php8.2-fileinfo php8.2-bcmath php8.2-gmp php8.2-imagick php8.2-mbstring php8.2-xml php8.2-zip php8.2-iconv php8.2-intl php8.2-simplexml php8.2-xmlreader php8.2-ftp php8.2-ssh2 php8.2-sockets php8.2-gd php8.2-imap php8.2-soap php8.2-xmlrpc php8.2-apcu php8.2-dev php8.2-cli >> $insl
+
+if [ "$nv" = "24" ]; then
+	echo "Installing PHP version 7.x for Nextcloud v24."
+	echo "!!!!!!! Installing PHP version 7.x for Nextcloud v24" >> $insl
+	apt-get install -y php7.4 libapache2-mod-php7.4 libmagickcore-6.q16-6-extra php7.4-mysql php7.4-common php7.4-redis php7.4-dom php7.4-curl php7.4-exif php7.4-fileinfo php7.4-bcmath php7.4-gmp php7.4-imagick php7.4-mbstring php7.4-xml php7.4-zip php7.4-iconv php7.4-intl php7.4-simplexml php7.4-xmlreader php7.4-ftp php7.4-ssh2 php7.4-sockets php7.4-gd php7.4-imap php7.4-soap php7.4-xmlrpc php7.4-apcu php7.4-dev php7.4-cli >> $insl
+elif [ "$nv" = "25" ]; then
+	echo "Installing PHP version 8.1 for Nextcloud v25."
+	echo "!!!!!!! Installing PHP version 8.1 for Nextcloud v25" >> $insl
+	apt-get install -y php8.1 libapache2-mod-php8.1 libmagickcore-6.q16-6-extra php8.1-mysql php8.1-common php8.1-redis php8.1-dom php8.1-curl php8.1-exif php8.1-fileinfo php8.1-bcmath php8.1-gmp php8.1-imagick php8.1-mbstring php8.1-xml php8.1-zip php8.1-iconv php8.1-intl php8.1-simplexml php8.1-xmlreader php8.1-ftp php8.1-ssh2 php8.1-sockets php8.1-gd php8.1-imap php8.1-soap php8.1-xmlrpc php8.1-apcu php8.1-dev php8.1-cli >> $insl
+elif [ "$nv" = "26" ]; then
+	echo "Installing PHP version 8.1 for Nextcloud v26."
+	echo "!!!!!!! Installing PHP version 8.1 for Nextcloud v26" >> $insl
+	apt-get install -y php8.1 libapache2-mod-php8.1 libmagickcore-6.q16-6-extra php8.1-mysql php8.1-common php8.1-redis php8.1-dom php8.1-curl php8.1-exif php8.1-fileinfo php8.1-bcmath php8.1-gmp php8.1-imagick php8.1-mbstring php8.1-xml php8.1-zip php8.1-iconv php8.1-intl php8.1-simplexml php8.1-xmlreader php8.1-ftp php8.1-ssh2 php8.1-sockets php8.1-gd php8.1-imap php8.1-soap php8.1-xmlrpc php8.1-apcu php8.1-dev php8.1-cli >> $insl
+elif [ "$nv" = "27" ]; then
+	echo "Installing PHP version 8.2 for Nextcloud v27."
+	echo "!!!!!!! Installing PHP version 8.2 for Nextcloud v27" >> $insl
+	apt-get install -y php8.2 libapache2-mod-php8.2 libmagickcore-6.q16-6-extra php8.2-mysql php8.2-common php8.2-redis php8.2-dom php8.2-curl php8.2-exif php8.2-fileinfo php8.2-bcmath php8.2-gmp php8.2-imagick php8.2-mbstring php8.2-xml php8.2-zip php8.2-iconv php8.2-intl php8.2-simplexml php8.2-xmlreader php8.2-ftp php8.2-ssh2 php8.2-sockets php8.2-gd php8.2-imap php8.2-soap php8.2-xmlrpc php8.2-apcu php8.2-dev php8.2-cli >> $insl
+elif [ -z "$nv" ]; then
+	echo "Installing newest PHP version for Nextcloud."
+	echo "!!!!!!! Installing newest PHP version for Nextcloud" >> $insl
+	apt-get install -y php8.2 libapache2-mod-php8.2 libmagickcore-6.q16-6-extra php8.2-mysql php8.2-common php8.2-redis php8.2-dom php8.2-curl php8.2-exif php8.2-fileinfo php8.2-bcmath php8.2-gmp php8.2-imagick php8.2-mbstring php8.2-xml php8.2-zip php8.2-iconv php8.2-intl php8.2-simplexml php8.2-xmlreader php8.2-ftp php8.2-ssh2 php8.2-sockets php8.2-gd php8.2-imap php8.2-soap php8.2-xmlrpc php8.2-apcu php8.2-dev php8.2-cli >> $insl
+fi
+
 systemctl restart apache2 >> $insl
 systemctl enable apache2 >> $insl
 a2dissite 000-default >> $insl
 
 echo "Setting up firewall"
-echo "Setting up firewall" >> $insl
+echo "!!!!!!! Setting up firewall" >> $insl
 ufw default allow  >> $insl
 ufw --force enable >> $insl
 ufw allow OpenSSH >> $insl
@@ -482,7 +694,8 @@ php info.php >> $insl
 rm -rf test.php >> $insl
 rm -rf info.php >> $insl
 
-echo "Installing cache (redis) and multimedia (ffmpeg) packages." 
+echo "Installing cache (redis) and multimedia (ffmpeg) packages."
+echo "!!!!!!! Installing cache (redis) and multimedia (ffmpeg) packages" >> $insl
 # Tweaks for redis first
 sysctl vm.overcommit_memory=1 >> $insl
 echo "vm.overcommit_memory = 1" >> /etc/sysctl.conf
@@ -515,40 +728,179 @@ systemctl restart redis >> $insl
 ## ffmpeg installing - used for generating thumbnails of video files
 apt-get install -y ffmpeg >> $insl
 
-#Enable APCu command line support
-echo 'apc.enable_cli=1' >> /etc/php/8.2/cli/conf.d/20-apcu.ini
+echo "!!!!!!! Configuring PHP options" >> $insl
+if [ "$nv" = "24" ]; then
+	#Enable APCu command line support
+	echo 'apc.enable_cli=1' >> /etc/php/7.4/cli/conf.d/20-apcu.ini
 
-sed -i 's/\b128M\b/1024M/g' /etc/php/8.2/apache2/php.ini
-sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.2/apache2/php.ini
-sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.2/apache2/php.ini
-sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.2/apache2/php.ini
-sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.2/apache2/php.ini
-sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.2/apache2/php.ini
-sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.2/apache2/php.ini
-sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.2/apache2/php.ini
-sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.2/apache2/php.ini
-sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.2/apache2/php.ini
+	sed -i 's/\b128M\b/1024M/g' /etc/php/7.4/apache2/php.ini
+	sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/7.4/apache2/php.ini
+	sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/7.4/apache2/php.ini
+	sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/7.4/apache2/php.ini
+	sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/7.4/apache2/php.ini
+	sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/7.4/apache2/php.ini
+	sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/7.4/apache2/php.ini
+	sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/7.4/apache2/php.ini
+	sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/7.4/apache2/php.ini
+	sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/7.4/apache2/php.ini
 
-sed -i 's/\b128M\b/1024M/g' /etc/php/8.2/cli/php.ini
-sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.2/cli/php.ini
-sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.2/cli/php.ini
-sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.2/cli/php.ini
-sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.2/cli/php.ini
-sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.2/cli/php.ini
-sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.2/cli/php.ini
-sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.2/cli/php.ini
-sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.2/cli/php.ini
-sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.2/cli/php.ini
+	sed -i 's/\b128M\b/1024M/g' /etc/php/7.4/cli/php.ini
+	sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/7.4/cli/php.ini
+	sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/7.4/cli/php.ini
+	sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/7.4/cli/php.ini
+	sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/7.4/cli/php.ini
+	sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/7.4/cli/php.ini
+	sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/7.4/cli/php.ini
+	sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/7.4/cli/php.ini
+	sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/7.4/cli/php.ini
+	sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/7.4/cli/php.ini
 
-echo 'opcache.enable_cli=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-echo 'opcache.interned_strings_buffer=64' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-echo 'opcache.max_accelerated_files=20000' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-echo 'opcache.memory_consumption=256' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-echo 'opcache.save_comments=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-# echo 'opcache.revalidate_freq=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-echo 'opcache.enable=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-# echo 'opcache.jit=disable' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+	echo 'opcache.enable_cli=1' >> /etc/php/7.4/apache2/conf.d/10-opcache.ini
+	echo 'opcache.interned_strings_buffer=64' >> /etc/php/7.4/apache2/conf.d/10-opcache.ini
+	echo 'opcache.max_accelerated_files=20000' >> /etc/php/7.4/apache2/conf.d/10-opcache.ini
+	echo 'opcache.memory_consumption=256' >> /etc/php/7.4/apache2/conf.d/10-opcache.ini
+	echo 'opcache.save_comments=1' >> /etc/php/7.4/apache2/conf.d/10-opcache.ini
+	# echo 'opcache.revalidate_freq=1' >> /etc/php/7.4/apache2/conf.d/10-opcache.ini
+	echo 'opcache.enable=1' >> /etc/php/7.4/apache2/conf.d/10-opcache.ini
+	# echo 'opcache.jit=disable' >> /etc/php/7.4/apache2/conf.d/10-opcache.inifi
+elif [ "$nv" = "25" ]; then
+	#Enable APCu command line support
+	echo 'apc.enable_cli=1' >> /etc/php/8.1/cli/conf.d/20-apcu.ini
 
+	sed -i 's/\b128M\b/1024M/g' /etc/php/8.1/apache2/php.ini
+	sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.1/apache2/php.ini
+	sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.1/apache2/php.ini
+	sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.1/apache2/php.ini
+	sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.1/apache2/php.ini
+	sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.1/apache2/php.ini
+	sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.1/apache2/php.ini
+	sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.1/apache2/php.ini
+	sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.1/apache2/php.ini
+	sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.1/apache2/php.ini
+
+	sed -i 's/\b128M\b/1024M/g' /etc/php/8.1/cli/php.ini
+	sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.1/cli/php.ini
+	sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.1/cli/php.ini
+	sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.1/cli/php.ini
+	sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.1/cli/php.ini
+	sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.1/cli/php.ini
+	sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.1/cli/php.ini
+	sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.1/cli/php.ini
+	sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.1/cli/php.ini
+	sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.1/cli/php.ini
+
+	echo 'opcache.enable_cli=1' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
+	echo 'opcache.interned_strings_buffer=64' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
+	echo 'opcache.max_accelerated_files=20000' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
+	echo 'opcache.memory_consumption=256' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
+	echo 'opcache.save_comments=1' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
+	# echo 'opcache.revalidate_freq=1' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
+	echo 'opcache.enable=1' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
+	# echo 'opcache.jit=disable' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
+elif [ "$nv" = "26" ]; then
+	#Enable APCu command line support
+	echo 'apc.enable_cli=1' >> /etc/php/8.1/cli/conf.d/20-apcu.ini
+
+	sed -i 's/\b128M\b/1024M/g' /etc/php/8.1/apache2/php.ini
+	sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.1/apache2/php.ini
+	sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.1/apache2/php.ini
+	sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.1/apache2/php.ini
+	sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.1/apache2/php.ini
+	sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.1/apache2/php.ini
+	sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.1/apache2/php.ini
+	sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.1/apache2/php.ini
+	sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.1/apache2/php.ini
+	sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.1/apache2/php.ini
+
+	sed -i 's/\b128M\b/1024M/g' /etc/php/8.1/cli/php.ini
+	sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.1/cli/php.ini
+	sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.1/cli/php.ini
+	sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.1/cli/php.ini
+	sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.1/cli/php.ini
+	sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.1/cli/php.ini
+	sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.1/cli/php.ini
+	sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.1/cli/php.ini
+	sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.1/cli/php.ini
+	sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.1/cli/php.ini
+
+	echo 'opcache.enable_cli=1' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
+	echo 'opcache.interned_strings_buffer=64' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
+	echo 'opcache.max_accelerated_files=20000' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
+	echo 'opcache.memory_consumption=256' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
+	echo 'opcache.save_comments=1' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
+	# echo 'opcache.revalidate_freq=1' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
+	echo 'opcache.enable=1' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
+	# echo 'opcache.jit=disable' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
+elif [ "$nv" = "27" ]; then
+	#Enable APCu command line support
+	echo 'apc.enable_cli=1' >> /etc/php/8.2/cli/conf.d/20-apcu.ini
+
+	sed -i 's/\b128M\b/1024M/g' /etc/php/8.2/apache2/php.ini
+	sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.2/apache2/php.ini
+	sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.2/apache2/php.ini
+	sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.2/apache2/php.ini
+	sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.2/apache2/php.ini
+	sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.2/apache2/php.ini
+	sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.2/apache2/php.ini
+	sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.2/apache2/php.ini
+	sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.2/apache2/php.ini
+	sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.2/apache2/php.ini
+
+	sed -i 's/\b128M\b/1024M/g' /etc/php/8.2/cli/php.ini
+	sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.2/cli/php.ini
+	sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.2/cli/php.ini
+	sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.2/cli/php.ini
+	sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.2/cli/php.ini
+	sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.2/cli/php.ini
+	sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.2/cli/php.ini
+	sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.2/cli/php.ini
+	sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.2/cli/php.ini
+	sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.2/cli/php.ini
+
+	echo 'opcache.enable_cli=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+	echo 'opcache.interned_strings_buffer=64' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+	echo 'opcache.max_accelerated_files=20000' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+	echo 'opcache.memory_consumption=256' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+	echo 'opcache.save_comments=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+	# echo 'opcache.revalidate_freq=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+	echo 'opcache.enable=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+	# echo 'opcache.jit=disable' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+elif [ -z "$nv" ]; then
+	#Enable APCu command line support
+	echo 'apc.enable_cli=1' >> /etc/php/8.2/cli/conf.d/20-apcu.ini
+
+	sed -i 's/\b128M\b/1024M/g' /etc/php/8.2/apache2/php.ini
+	sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.2/apache2/php.ini
+	sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.2/apache2/php.ini
+	sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.2/apache2/php.ini
+	sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.2/apache2/php.ini
+	sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.2/apache2/php.ini
+	sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.2/apache2/php.ini
+	sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.2/apache2/php.ini
+	sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.2/apache2/php.ini
+	sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.2/apache2/php.ini
+
+	sed -i 's/\b128M\b/1024M/g' /etc/php/8.2/cli/php.ini
+	sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.2/cli/php.ini
+	sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.2/cli/php.ini
+	sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.2/cli/php.ini
+	sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.2/cli/php.ini
+	sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.2/cli/php.ini
+	sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.2/cli/php.ini
+	sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.2/cli/php.ini
+	sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.2/cli/php.ini
+	sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.2/cli/php.ini
+
+	echo 'opcache.enable_cli=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+	echo 'opcache.interned_strings_buffer=64' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+	echo 'opcache.max_accelerated_files=20000' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+	echo 'opcache.memory_consumption=256' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+	echo 'opcache.save_comments=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+	# echo 'opcache.revalidate_freq=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+	echo 'opcache.enable=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+	# echo 'opcache.jit=disable' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+fi
+echo "!!!!!!! Creating certificates for localhost and vhost" >> $insl
 # Creating certificate for localhost
 cd /opt/
 touch open_ssl.conf
@@ -642,6 +994,7 @@ a2enmod proxy >> $insl
 a2ensite nextcloud.conf >> $insl
 
 echo "Installing MariaDB database server."
+echo "!!!!!!! Installing MariaDB database server" >> $insl
 apt-get install -y mariadb-server >> $insl
 
 # Adding MariaDB options
@@ -696,18 +1049,40 @@ mysql -e "FLUSH PRIVILEGES" >> $insl
 apt-get install -y python3-certbot-apache >> $insl
 
 # Downloading and installing Nextcloud
+echo "!!!!!!! Downloading and installing Nextcloud" >> $insl
 mkdir /var/www/nextcloud
 mkdir /var/www/nextcloud/data
-# wget -q https://download.nextcloud.com/server/releases/latest.tar.bz2 >> $insl
-
 if [ -e latest.zip ]
 then
 	mv latest.zip old.latest.zip >> $insl
 fi
 
-wget -q https://download.nextcloud.com/server/releases/latest.zip >> $insl
-#tar -xjf latest.tar.bz2 -C /var/www/ >> $insl
-unzip -q latest.zip -d /var/www >> $insl
+if [ "$nv" = "24" ]; then
+	echo "Downloading and unpacking Nextcloud v$nv." >> $insl
+	wget -q https://download.nextcloud.com/server/releases/nextcloud-24.0.12.zip >> $insl
+	mv nextcloud-24.0.12.zip latest.zip >> $insl
+elif [ "$nv" = "25" ]; then
+	echo "Downloading and unpacking Nextcloud v$nv." >> $insl
+	wget -q https://download.nextcloud.com/server/releases/nextcloud-25.0.9.zip >> $insl
+	mv nextcloud-25.0.9.zip latest.zip >> $insl
+elif [ "$nv" = "26" ]; then
+	echo "Downloading and unpacking Nextcloud v$nv." >> $insl
+	wget -q https://download.nextcloud.com/server/releases/nextcloud-26.0.4.zip >> $insl
+	mv nextcloud-26.0.4.zip latest.zip >> $insl
+elif [ "$nv" = "27" ]; then
+	echo "Downloading and unpacking Nextcloud v$nv." >> $insl
+	wget -q https://download.nextcloud.com/server/releases/nextcloud-27.0.1.zip >> $insl
+	mv nextcloud-27.0.1.zip latest.zip >> $insl
+fi
+
+if [ -e latest.zip ]
+then
+	unzip -q latest.zip -d /var/www >> $insl
+else
+	wget -q https://download.nextcloud.com/server/releases/latest.zip >> $insl
+	unzip -q latest.zip -d /var/www >> $insl
+fi
+
 chown -R www-data:www-data /var/www/
 
 # Making Nextcloud preconfiguration
@@ -726,7 +1101,7 @@ echo '  "adminlogin"    => "SuperAdmin",' >> /var/www/nextcloud/config/autoconfi
 echo "  \"adminpass\"     => \"$mp2\"," >> /var/www/nextcloud/config/autoconfig.php
 echo ');' >> /var/www/nextcloud/config/autoconfig.php
 
-sudo -u www-data php8.2 /var/www/nextcloud/occ maintenance:install --database \
+sudo -u www-data php /var/www/nextcloud/occ maintenance:install --database \
 "mysql" --database-name "nextdrive"  --database-user "nextcloud" --database-pass \
 "$mp" --admin-user "SuperAdmin" --admin-pass "$mp2" >> $insl
 
@@ -735,9 +1110,9 @@ then
 	# Adding default language and locales to pl_PL and setting up email sending
 	#  'default_language' => 'pl',
 	#  'default_locale' => 'pl',
-	sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set default_language --value="pl" >> $insl
-	sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set default_locale --value="pl_PL" >> $insl
-	sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set default_phone_region --value="PL" >> $insl
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set default_language --value="pl" >> $insl
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set default_locale --value="pl_PL" >> $insl
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set default_phone_region --value="PL" >> $insl
 fi
 
 # Enabling Redis in config file - default cache engine now
@@ -750,40 +1125,40 @@ sed -i "/installed' => true,/a\ \ 'memcache.local' => '\\\OC\\\Memcache\\\Redis'
 sed -i "/installed' => true,/a\ \ 'simpleSignUpLink.shown' => false," /var/www/nextcloud/config/config.php
 
 # Command below should do nothing, but once in the past i needed that, so let it stay here...
-sudo -u www-data php8.2 /var/www/nextcloud/occ db:add-missing-indices >> $insl
+sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices >> $insl
 
 # Enabling plugins. Adding more trusted domains.
 # Preparing list of local IP addresses to add.
 hostname -I | xargs -n1 >> /root/ips.local
 
-</root/ips.local awk '{print "sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set trusted_domains " NR " --value=\x22" $1 "\x22"}' | xargs -L 1 -0  | bash;
-sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set trusted_domains 97 --value="127.0.0.1" >> $insl
-sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set trusted_domains 98 --value="nextdrive" >> $insl
-sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set trusted_domains 99 --value="nextcloud" >> $insl
-sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set ALLOW_SELF_SIGNED --value="true" >> $insl
-sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set enable_previews --value="true" >> $insl
-sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set preview_max_memory --value="512" >> $insl
-sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set preview_max_x --value="12288" >> $insl
-sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set preview_max_y --value="6912" >> $insl
-sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set auth.bruteforce.protection.enabled --value="true" >> $insl
+</root/ips.local awk '{print "sudo -u www-data php /var/www/nextcloud/occ config:system:set trusted_domains " NR " --value=\x22" $1 "\x22"}' | xargs -L 1 -0  | bash;
+sudo -u www-data php /var/www/nextcloud/occ config:system:set trusted_domains 97 --value="127.0.0.1" >> $insl
+sudo -u www-data php /var/www/nextcloud/occ config:system:set trusted_domains 98 --value="nextdrive" >> $insl
+sudo -u www-data php /var/www/nextcloud/occ config:system:set trusted_domains 99 --value="nextcloud" >> $insl
+sudo -u www-data php /var/www/nextcloud/occ config:system:set ALLOW_SELF_SIGNED --value="true" >> $insl
+sudo -u www-data php /var/www/nextcloud/occ config:system:set enable_previews --value="true" >> $insl
+sudo -u www-data php /var/www/nextcloud/occ config:system:set preview_max_memory --value="512" >> $insl
+sudo -u www-data php /var/www/nextcloud/occ config:system:set preview_max_x --value="12288" >> $insl
+sudo -u www-data php /var/www/nextcloud/occ config:system:set preview_max_y --value="6912" >> $insl
+sudo -u www-data php /var/www/nextcloud/occ config:system:set auth.bruteforce.protection.enabled --value="true" >> $insl
 mkdir /var/www/nextcloud/core/.null >> $insl
-sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set skeletondirectory --value="core/.null" >> $insl
-sudo -u www-data php8.2 /var/www/nextcloud/occ app:install contacts >> $insl
-sudo -u www-data php8.2 /var/www/nextcloud/occ app:install notes >> $insl
-sudo -u www-data php8.2 /var/www/nextcloud/occ app:install deck >> $insl
-# sudo -u www-data php8.2 /var/www/nextcloud/occ app:install spreed >> $insl
-sudo -u www-data php8.2 /var/www/nextcloud/occ app:install calendar >> $insl
-sudo -u www-data php8.2 /var/www/nextcloud/occ app:enable calendar >> $insl
-sudo -u www-data php8.2 /var/www/nextcloud/occ app:install files_rightclick >> $insl
-sudo -u www-data php8.2 /var/www/nextcloud/occ app:enable files_rightclick >> $insl
-sudo -u www-data php8.2 /var/www/nextcloud/occ app:disable updatenotification >> $insl
-sudo -u www-data php8.2 /var/www/nextcloud/occ app:enable tasks >> $insl
-sudo -u www-data php8.2 /var/www/nextcloud/occ app:enable groupfolders >> $insl
-sudo -u www-data php8.2 /var/www/nextcloud/occ app:install twofactor_totp >> $insl
-sudo -u www-data php8.2 /var/www/nextcloud/occ app:enable twofactor_totp >> $insl
-sudo -u www-data php8.2 /var/www/nextcloud/occ app:install twofactor_webauthn >> $insl
-sudo -u www-data php8.2 /var/www/nextcloud/occ app:enable twofactor_webauthn >> $insl
-sudo -u www-data php8.2 /var/www/nextcloud/occ config:app:set files max_chunk_size --value="20971520" >> $insl
+sudo -u www-data php /var/www/nextcloud/occ config:system:set skeletondirectory --value="core/.null" >> $insl
+sudo -u www-data php /var/www/nextcloud/occ app:install contacts >> $insl
+sudo -u www-data php /var/www/nextcloud/occ app:install notes >> $insl
+sudo -u www-data php /var/www/nextcloud/occ app:install deck >> $insl
+# sudo -u www-data php /var/www/nextcloud/occ app:install spreed >> $insl
+sudo -u www-data php /var/www/nextcloud/occ app:install calendar >> $insl
+sudo -u www-data php /var/www/nextcloud/occ app:enable calendar >> $insl
+sudo -u www-data php /var/www/nextcloud/occ app:install files_rightclick >> $insl
+sudo -u www-data php /var/www/nextcloud/occ app:enable files_rightclick >> $insl
+sudo -u www-data php /var/www/nextcloud/occ app:disable updatenotification >> $insl
+sudo -u www-data php /var/www/nextcloud/occ app:enable tasks >> $insl
+sudo -u www-data php /var/www/nextcloud/occ app:enable groupfolders >> $insl
+sudo -u www-data php /var/www/nextcloud/occ app:install twofactor_totp >> $insl
+sudo -u www-data php /var/www/nextcloud/occ app:enable twofactor_totp >> $insl
+sudo -u www-data php /var/www/nextcloud/occ app:install twofactor_webauthn >> $insl
+sudo -u www-data php /var/www/nextcloud/occ app:enable twofactor_webauthn >> $insl
+sudo -u www-data php /var/www/nextcloud/occ config:app:set files max_chunk_size --value="20971520" >> $insl
 
 # Below lines will give more data if something goes wrong!
 curl -I http://127.0.0.1/  >> $insl
@@ -794,9 +1169,9 @@ cat /var/www/nextcloud/data/nextcloud.log >> $insl
 
 systemctl stop apache2
 # Another lines that helped me in the past are here to stay...
-# sudo -u www-data php8.2 /var/www/nextcloud/occ maintenance:mode --on >> $insl
-sudo -u www-data php8.2 /var/www/nextcloud/occ db:convert-filecache-bigint --no-interaction >> $insl
-# sudo -u www-data php8.2 /var/www/nextcloud/occ maintenance:mode --off >> $insl
+# sudo -u www-data php /var/www/nextcloud/occ maintenance:mode --on >> $insl
+sudo -u www-data php /var/www/nextcloud/occ db:convert-filecache-bigint --no-interaction >> $insl
+# sudo -u www-data php /var/www/nextcloud/occ maintenance:mode --off >> $insl
 
 # Preparing cron service to run cron.php every 5 minute
 touch /etc/systemd/system/nextcloudcron.service
@@ -831,16 +1206,16 @@ systemctl restart apache2
 chown -R www-data:www-data /var/www/nextcloud
 chmod 775 /var/www/nextcloud
 
-sudo -u www-data php8.2 /var/www/nextcloud/occ maintenance:repair >> $insl
+sudo -u www-data php /var/www/nextcloud/occ maintenance:repair >> $insl
 
-sudo -u www-data php8.2 /var/www/nextcloud/occ files:scan-app-data >> $insl
-sudo -u www-data php8.2 /var/www/nextcloud/occ files:scan --all; >> $insl
-sudo -u www-data php8.2 /var/www/nextcloud/occ files:cleanup; >> $insl
+sudo -u www-data php /var/www/nextcloud/occ files:scan-app-data >> $insl
+sudo -u www-data php /var/www/nextcloud/occ files:scan --all; >> $insl
+sudo -u www-data php /var/www/nextcloud/occ files:cleanup; >> $insl
 # sudo -u www-data php /var/www/nextcloud/occ preview:generate-all -vvv
 
 # hide index.php from urls
 sed -i "/installed' => true,/a\ \ 'htaccess.RewriteBase' => '/'," /var/www/nextcloud/config/config.php
-sudo -u www-data php8.2 /var/www/nextcloud/occ maintenance:update:htaccess >> $insl
+sudo -u www-data php /var/www/nextcloud/occ maintenance:update:htaccess >> $insl
 
 echo "Using UPNP to open ports for now." >> $insl
 upnpc -e "Web Server HTTP" -a $addr1 80 80 TCP >> $insl 2>&1
@@ -851,7 +1226,8 @@ then
 	echo "Skipping additional domain configuration."
 else
 	echo "Configuring additional domain name."
-	sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set trusted_domains 96 --value="$dm" >> $insl
+	echo "!!!!!!! Configuring additional domain name" >> $insl
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set trusted_domains 96 --value="$dm" >> $insl
 	sed -i '/ServerName localhost/aServerName '"$dm"'' /etc/apache2/sites-available/nextcloud.conf >> $insl
 	echo "Configuring Let's encrypt."
 	if [ -z "$mail" ]
@@ -868,7 +1244,7 @@ fi
 # HPB Configuration
 # gwaddr=$( route -n | grep 'UG[ \t]' | awk '{print $2}' )
 # echo "Enabling HPB" >> $insl
-# sudo -u www-data php8.2 /var/www/nextcloud/occ app:install notify_push >> $insl
+# sudo -u www-data php /var/www/nextcloud/occ app:install notify_push >> $insl
 # touch /etc/systemd/system/nextcloud_hpb.service
 # echo '[Unit]
 # Description = Nextcloud High Performance Backend Push Service
@@ -884,15 +1260,15 @@ fi
 # ' >> /etc/systemd/system/nextcloud_hpb.service
 # systemctl enable nextcloud_hpb >> $insl
 # service nextcloud_hpb start >> $insl
-# echo -ne '\n' | sudo -u www-data php8.2 /var/www/nextcloud/occ notify_push:setup >> $insl
-# </root/ips.local awk '{print "sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set trusted_proxies " NR " --value=\x22" $1 "\x22"}' | xargs -L 1 -0  | bash;
-# sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set trusted_proxies 97 --value="$gwaddr" >> $insl
-# sudo -u www-data php8.2 /var/www/nextcloud/occ config:system:set trusted_proxies 98 --value="$addr" >> $insl
+# echo -ne '\n' | sudo -u www-data php /var/www/nextcloud/occ notify_push:setup >> $insl
+# </root/ips.local awk '{print "sudo -u www-data php /var/www/nextcloud/occ config:system:set trusted_proxies " NR " --value=\x22" $1 "\x22"}' | xargs -L 1 -0  | bash;
+# sudo -u www-data php /var/www/nextcloud/occ config:system:set trusted_proxies 97 --value="$gwaddr" >> $insl
+# sudo -u www-data php /var/www/nextcloud/occ config:system:set trusted_proxies 98 --value="$addr" >> $insl
 #if [ $# -eq 0 ]
 #then
-#	sudo -u www-data php8.2 /var/www/nextcloud/occ notify_push:setup https://$addr/push >> $insl
+#	sudo -u www-data php /var/www/nextcloud/occ notify_push:setup https://$addr/push >> $insl
 #else
-#	sudo -u www-data php8.2 /var/www/nextcloud/occ notify_push:setup https://$1/push >> $insl
+#	sudo -u www-data php /var/www/nextcloud/occ notify_push:setup https://$1/push >> $insl
 #fi
 
 # Finished!!!
@@ -939,6 +1315,7 @@ apt-get autoremove -y >> $insl
 systemctl restart apache2
 touch /var/local/nextcloud-installer.ver
 echo "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)" >> /var/local/nextcloud-installer.ver
-echo "pver=$ver lang=$lang mail=$mail dm=$dm" >> /var/local/nextcloud-installer.ver
+echo "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv" >> /var/local/nextcloud-installer.ver
+mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
 unset LC_ALL
 exit 0
