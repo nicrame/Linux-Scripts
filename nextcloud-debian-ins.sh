@@ -39,16 +39,18 @@
 # 1. You use it at your own risk. Author is not responsible for any damage made with that script.
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
+# V 1.6.1 - 03.08.2023
+# - small tweaks
 # V 1.6 - 03.08.2023
-# - New variable that allows installing older version of Nextcloud (users reported problems with NC27).
-# - The script rename itself after finished work (so installer command always refer to newest version).
-# - Script is prepared now for few future updates (up to Nextcloud v28).
+# - new variable that allows installing older version of Nextcloud (users reported problems with NC27)
+# - the script rename itself after finished work (so installer command always refer to newest version)
+# - script is prepared now for few future updates (up to Nextcloud v28)
 # V 1.5.5 - 12.07.2023
-# - Better description of variables use on error.
+# - better description of variables use on error.
 # V 1.5.4 - 07.07.2023
-# - Fixed some logical problem
-# - Add support for Debian 12
-# - Add support for Nextcloud Hub 5 (v27)
+# - fixed some logical problem
+# - add support for Debian 12
+# - add support for Nextcloud Hub 5 (v27)
 # V 1.5.3 - 15.04.2023
 # - using older PHP (8.1) version for upgrade process before removing it (Nextcloud do not finish upgrade process on never PHP version)
 # - check for currently installed Nextcloud version and update it so many times it needs (till version 26) - when upgrading from script version 1.4 or older
@@ -155,12 +157,14 @@ then
 			echo "Detected previous version installer." >> $insl
 			echo "$pverr1" >> $insl
 			echo "$pverr2" >> $insl
-			echo "Version 1.5 has been used previosly."
-			echo "Doing some update for Nextcloud only."
+			echo "Version 1.5 installer has been used previously."
+			echo "Doing some updates if they are available."
 			if [ "$nv" = "24" ]
 			then
 				echo "Older version of Nextcloud configured, skipping updates and exit."
 				echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
+				echo "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)" >> /var/local/nextcloud-installer.ver
+				echo "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv" >> /var/local/nextcloud-installer.ver
 				mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
 				unset LC_ALL
 				exit 0
@@ -169,6 +173,8 @@ then
 			then
 				echo "Older version of Nextcloud configured, skipping updates and exit."
 				echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
+				echo "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)" >> /var/local/nextcloud-installer.ver
+				echo "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv" >> /var/local/nextcloud-installer.ver
 				mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
 				unset LC_ALL
 				exit 0
@@ -177,6 +183,8 @@ then
 			then
 				echo "Older version of Nextcloud configured, skipping updates and exit."
 				echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
+				echo "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)" >> /var/local/nextcloud-installer.ver
+				echo "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv" >> /var/local/nextcloud-installer.ver
 				mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
 				unset LC_ALL
 				exit 0
@@ -185,10 +193,13 @@ then
 			then
 				echo "Older version of Nextcloud configured, skipping updates and exit."
 				echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
+				echo "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)" >> /var/local/nextcloud-installer.ver
+				echo "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv" >> /var/local/nextcloud-installer.ver
 				mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
 				unset LC_ALL
 				exit 0
 			fi
+			apt-get update >> $insl && apt-get upgrade -y >> $insl && apt-get autoremove -y >> $insl
 			unset ncver
 			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 			if [ "$ncver" = "26" ]
@@ -243,6 +254,12 @@ then
 			then
 				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 			fi
+			echo "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)" >> /var/local/nextcloud-installer.ver
+			echo "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv" >> /var/local/nextcloud-installer.ver
+			echo "Upgrade process finished."
+			echo "Job done!"
+			mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
+			unset LC_ALL
 			exit 0
 		fi
 		if [ "$pver" = "1.6" ]
@@ -283,7 +300,7 @@ then
 				unset LC_ALL
 				exit 0
 			fi
-			echo "Doing some update for Nextcloud only."
+			echo "Doing some updates if they are available."
 			unset ncver
 			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 			if [ "$ncver" = "27" ]
@@ -320,6 +337,9 @@ then
 			then
 				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 			fi
+			apt-get update >> $insl && apt-get upgrade -y >> $insl && apt-get autoremove -y >> $insl
+			echo "Upgrade process finished."
+			echo "Job done!"
 			mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
 			unset LC_ALL
 			exit 0
@@ -1054,7 +1074,7 @@ mkdir /var/www/nextcloud
 mkdir /var/www/nextcloud/data
 if [ -e latest.zip ]
 then
-	mv latest.zip old.latest.zip >> $insl
+	mv latest.zip $(date +"%FT%H%M")-latest.zip >> $insl
 fi
 
 if [ "$nv" = "24" ]; then
