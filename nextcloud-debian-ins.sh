@@ -301,43 +301,43 @@ then
 				exit 0
 			fi
 			echo "Doing some updates if they are available."
-			unset ncver
-			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-			if [ "$ncver" = "27" ]
-			then
-				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-			fi
-			unset ncver
-			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-			if [ "$ncver" = "27" ]
-			then
-				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-			fi
-			unset ncver
-			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-			if [ "$ncver" = "27" ]
-			then
-				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-			fi
-			unset ncver
-			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-			if [ "$ncver" = "28" ]
-			then
-				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-			fi
-			unset ncver
-			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-			if [ "$ncver" = "28" ]
-			then
-				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-			fi
-			unset ncver
-			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-			if [ "$ncver" = "28" ]
-			then
-				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-			fi
 			apt-get update >> $insl && apt-get upgrade -y >> $insl && apt-get autoremove -y >> $insl
+			unset ncver
+			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+			if [ "$ncver" = "27" ]
+			then
+				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			fi
+			unset ncver
+			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+			if [ "$ncver" = "27" ]
+			then
+				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			fi
+			unset ncver
+			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+			if [ "$ncver" = "27" ]
+			then
+				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			fi
+			unset ncver
+			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+			if [ "$ncver" = "28" ]
+			then
+				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			fi
+			unset ncver
+			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+			if [ "$ncver" = "28" ]
+			then
+				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			fi
+			unset ncver
+			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+			if [ "$ncver" = "28" ]
+			then
+				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			fi
 			echo "Upgrade process finished."
 			echo "Job done!"
 			mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
