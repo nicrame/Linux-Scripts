@@ -163,8 +163,8 @@ then
 			then
 				echo "Older version of Nextcloud configured, skipping updates and exit."
 				echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
-				echo "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)" >> /var/local/nextcloud-installer.ver
-				echo "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv" >> /var/local/nextcloud-installer.ver
+				echo -e "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
+				echo -e "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
 				mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
 				unset LC_ALL
 				exit 0
@@ -173,8 +173,8 @@ then
 			then
 				echo "Older version of Nextcloud configured, skipping updates and exit."
 				echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
-				echo "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)" >> /var/local/nextcloud-installer.ver
-				echo "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv" >> /var/local/nextcloud-installer.ver
+				echo -e "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
+				echo -e "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
 				mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
 				unset LC_ALL
 				exit 0
@@ -183,8 +183,8 @@ then
 			then
 				echo "Older version of Nextcloud configured, skipping updates and exit."
 				echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
-				echo "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)" >> /var/local/nextcloud-installer.ver
-				echo "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv" >> /var/local/nextcloud-installer.ver
+				echo -e "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
+				echo -e "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
 				mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
 				unset LC_ALL
 				exit 0
@@ -193,8 +193,8 @@ then
 			then
 				echo "Older version of Nextcloud configured, skipping updates and exit."
 				echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
-				echo "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)" >> /var/local/nextcloud-installer.ver
-				echo "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv" >> /var/local/nextcloud-installer.ver
+				echo -e "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
+				echo -e "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
 				mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
 				unset LC_ALL
 				exit 0
@@ -254,8 +254,8 @@ then
 			then
 				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 			fi
-			echo "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)" >> /var/local/nextcloud-installer.ver
-			echo "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv" >> /var/local/nextcloud-installer.ver
+			echo -e "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
+			echo -e "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
 			echo "Upgrade process finished."
 			echo "Job done!"
 			mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
