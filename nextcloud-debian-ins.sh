@@ -40,7 +40,7 @@
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
 # V 1.6.2 - 04.08.2023
-# - few more languages are now supported with -lang= parameter (Arabic (ar), Chinese (zh), French (fr), Hindi (hi), Spanish (es) and Ukrainian (uk))
+# - few more languages are now supported with -lang= parameter (Arabic (ar), Chinese (zh), French (fr), Hindi (hi), Polish (pl), Spanish (es) and Ukrainian (uk))
 # V 1.6.1 - 03.08.2023
 # - small tweaks
 # V 1.6 - 03.08.2023
@@ -48,7 +48,7 @@
 # - the script rename itself after finished work (so installer command always refer to newest version)
 # - script is prepared now for few future updates (up to Nextcloud v28)
 # V 1.5.5 - 12.07.2023
-# - better description of variables use on error.
+# - better description of variables use on error
 # V 1.5.4 - 07.07.2023
 # - fixed some logical problem
 # - add support for Debian 12
