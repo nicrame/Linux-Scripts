@@ -12,8 +12,8 @@
 # sudo sh -c "wget -q https://github.com/nicrame/Linux-Scripts/raw/master/nextcloud-debian-ins.sh && chmod +x nextcloud-debian-ins.sh && ./nextcloud-debian-ins.sh"
 # You may also add specific variables (lang, mail, dns) that will be used, by adding them to command above:
 # sudo sh -c "wget -q https://github.com/nicrame/Linux-Scripts/raw/master/nextcloud-debian-ins.sh && chmod +x nextcloud-debian-ins.sh && ./nextcloud-debian-ins.sh -lang=pl -mail=my@email.com -dm=domain.com -nv=24"
-# -lang (for language) variable will instal additional packages specific for choosed language and setup best matching timezone setting.
-# Currently supported languages are: none, pl (default value is none/empty that will You OS language).
+# -lang (for language) variable will install additional packages specific for choosed language and setup Nextcloud default language.
+# Currently supported languages are: none (default value is none/empty that will use web browser language), Arabic (ar), Chinese (zh), French (fr), Hindi (hi), Polish (pl), Spanish (es) and Ukrainian (uk)
 # -mail variable is for information about Your email address, that will be presented to let's encrypt, so you'll be informed if domain name SSL certificate couldn't be refreshed (default value is empty).
 # -dm variable is used when you got (already prepared and configured) domain name, it will be configured for Nextcloud server and Let's encrypt SSL (default value is empty).
 # -nv variable allows You to choose older version to install, supported version are: 24, 25, 26, empty (it will install newest, currently v27)
@@ -39,6 +39,8 @@
 # 1. You use it at your own risk. Author is not responsible for any damage made with that script.
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
+# V 1.6.2 - 04.08.2023
+# - few more languages are now supported with -lang= parameter (Arabic (ar), Chinese (zh), French (fr), Hindi (hi), Spanish (es) and Ukrainian (uk))
 # V 1.6.1 - 03.08.2023
 # - small tweaks
 # V 1.6 - 03.08.2023
@@ -539,7 +541,9 @@ echo "Additional packages will be installed too:"
 echo "Apache, PHP, MariaDB, ddclient and Let's encrypt."
 echo ""
 echo -e "You may add some variables like -lang=, -mail=, -dm= and nv="
-echo "Where lang is for language (empty is OS default, pl)"
+echo "Where lang is for language, supported are: Arabic (ar), Chinese (zh),"
+echo "French (fr), Hindi (hi), Polish (pl), Spanish (es) and Ukrainian (uk),"
+echo "(empty/undefinied use browser language)."
 echo "-mail is for e_mail address of admin, -dm for domain name,"
 echo -e "that should be \e[1;32m*preconfigured\e[39;0m,"
 echo "and -nv for installing older versions (24, 25, 26 & 27, empty means latest)."
@@ -630,12 +634,61 @@ echo "Updating OS."
 echo "!!!!!!! Updating OS" >> $insl
 apt-get update >> $insl && apt-get upgrade -y >> $insl && apt-get autoremove -y >> $insl
 
+if [ "$lang" = "ar" ]
+then
+	echo "!!!!!!! Installing language packages - Arabic" >> $insl
+	apt-get install -y task-arabic >> $insl
+	localectl set-locale LANG=ar_EG.UTF-8 >> $insl
+	locale-gen >> $insl
+fi
+
+if [ "$lang" = "zh" ]
+then
+	echo "!!!!!!! Installing language packages - Chinese" >> $insl
+	apt-get install -y task-chinese-s task-chinese-t >> $insl
+	localectl set-locale LANG=zh_CN.UTF-8 >> $insl
+	locale-gen >> $insl
+fi
+
+if [ "$lang" = "fr" ]
+then
+	echo "!!!!!!! Installing language packages - French" >> $insl
+	apt-get install -y task-french >> $insl
+	localectl set-locale LANG=fr_FR.UTF-8 >> $insl
+	locale-gen >> $insl
+fi
+
+if [ "$lang" = "hi" ]
+then
+	echo "!!!!!!! Installing language packages - Hindi" >> $insl
+	apt-get install -y task-hindi >> $insl
+	localectl set-locale LANG=hi_IN >> $insl
+	locale-gen >> $insl
+fi
+
 if [ "$lang" = "pl" ]
 then
 	echo "!!!!!!! Installing language packages - Polish" >> $insl
 	apt-get install -y task-polish >> $insl
 	timedatectl set-timezone Europe/Warsaw >> $insl
 	localectl set-locale LANG=pl_PL.UTF-8 >> $insl
+	locale-gen >> $insl
+fi
+
+if [ "$lang" = "es" ]
+then
+	echo "!!!!!!! Installing language packages - Spanish" >> $insl
+	apt-get install -y task-spanish >> $insl
+	localectl set-locale LANG=es_ES.UTF-8 >> $insl
+	locale-gen >> $insl
+fi
+
+if [ "$lang" = "uk" ]
+then
+	echo "!!!!!!! Installing language packages - Ukrainian" >> $insl
+	apt-get install -y task-ukrainian >> $insl
+	localectl set-locale LANG=uk_UA.UTF-8 >> $insl
+	locale-gen >> $insl
 fi
 
 echo "Installing standard packages. It may take some time - be patient."
@@ -1125,14 +1178,44 @@ sudo -u www-data php /var/www/nextcloud/occ maintenance:install --database \
 "mysql" --database-name "nextdrive"  --database-user "nextcloud" --database-pass \
 "$mp" --admin-user "SuperAdmin" --admin-pass "$mp2" >> $insl
 
+if [ "$lang" = "ar" ]
+then
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set default_language --value="ar" >> $insl
+fi
+
+if [ "$lang" = "zh" ]
+then
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set default_language --value="zh" >> $insl
+fi
+
+if [ "$lang" = "fr" ]
+then
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set default_language --value="fr" >> $insl
+fi
+
+if [ "$lang" = "hi" ]
+then
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set default_language --value="hi" >> $insl
+fi
+
 if [ "$lang" = "pl" ]
 then
-	# Adding default language and locales to pl_PL and setting up email sending
+	# Adding default language and locales
 	#  'default_language' => 'pl',
 	#  'default_locale' => 'pl',
 	sudo -u www-data php /var/www/nextcloud/occ config:system:set default_language --value="pl" >> $insl
 	sudo -u www-data php /var/www/nextcloud/occ config:system:set default_locale --value="pl_PL" >> $insl
 	sudo -u www-data php /var/www/nextcloud/occ config:system:set default_phone_region --value="PL" >> $insl
+fi
+
+if [ "$lang" = "es" ]
+then
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set default_language --value="es" >> $insl
+fi
+
+if [ "$lang" = "uk" ]
+then
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set default_language --value="uk" >> $insl
 fi
 
 # Enabling Redis in config file - default cache engine now
