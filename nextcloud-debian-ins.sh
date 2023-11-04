@@ -228,10 +228,6 @@ then
 				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 			fi
 			unset ncver
-				rm -rf /var/www/nextcloud/composer.lock >> $insl
-				rm -rf /var/www/nextcloud/package-lock.json >> $insl
-				rm -rf /var/www/nextcloud/package.json >> $insl
-				rm -rf /var/www/nextcloud/composer.json >> $insl
 			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 			if [ "$ncver" = "26" ]
 			then
@@ -343,8 +339,42 @@ then
 			apt-get update >> $insl && apt-get upgrade -y >> $insl && apt-get autoremove -y >> $insl
 			unset ncver
 			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+			if [ "$ncver" = "26" ]
+			then
+				rm -rf /var/www/nextcloud/composer.lock >> $insl
+				rm -rf /var/www/nextcloud/package-lock.json >> $insl
+				rm -rf /var/www/nextcloud/package.json >> $insl
+				rm -rf /var/www/nextcloud/composer.json >> $insl
+				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			fi
+			unset ncver
+			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+			if [ "$ncver" = "26" ]
+			then
+				rm -rf /var/www/nextcloud/composer.lock >> $insl
+				rm -rf /var/www/nextcloud/package-lock.json >> $insl
+				rm -rf /var/www/nextcloud/package.json >> $insl
+				rm -rf /var/www/nextcloud/composer.json >> $insl
+				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			fi
+			unset ncver
+			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+			if [ "$ncver" = "26" ]
+			then
+				rm -rf /var/www/nextcloud/composer.lock >> $insl
+				rm -rf /var/www/nextcloud/package-lock.json >> $insl
+				rm -rf /var/www/nextcloud/package.json >> $insl
+				rm -rf /var/www/nextcloud/composer.json >> $insl
+				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			fi
+			unset ncver
+			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 			if [ "$ncver" = "27" ]
 			then
+				rm -rf /var/www/nextcloud/composer.lock >> $insl
+				rm -rf /var/www/nextcloud/package-lock.json >> $insl
+				rm -rf /var/www/nextcloud/package.json >> $insl
+				rm -rf /var/www/nextcloud/composer.json >> $insl
 				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 			fi
 			unset ncver
@@ -363,6 +393,130 @@ then
 			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 			if [ "$ncver" = "28" ]
 			then
+				rm -rf /var/www/nextcloud/composer.lock >> $insl
+				rm -rf /var/www/nextcloud/package-lock.json >> $insl
+				rm -rf /var/www/nextcloud/package.json >> $insl
+				rm -rf /var/www/nextcloud/composer.json >> $insl
+				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			fi
+			unset ncver
+			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+			if [ "$ncver" = "28" ]
+			then
+				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			fi
+			unset ncver
+			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+			if [ "$ncver" = "28" ]
+			then
+				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			fi
+			echo "Upgrade process finished."
+			echo "Job done!"
+			mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
+			unset LC_ALL
+			exit 0
+		fi
+		if [ "$pver" = "1.7" ]
+		then
+			echo "Detected same version already used." >> $insl
+			echo "$pverr1" >> $insl
+			echo "$pverr2" >> $insl
+			echo "Same version already used."
+			if [ "$nv" = "24" ]
+			then
+				echo "Older version of Nextcloud configured, skipping updates and exit."
+				echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
+				mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
+				unset LC_ALL
+				exit 0
+			fi
+			if [ "$nv" = "25" ]
+			then
+				echo "Older version of Nextcloud configured, skipping updates and exit."
+				echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
+				mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
+				unset LC_ALL
+				exit 0
+			fi
+			if [ "$nv" = "26" ]
+			then
+				echo "Older version of Nextcloud configured, skipping updates and exit."
+				echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
+				mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
+				unset LC_ALL
+				exit 0
+			fi
+			if [ "$nv" = "27" ]
+			then
+				echo "Older version of Nextcloud configured, skipping updates and exit."
+				echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
+				mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
+				unset LC_ALL
+				exit 0
+			fi
+			echo "Doing some updates if they are available."
+			apt-get update >> $insl && apt-get upgrade -y >> $insl && apt-get autoremove -y >> $insl
+			unset ncver
+			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+			if [ "$ncver" = "26" ]
+			then
+				rm -rf /var/www/nextcloud/composer.lock >> $insl
+				rm -rf /var/www/nextcloud/package-lock.json >> $insl
+				rm -rf /var/www/nextcloud/package.json >> $insl
+				rm -rf /var/www/nextcloud/composer.json >> $insl
+				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			fi
+			unset ncver
+			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+			if [ "$ncver" = "26" ]
+			then
+				rm -rf /var/www/nextcloud/composer.lock >> $insl
+				rm -rf /var/www/nextcloud/package-lock.json >> $insl
+				rm -rf /var/www/nextcloud/package.json >> $insl
+				rm -rf /var/www/nextcloud/composer.json >> $insl
+				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			fi
+			unset ncver
+			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+			if [ "$ncver" = "26" ]
+			then
+				rm -rf /var/www/nextcloud/composer.lock >> $insl
+				rm -rf /var/www/nextcloud/package-lock.json >> $insl
+				rm -rf /var/www/nextcloud/package.json >> $insl
+				rm -rf /var/www/nextcloud/composer.json >> $insl
+				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			fi
+			unset ncver
+			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+			if [ "$ncver" = "27" ]
+			then
+				rm -rf /var/www/nextcloud/composer.lock >> $insl
+				rm -rf /var/www/nextcloud/package-lock.json >> $insl
+				rm -rf /var/www/nextcloud/package.json >> $insl
+				rm -rf /var/www/nextcloud/composer.json >> $insl
+				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			fi
+			unset ncver
+			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+			if [ "$ncver" = "27" ]
+			then
+				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			fi
+			unset ncver
+			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+			if [ "$ncver" = "27" ]
+			then
+				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			fi
+			unset ncver
+			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+			if [ "$ncver" = "28" ]
+			then
+				rm -rf /var/www/nextcloud/composer.lock >> $insl
+				rm -rf /var/www/nextcloud/package-lock.json >> $insl
+				rm -rf /var/www/nextcloud/package.json >> $insl
+				rm -rf /var/www/nextcloud/composer.json >> $insl
 				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 			fi
 			unset ncver
