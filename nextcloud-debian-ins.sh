@@ -1,9 +1,10 @@
 #!/bin/bash
 
-# Nextcloud Debian 11/12 Install Script
+# Nextcloud Debian Install Script
 # for x86_64
+# Made for Debian version: 11, 12.
 #
-# This script is made for Debian 11/12 on AMD64 CPU architecture.
+# This script is made for Debian on AMD64 CPU architecture.
 # It will update OS, install neeeded packages, and preconfigure everything to run Nextcloud.
 # There are Apache (web server), MariaDB (database server), PHP 8.2 (programming language), 
 # NTP (time synchronization service), and Redis (cache server) used.
@@ -39,6 +40,8 @@
 # 1. You use it at your own risk. Author is not responsible for any damage made with that script.
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
+# V 1.6.3 - 04.11.2023
+# - more tests and fixes
 # V 1.6.2 - 04.08.2023
 # - few more languages are now supported with -lang= parameter (Arabic (ar), Chinese (zh), French (fr), Hindi (hi), Polish (pl), Spanish (es) and Ukrainian (uk))
 # V 1.6.1 - 03.08.2023
@@ -92,6 +95,8 @@
 # - add High Performance Backend (HPB) for Nextcloud (Push Service) 
 # Currently the way it have to be configured when installing is so unpleasent that this is no go for ordinary users,
 # also it don't support dynamic IP's, so it's just useless at some enviroments.
+# - make backup of Nextcloud script (excluding users files) and database for recovery before upgrade
+# - add option to restore previosly created backup.
 
 export LC_ALL=C
 
@@ -119,8 +124,8 @@ while [ "$#" -gt 0 ]; do
     shift
 done
 
-echo -e "\e[38;5;214mNextcloud Debian 11/12 Install Script\e[39;0m
-Version $ver for x86_64
+echo -e "\e[38;5;214mNextcloud Debian Install Script\e[39;0m
+Version $ver for x86_64 (Support for Debian versions: 11, 12)
 by marcin@marcinwilk.eu - www.marcinwilk.eu"
 echo "---------------------------------------------------------------------------"
 
@@ -133,7 +138,7 @@ fi
 
 if [ -e /var/log/nextcloud-installer.log ]
 then
-	echo "Nextcloud installer for Debian 11/12 - $ver (www.marcinwilk.eu) started." >> $insl
+	echo "Nextcloud installer for Debian - $ver (www.marcinwilk.eu) started." >> $insl
 	date >> $insl
 	echo "---------------------------------------------------------------------------" >> $insl
 	echo "This script will try to upgrade Nextcloud and all needed services,"
@@ -149,7 +154,7 @@ then
 		pverr2=$(sed -n '2p'  /var/local/nextcloud-installer.ver)
 		echo "$pverr2"
 		echo ""
-        pver=$(echo $pverr2 | awk -F'[ =]' '/pver/ {print $2}')
+        pver=$(echo $pverr2 | awk -F'[ =]' '/ver/ {print $2}')
         lang=$(echo $pverr2 | awk -F'[ =]' '/lang/ {print $4}')
         mail=$(echo $pverr2 | awk -F'[ =]' '/mail/ {print $6}')
         dm=$(echo $pverr2 | awk -F'[ =]' '/dm/ {print $8}')
