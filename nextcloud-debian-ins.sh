@@ -215,6 +215,7 @@ then
 				rm -rf /var/www/nextcloud/package-lock.json >> $insl
 				rm -rf /var/www/nextcloud/package.json >> $insl
 				rm -rf /var/www/nextcloud/composer.json >> $insl
+				sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices >> $insl
 				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 			fi
 			unset ncver
@@ -245,6 +246,7 @@ then
 				rm -rf /var/www/nextcloud/package-lock.json >> $insl
 				rm -rf /var/www/nextcloud/package.json >> $insl
 				rm -rf /var/www/nextcloud/composer.json >> $insl
+				sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices >> $insl
 				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 			fi
 			unset ncver
@@ -271,6 +273,7 @@ then
 				rm -rf /var/www/nextcloud/package-lock.json >> $insl
 				rm -rf /var/www/nextcloud/package.json >> $insl
 				rm -rf /var/www/nextcloud/composer.json >> $insl
+				sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices >> $insl
 				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 			fi
 			unset ncver
@@ -291,6 +294,7 @@ then
 			fi
 			echo -e "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
 			echo -e "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
+			sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices >> $insl
 			echo "Upgrade process finished."
 			echo "Job done!"
 			mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
@@ -345,6 +349,7 @@ then
 				rm -rf /var/www/nextcloud/package-lock.json >> $insl
 				rm -rf /var/www/nextcloud/package.json >> $insl
 				rm -rf /var/www/nextcloud/composer.json >> $insl
+				sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices >> $insl
 				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 			fi
 			unset ncver
@@ -375,6 +380,7 @@ then
 				rm -rf /var/www/nextcloud/package-lock.json >> $insl
 				rm -rf /var/www/nextcloud/package.json >> $insl
 				rm -rf /var/www/nextcloud/composer.json >> $insl
+				sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices >> $insl
 				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 			fi
 			unset ncver
@@ -397,6 +403,7 @@ then
 				rm -rf /var/www/nextcloud/package-lock.json >> $insl
 				rm -rf /var/www/nextcloud/package.json >> $insl
 				rm -rf /var/www/nextcloud/composer.json >> $insl
+				sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices >> $insl
 				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 			fi
 			unset ncver
@@ -411,6 +418,7 @@ then
 			then
 				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 			fi
+			sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices >> $insl
 			echo "Upgrade process finished."
 			echo "Job done!"
 			mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
@@ -465,6 +473,7 @@ then
 				rm -rf /var/www/nextcloud/package-lock.json >> $insl
 				rm -rf /var/www/nextcloud/package.json >> $insl
 				rm -rf /var/www/nextcloud/composer.json >> $insl
+				sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices >> $insl
 				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 			fi
 			unset ncver
@@ -495,6 +504,7 @@ then
 				rm -rf /var/www/nextcloud/package-lock.json >> $insl
 				rm -rf /var/www/nextcloud/package.json >> $insl
 				rm -rf /var/www/nextcloud/composer.json >> $insl
+				sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices >> $insl
 				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 			fi
 			unset ncver
@@ -517,6 +527,7 @@ then
 				rm -rf /var/www/nextcloud/package-lock.json >> $insl
 				rm -rf /var/www/nextcloud/package.json >> $insl
 				rm -rf /var/www/nextcloud/composer.json >> $insl
+				sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices >> $insl
 				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 			fi
 			unset ncver
@@ -531,6 +542,7 @@ then
 			then
 				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 			fi
+			sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices >> $insl
 			echo "Upgrade process finished."
 			echo "Job done!"
 			mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
