@@ -211,30 +211,54 @@ then
 			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 			if [ "$ncver" = "26" ]
 			then
+				rm -rf /var/www/nextcloud/composer.lock >> $insl
+				rm -rf /var/www/nextcloud/package-lock.json >> $insl
+				rm -rf /var/www/nextcloud/package.json >> $insl
+				rm -rf /var/www/nextcloud/composer.json >> $insl
 				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 			fi
 			unset ncver
 			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 			if [ "$ncver" = "26" ]
 			then
+				rm -rf /var/www/nextcloud/composer.lock >> $insl
+				rm -rf /var/www/nextcloud/package-lock.json >> $insl
+				rm -rf /var/www/nextcloud/package.json >> $insl
+				rm -rf /var/www/nextcloud/composer.json >> $insl
 				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 			fi
 			unset ncver
+				rm -rf /var/www/nextcloud/composer.lock >> $insl
+				rm -rf /var/www/nextcloud/package-lock.json >> $insl
+				rm -rf /var/www/nextcloud/package.json >> $insl
+				rm -rf /var/www/nextcloud/composer.json >> $insl
 			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 			if [ "$ncver" = "26" ]
 			then
+				rm -rf /var/www/nextcloud/composer.lock >> $insl
+				rm -rf /var/www/nextcloud/package-lock.json >> $insl
+				rm -rf /var/www/nextcloud/package.json >> $insl
+				rm -rf /var/www/nextcloud/composer.json >> $insl
 				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 			fi
 			unset ncver
 			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 			if [ "$ncver" = "27" ]
 			then
+				rm -rf /var/www/nextcloud/composer.lock >> $insl
+				rm -rf /var/www/nextcloud/package-lock.json >> $insl
+				rm -rf /var/www/nextcloud/package.json >> $insl
+				rm -rf /var/www/nextcloud/composer.json >> $insl
 				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 			fi
 			unset ncver
 			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 			if [ "$ncver" = "27" ]
 			then
+				rm -rf /var/www/nextcloud/composer.lock >> $insl
+				rm -rf /var/www/nextcloud/package-lock.json >> $insl
+				rm -rf /var/www/nextcloud/package.json >> $insl
+				rm -rf /var/www/nextcloud/composer.json >> $insl
 				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 			fi
 			unset ncver
@@ -247,12 +271,20 @@ then
 			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 			if [ "$ncver" = "28" ]
 			then
+				rm -rf /var/www/nextcloud/composer.lock >> $insl
+				rm -rf /var/www/nextcloud/package-lock.json >> $insl
+				rm -rf /var/www/nextcloud/package.json >> $insl
+				rm -rf /var/www/nextcloud/composer.json >> $insl
 				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 			fi
 			unset ncver
 			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 			if [ "$ncver" = "28" ]
 			then
+				rm -rf /var/www/nextcloud/composer.lock >> $insl
+				rm -rf /var/www/nextcloud/package-lock.json >> $insl
+				rm -rf /var/www/nextcloud/package.json >> $insl
+				rm -rf /var/www/nextcloud/composer.json >> $insl
 				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
 			fi
 			unset ncver
