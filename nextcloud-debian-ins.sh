@@ -23,7 +23,7 @@
 # Currently supported languages are: none (default value is none/empty that will use web browser language), Arabic (ar), Chinese (zh), French (fr), Hindi (hi), Polish (pl), Spanish (es) and Ukrainian (uk)
 # -mail variable is for information about Your email address, that will be presented to let's encrypt, so you'll be informed if domain name SSL certificate couldn't be refreshed (default value is empty).
 # -dm variable is used when you got (already prepared and configured) domain name, it will be configured for Nextcloud server and Let's encrypt SSL (default value is empty).
-# -nv variable allows You to choose older version to install, supported version are: 24, 25, 26, empty (it will install newest, currently v27)
+# -nv variable allows You to choose older version to install, supported version are: 24-28, empty (it will install newest, currently v28)
 #
 # After install You may use Your web browser to access Nextcloud using local IP address,
 # or domain name, if You have configured it before (DNS setting, router configuration should be done earlier by You). 
@@ -218,6 +218,7 @@ function add_http2 {
 		sed -i "/LimitRequestBody 0/a\ \ H2WindowSize 5242880" /etc/apache2/sites-available/nextcloud.conf
 		sed -i "/LimitRequestBody 0/a\ \ ProtocolsHonorOrder Off" /etc/apache2/sites-available/nextcloud.conf
 		sed -i "/LimitRequestBody 0/a\ \ Protocols h2 h2c http/1.1" /etc/apache2/sites-available/nextcloud.conf
+	fi
 }
 
 function preview_tweaks {
