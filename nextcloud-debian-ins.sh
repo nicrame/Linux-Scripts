@@ -4,6 +4,7 @@
 # Made for Debian Linux (x86_64, supported versions: 11, 12).
 #
 # It will update OS, preconfigure everything, install neeeded packages and Nextcloud.
+# There is also support for upgrading Nextcloud and OS packages (just download and run latest version of this script).
 # 
 # This Nextcloud installer allow it working locally and thru Internet: 
 # - local IP address with and without SSL (it use self signed SSL certificate for https protocol),
@@ -29,7 +30,7 @@
 # Both HTTP and HTTPS protocols are enabled by default (localhost certificate is generated
 # by default, and domain certificate with Let's encrypt if You use add it as command variable).
 #
-# It was tested with Nextcloud v24, v25, v26, v27
+# It was tested with many Nextcloud versions since v24.
 # 
 # In case of problems, LOG output is generated at /var/log/nextcloud-installer.log.
 # Attach it if You want to report errors.
@@ -45,6 +46,9 @@
 # 1. You use it at your own risk. Author is not responsible for any damage made with that script.
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
+# V 1.7.1 - 01.02.2024
+# - code cleanup
+# - add maintenance window start time configuration (for 28.0.2 released today)
 # V 1.7 - 30.01.2024
 # - tweaks for thumbnails/preview generation
 # - disabe sleep/hibernate modes in OS
@@ -108,15 +112,12 @@
 # 
 # Future plans:
 # - add High Performance Backend (HPB) for Nextcloud (Push Service) 
-# Currently the way it have to be configured when installing is so unpleasent that this is no go for ordinary users,
-# also it don't support dynamic IP's, so it's just useless at some enviroments.
 # - make backup of Nextcloud script (excluding users files) and database for recovery before upgrade
 # - add option to restore previosly created backup.
 
 export LC_ALL=C
 
 ver=1.7
-# Birthday edition!
 cpu=$( uname -m )
 user=$( whoami )
 debv=$( cat /etc/debian_version )
@@ -128,6 +129,7 @@ mail=""
 dm=""
 nv=""
 insl=/var/log/nextcloud-installer.log
+ver_file=/var/local/nextcloud-installer.ver
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -139,6 +141,315 @@ while [ "$#" -gt 0 ]; do
     esac
     shift
 done
+
+# More complex tasks are functions now:
+
+function maintenance_window_setup {
+	if grep -q "maintenance_window_start" "/var/www/nextcloud/config/config.php"
+	then
+		echo "!!!!!!! Maintenance window time already configured." >> $insl
+	else
+		echo "!!!!!!! Adding maintenance window time inside NC config." >> $insl
+		sed -i "/installed' => true,/a\ \ 'maintenance_window_start' => '1'," /var/www/nextcloud/config/config.php
+	fi
+}
+
+# Check if Nextcloud was updated with nv variable, and if yes, skip doing anything to not brake it.
+# This is version made for newer version of script, so it report that it was running under $ver_file.
+function nv_check_upd {
+	echo "Older version of Nextcloud configured, skipping updates and exit."
+	echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
+	echo -e "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv\n$(</var/local/nextcloud-installer.ver)" > $ver_file
+	echo -e "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)\n$(</var/local/nextcloud-installer.ver)" > $ver_file
+	mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
+	unset LC_ALL
+	exit 0
+}
+
+function nv_check_upd_cur {
+	echo "Older version of Nextcloud configured, skipping updates and exit."
+	echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
+	mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
+	unset LC_ALL
+	exit 0
+}
+
+function nv_upd_simpl {
+	rm -rf /var/www/nextcloud/composer.lock >> $insl
+	rm -rf /var/www/nextcloud/package-lock.json >> $insl
+	rm -rf /var/www/nextcloud/package.json >> $insl
+	rm -rf /var/www/nextcloud/composer.json >> $insl
+	sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices >> $insl
+	sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+	sudo -u www-data php /var/www/nextcloud/occ upgrade >> $insl
+	sudo -u www-data php /var/www/nextcloud/occ maintenance:mode --off >> $insl
+}
+
+function update_os {
+	apt-get update -o DPkg::Lock::Timeout=-1 >> $insl && apt-get upgrade -y -o DPkg::Lock::Timeout=-1 >> $insl && apt-get autoremove -y >> $insl
+}
+
+function install_soft {
+	echo "!!!!!!! Installing all needed standard packages" >> $insl
+	apt-get install -y -o DPkg::Lock::Timeout=-1 git lbzip2 unzip zip lsb-release locales-all rsync wget curl sed screen gawk mc sudo net-tools ethtool vim nano ufw apt-transport-https ca-certificates software-properties-common miniupnpc jq libfontconfig1 libfuse2 socat tree ffmpeg imagemagick webp libreoffice ghostscript >> $insl
+	yes | sudo DEBIAN_FRONTEND=noninteractive apt-get -yqq -o DPkg::Lock::Timeout=-1 install ddclient  >> $insl
+}
+
+function install_php81 {
+	apt-get install -y -o DPkg::Lock::Timeout=-1 php8.1 libapache2-mod-php8.1 libmagickcore-6.q16-6-extra php8.1-mysql php8.1-common php8.1-redis php8.1-dom php8.1-curl php8.1-exif php8.1-fileinfo php8.1-bcmath php8.1-gmp php8.1-imagick php8.1-mbstring php8.1-xml php8.1-zip php8.1-iconv php8.1-intl php8.1-simplexml php8.1-xmlreader php8.1-ftp php8.1-ssh2 php8.1-sockets php8.1-gd php8.1-imap php8.1-soap php8.1-xmlrpc php8.1-apcu php8.1-dev php8.1-cli >> $insl
+}
+
+function install_php82 {
+	apt-get install -y -o DPkg::Lock::Timeout=-1 php8.2 libapache2-mod-php8.2 libmagickcore-6.q16-6-extra php8.2-mysql php8.2-common php8.2-bz2 php8.2-redis php8.2-dom php8.2-curl php8.2-exif php8.2-fileinfo php8.2-bcmath php8.2-gmp php8.2-imagick php8.2-mbstring php8.2-xml php8.2-zip php8.2-iconv php8.2-intl php8.2-simplexml php8.2-xmlreader php8.2-ftp php8.2-ssh2 php8.2-sockets php8.2-gd php8.2-imap php8.2-soap php8.2-xmlrpc php8.2-apcu php8.2-dev php8.2-cli >> $insl
+}
+
+# This is function for installing currently used latest version of PHP.
+function install_php {
+	install_php82
+}
+
+# Check and add http2 support to Apache.
+function add_http2 {
+	if grep -q "Protocols" "/etc/apache2/sites-available/nextcloud.conf"
+	then
+		echo "!!!!!!! HTTP2 already inside vhost config." >> $insl
+	else
+		echo "!!!!!!! HTTP2 adding to vhost" >> $insl
+		sed -i "/LimitRequestBody 0/a\ \ H2WindowSize 5242880" /etc/apache2/sites-available/nextcloud.conf
+		sed -i "/LimitRequestBody 0/a\ \ ProtocolsHonorOrder Off" /etc/apache2/sites-available/nextcloud.conf
+		sed -i "/LimitRequestBody 0/a\ \ Protocols h2 h2c http/1.1" /etc/apache2/sites-available/nextcloud.conf
+}
+
+function preview_tweaks {
+	echo "!!!!!!! Preview thumbnails tweaking in NC" >> $insl
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 0 --value="OC\\Preview\\PNG" >> $insl
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 1 --value="OC\\Preview\\JPEG" >> $insl
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 2 --value="OC\\Preview\\GIF" >> $insl
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 3 --value="OC\\Preview\\BMP" >> $insl
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 4 --value="OC\\Preview\\XBitmap" >> $insl
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 5 --value="OC\\Preview\\MP3" >> $insl
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 6 --value="OC\\Preview\\TXT" >> $insl
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 7 --value="OC\\Preview\\MarkDown" >> $insl
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 8 --value="OC\\Preview\\OpenDocument" >> $insl
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 9 --value="OC\\Preview\\Krita" >> $insl
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 10 --value="OC\\Preview\\Illustrator" >> $insl
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 11 --value="OC\\Preview\\HEIC" >> $insl
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 12 --value="OC\\Preview\\HEIF" >> $insl
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 13 --value="OC\\Preview\\Movie" >> $insl
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 14 --value="OC\\Preview\\MSOffice2003" >> $insl
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 15 --value="OC\\Preview\\MSOffice2007" >> $insl
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 16 --value="OC\\Preview\\MSOfficeDoc" >> $insl
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 17 --value="OC\\Preview\\PDF" >> $insl
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 18 --value="OC\\Preview\\Photoshop" >> $insl
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 19 --value="OC\\Preview\\Postscript" >> $insl
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 20 --value="OC\\Preview\\StarOffice" >> $insl
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 21 --value="OC\\Preview\\SVG" >> $insl
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 22 --value="OC\\Preview\\TIFF" >> $insl
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 23 --value="OC\\Preview\\WEBP" >> $insl
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 24 --value="OC\\Preview\\EMF" >> $insl
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 25 --value="OC\\Preview\\Font" >> $insl
+	sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 26 --value="OC\\Preview\\Image" >> $insl
+	sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*PS.*\/>\)/\1read|write\3/1' /etc/ImageMagick-6/policy.xml
+	sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*PS2.*\/>\)/\1read|write\3/1' /etc/ImageMagick-6/policy.xml
+	sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*PS3.*\/>\)/\1read|write\3/1' /etc/ImageMagick-6/policy.xml
+	sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*EPS.*\/>\)/\1read|write\3/1' /etc/ImageMagick-6/policy.xml
+	sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*PDF.*\/>\)/\1read|write\3/1' /etc/ImageMagick-6/policy.xml
+}
+
+function php74_tweaks {
+	echo 'apc.enable_cli=1' >> /etc/php/7.4/cli/conf.d/20-apcu.ini
+	sed -i 's/\b128M\b/1024M/g' /etc/php/7.4/apache2/php.ini
+	sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/7.4/apache2/php.ini
+	sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/7.4/apache2/php.ini
+	sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/7.4/apache2/php.ini
+	sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/7.4/apache2/php.ini
+	sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/7.4/apache2/php.ini
+	sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/7.4/apache2/php.ini
+	sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/7.4/apache2/php.ini
+	sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/7.4/apache2/php.ini
+	sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/7.4/apache2/php.ini
+	sed -i 's/\b128M\b/1024M/g' /etc/php/7.4/cli/php.ini
+	sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/7.4/cli/php.ini
+	sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/7.4/cli/php.ini
+	sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/7.4/cli/php.ini
+	sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/7.4/cli/php.ini
+	sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/7.4/cli/php.ini
+	sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/7.4/cli/php.ini
+	sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/7.4/cli/php.ini
+	sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/7.4/cli/php.ini
+	sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/7.4/cli/php.ini
+	echo 'opcache.enable_cli=1' >> /etc/php/7.4/apache2/conf.d/10-opcache.ini
+	echo 'opcache.interned_strings_buffer=64' >> /etc/php/7.4/apache2/conf.d/10-opcache.ini
+	echo 'opcache.max_accelerated_files=20000' >> /etc/php/7.4/apache2/conf.d/10-opcache.ini
+	echo 'opcache.memory_consumption=256' >> /etc/php/7.4/apache2/conf.d/10-opcache.ini
+	echo 'opcache.save_comments=1' >> /etc/php/7.4/apache2/conf.d/10-opcache.ini
+	echo 'opcache.enable=1' >> /etc/php/7.4/apache2/conf.d/10-opcache.ini
+}
+
+function php81_tweaks {
+	echo "!!!!!!! PHP 8.1 config files modify." >> $insl
+	echo "PHP config files tweaking."
+	echo 'apc.enable_cli=1' >> /etc/php/8.1/cli/conf.d/20-apcu.ini
+	sed -i 's/\b128M\b/1024M/g' /etc/php/8.1/apache2/php.ini
+	sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.1/apache2/php.ini
+	sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.1/apache2/php.ini
+	sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.1/apache2/php.ini
+	sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.1/apache2/php.ini
+	sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.1/apache2/php.ini
+	sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.1/apache2/php.ini
+	sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.1/apache2/php.ini
+	sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.1/apache2/php.ini
+	sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.1/apache2/php.ini
+	sed -i 's/\b128M\b/1024M/g' /etc/php/8.1/cli/php.ini
+	sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.1/cli/php.ini
+	sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.1/cli/php.ini
+	sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.1/cli/php.ini
+	sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.1/cli/php.ini
+	sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.1/cli/php.ini
+	sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.1/cli/php.ini
+	sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.1/cli/php.ini
+	sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.1/cli/php.ini
+	sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.1/cli/php.ini
+	echo 'opcache.enable_cli=1' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
+	echo 'opcache.interned_strings_buffer=64' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
+	echo 'opcache.max_accelerated_files=20000' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
+	echo 'opcache.memory_consumption=256' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
+	echo 'opcache.save_comments=1' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
+	echo 'opcache.enable=1' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
+}
+
+function php82_tweaks {
+	echo "!!!!!!! PHP 8.2 config files modify." >> $insl
+	echo "PHP config files tweaking."
+	echo 'apc.enable_cli=1' >> /etc/php/8.2/cli/conf.d/20-apcu.ini
+	sed -i 's/\b128M\b/1024M/g' /etc/php/8.2/apache2/php.ini
+	sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.2/apache2/php.ini
+	sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.2/apache2/php.ini
+	sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.2/apache2/php.ini
+	sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.2/apache2/php.ini
+	sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.2/apache2/php.ini
+	sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.2/apache2/php.ini
+	sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.2/apache2/php.ini
+	sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.2/apache2/php.ini
+	sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.2/apache2/php.ini
+	sed -i 's/\b128M\b/1024M/g' /etc/php/8.2/cli/php.ini
+	sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.2/cli/php.ini
+	sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.2/cli/php.ini
+	sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.2/cli/php.ini
+	sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.2/cli/php.ini
+	sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.2/cli/php.ini
+	sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.2/cli/php.ini
+	sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.2/cli/php.ini
+	sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.2/cli/php.ini
+	sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.2/cli/php.ini
+	echo 'opcache.enable_cli=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+	echo 'opcache.interned_strings_buffer=64' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+	echo 'opcache.max_accelerated_files=20000' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+	echo 'opcache.memory_consumption=256' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+	echo 'opcache.save_comments=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+	echo 'opcache.enable=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+	# echo 'opcache.revalidate_freq=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+	# echo 'opcache.jit=disable' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+	systemctl restart apache2 >> $insl
+}
+
+# This are tweaks for currently latest verion used.
+function php_tweaks {
+	php82_tweaks
+}
+
+function save_version_info {
+	echo -e "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv\n$(</var/local/nextcloud-installer.ver)" > $ver_file
+	echo -e "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)\n$(</var/local/nextcloud-installer.ver)" > $ver_file
+}
+
+function disable_sleep {
+	echo "!!!!!!! Disabling sleep states." >> $insl
+	systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target >> $insl
+}
+
+# Check if nv option was used for every version, and exit without progress.
+function nv_verify {
+	if [ "$nv" = "24" ]
+	then
+		nv_check_upd
+	fi
+	if [ "$nv" = "25" ]
+	then
+		nv_check_upd
+	fi
+	if [ "$nv" = "26" ]
+	then
+		nv_check_upd
+	fi
+	if [ "$nv" = "27" ]
+	then
+		nv_check_upd
+	fi
+	if [ "$nv" = "28" ]
+	then
+		maintenance_window_setup
+		nv_check_upd
+	fi
+}
+
+# Check for every version and update it one by one.
+function nv_update {
+	unset ncver
+	ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+	if [ "$ncver" = "26" ]
+	then
+		nv_upd_simpl
+	fi
+	unset ncver
+	ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+	if [ "$ncver" = "26" ]
+	then
+		nv_upd_simpl
+	fi
+	unset ncver
+	ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+	if [ "$ncver" = "26" ]
+	then
+		nv_upd_simpl
+	fi
+	unset ncver
+	ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+	if [ "$ncver" = "27" ]
+	then
+		nv_upd_simpl
+	fi
+	unset ncver
+	ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+	if [ "$ncver" = "27" ]
+	then
+		nv_upd_simpl
+	fi
+	unset ncver
+	ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+	if [ "$ncver" = "27" ]
+	then
+		nv_upd_simpl
+	fi
+	unset ncver
+	ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+	if [ "$ncver" = "28" ]
+	then
+		nv_upd_simpl
+	fi
+	unset ncver
+	ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+	if [ "$ncver" = "28" ]
+	then
+		nv_upd_simpl
+	fi
+	unset ncver
+	ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+	if [ "$ncver" = "28" ]
+	then
+		nv_upd_simpl
+	fi
+}
 
 echo -e "\e[38;5;214mNextcloud Install Script\e[39;0m
 Version $ver for x86_64 (Support for Debian versions: 11, 12)
@@ -161,13 +472,13 @@ then
 	echo "based on what was done by it's previous version."
 	echo ""
 	echo "Trying to find preceding installer version."
-	if [ -e /var/local/nextcloud-installer.ver ]
+	if [ -e $ver_file ]
 	then
 		echo "Detected previous install:"
-		pverr1=$(sed -n '1p'  /var/local/nextcloud-installer.ver)
+		pverr1=$(sed -n '1p'  $ver_file)
 		echo "$pverr1"
 		echo "With parameters:"
-		pverr2=$(sed -n '2p'  /var/local/nextcloud-installer.ver)
+		pverr2=$(sed -n '2p'  $ver_file)
 		echo "$pverr2"
 		echo ""
         pver=$(echo $pverr2 | awk -F'[ =]' '/ver/ {print $2}')
@@ -182,200 +493,23 @@ then
 			echo "$pverr2" >> $insl
 			echo "Version 1.5 installer has been used previously."
 			echo "Doing some updates if they are available."
-			if [ "$nv" = "24" ]
-			then
-				echo "Older version of Nextcloud configured, skipping updates and exit."
-				echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
-				echo -e "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
-				echo -e "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
-				mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
-				unset LC_ALL
-				exit 0
-			fi
-			if [ "$nv" = "25" ]
-			then
-				echo "Older version of Nextcloud configured, skipping updates and exit."
-				echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
-				echo -e "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
-				echo -e "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
-				mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
-				unset LC_ALL
-				exit 0
-			fi
-			if [ "$nv" = "26" ]
-			then
-				echo "Older version of Nextcloud configured, skipping updates and exit."
-				echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
-				echo -e "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
-				echo -e "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
-				mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
-				unset LC_ALL
-				exit 0
-			fi
-			if [ "$nv" = "27" ]
-			then
-				echo "Older version of Nextcloud configured, skipping updates and exit."
-				echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
-				echo -e "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
-				echo -e "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
-				mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
-				unset LC_ALL
-				exit 0
-			fi
-			if [ "$nv" = "28" ]
-			then
-				echo "Older version of Nextcloud configured, skipping updates and exit."
-				echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
-				echo -e "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
-				echo -e "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
-				mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
-				unset LC_ALL
-				exit 0
-			fi
-			apt-get update -o DPkg::Lock::Timeout=-1 >> $insl && apt-get upgrade -y -o DPkg::Lock::Timeout=-1 >> $insl && apt-get autoremove -y >> $insl
-			unset ncver
-			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-			if [ "$ncver" = "26" ]
-			then
-				rm -rf /var/www/nextcloud/composer.lock >> $insl
-				rm -rf /var/www/nextcloud/package-lock.json >> $insl
-				rm -rf /var/www/nextcloud/package.json >> $insl
-				rm -rf /var/www/nextcloud/composer.json >> $insl
-				sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices >> $insl
-				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-			fi
-			unset ncver
-			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-			if [ "$ncver" = "26" ]
-			then
-				rm -rf /var/www/nextcloud/composer.lock >> $insl
-				rm -rf /var/www/nextcloud/package-lock.json >> $insl
-				rm -rf /var/www/nextcloud/package.json >> $insl
-				rm -rf /var/www/nextcloud/composer.json >> $insl
-				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-			fi
-			unset ncver
-			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-			if [ "$ncver" = "26" ]
-			then
-				rm -rf /var/www/nextcloud/composer.lock >> $insl
-				rm -rf /var/www/nextcloud/package-lock.json >> $insl
-				rm -rf /var/www/nextcloud/package.json >> $insl
-				rm -rf /var/www/nextcloud/composer.json >> $insl
-				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-			fi
-			unset ncver
-			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-			if [ "$ncver" = "27" ]
-			then
-				rm -rf /var/www/nextcloud/composer.lock >> $insl
-				rm -rf /var/www/nextcloud/package-lock.json >> $insl
-				rm -rf /var/www/nextcloud/package.json >> $insl
-				rm -rf /var/www/nextcloud/composer.json >> $insl
-				sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices >> $insl
-				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-			fi
-			unset ncver
-			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-			if [ "$ncver" = "27" ]
-			then
-				rm -rf /var/www/nextcloud/composer.lock >> $insl
-				rm -rf /var/www/nextcloud/package-lock.json >> $insl
-				rm -rf /var/www/nextcloud/package.json >> $insl
-				rm -rf /var/www/nextcloud/composer.json >> $insl
-				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-			fi
-			unset ncver
-			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-			if [ "$ncver" = "27" ]
-			then
-				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-			fi
-			unset ncver
-			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-			if [ "$ncver" = "28" ]
-			then
-				rm -rf /var/www/nextcloud/composer.lock >> $insl
-				rm -rf /var/www/nextcloud/package-lock.json >> $insl
-				rm -rf /var/www/nextcloud/package.json >> $insl
-				rm -rf /var/www/nextcloud/composer.json >> $insl
-				sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices >> $insl
-				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-				sudo -u www-data php /var/www/nextcloud/occ upgrade >> $insl
-				sudo -u www-data php /var/www/nextcloud/occ maintenance:mode --off >> $insl
-			fi
-			unset ncver
-			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-			if [ "$ncver" = "28" ]
-			then
-				rm -rf /var/www/nextcloud/composer.lock >> $insl
-				rm -rf /var/www/nextcloud/package-lock.json >> $insl
-				rm -rf /var/www/nextcloud/package.json >> $insl
-				rm -rf /var/www/nextcloud/composer.json >> $insl
-				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-				sudo -u www-data php /var/www/nextcloud/occ upgrade >> $insl
-				sudo -u www-data php /var/www/nextcloud/occ maintenance:mode --off >> $insl
-			fi
-			unset ncver
-			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-			if [ "$ncver" = "28" ]
-			then
-				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-				sudo -u www-data php /var/www/nextcloud/occ upgrade >> $insl
-				sudo -u www-data php /var/www/nextcloud/occ maintenance:mode --off >> $insl
-			fi
+			nv_verify
+			update_os
+			nv_update
 			# Installing additional packages added with v1.7
 			echo "Installing additional packages added with v1.7 upgrade" >> $insl
-			apt-get install -y -o DPkg::Lock::Timeout=-1 imagemagick webp libreoffice ghostscript jq libfontconfig1 libfuse2 socat tree >> $insl
-			apt-get install -y -o DPkg::Lock::Timeout=-1 php8.2-bz2 >> $insl
+			install_soft
+			install_php82
 			a2enmod http2 >> $insl
-			# modyfing nextcloud vhost by adding http2
-			echo "modyfing nextcloud vhost by adding http2" >> $insl
-			sed -i "/LimitRequestBody 0/a\ \ H2WindowSize 5242880" /etc/apache2/sites-available/nextcloud.conf
-			sed -i "/LimitRequestBody 0/a\ \ ProtocolsHonorOrder Off" /etc/apache2/sites-available/nextcloud.conf
-			sed -i "/LimitRequestBody 0/a\ \ Protocols h2 h2c http/1.1" /etc/apache2/sites-available/nextcloud.conf
-			# adding more thumbnails configurations
-			echo "adding more thumbnails configurations" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 0 --value="OC\\Preview\\PNG" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 1 --value="OC\\Preview\\JPEG" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 2 --value="OC\\Preview\\GIF" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 3 --value="OC\\Preview\\BMP" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 4 --value="OC\\Preview\\XBitmap" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 5 --value="OC\\Preview\\MP3" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 6 --value="OC\\Preview\\TXT" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 7 --value="OC\\Preview\\MarkDown" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 8 --value="OC\\Preview\\OpenDocument" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 9 --value="OC\\Preview\\Krita" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 10 --value="OC\\Preview\\Illustrator" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 11 --value="OC\\Preview\\HEIC" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 12 --value="OC\\Preview\\HEIF" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 13 --value="OC\\Preview\\Movie" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 14 --value="OC\\Preview\\MSOffice2003" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 15 --value="OC\\Preview\\MSOffice2007" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 16 --value="OC\\Preview\\MSOfficeDoc" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 17 --value="OC\\Preview\\PDF" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 18 --value="OC\\Preview\\Photoshop" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 19 --value="OC\\Preview\\Postscript" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 20 --value="OC\\Preview\\StarOffice" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 21 --value="OC\\Preview\\SVG" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 22 --value="OC\\Preview\\TIFF" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 23 --value="OC\\Preview\\WEBP" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 24 --value="OC\\Preview\\EMF" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 25 --value="OC\\Preview\\Font" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 26 --value="OC\\Preview\\Image" >> $insl
-			sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*PS.*\/>\)/\1read|write\3/1' /etc/ImageMagick-6/policy.xml
-			sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*PS2.*\/>\)/\1read|write\3/1' /etc/ImageMagick-6/policy.xml
-			sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*PS3.*\/>\)/\1read|write\3/1' /etc/ImageMagick-6/policy.xml
-			sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*EPS.*\/>\)/\1read|write\3/1' /etc/ImageMagick-6/policy.xml
-			sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*PDF.*\/>\)/\1read|write\3/1' /etc/ImageMagick-6/policy.xml
+			add_http2
+			preview_tweaks
 			sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices >> $insl
 			sudo -u www-data php /var/www/nextcloud/occ db:convert-filecache-bigint --no-interaction >> $insl
+			maintenance_window_setup
 			rm -rf /opt/latest.zip
 			rm -rf /var/www/nextcloud/config/autoconfig.php
-			echo -e "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
-			echo -e "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
-			echo "Disabling sleep states." >> $insl
-			systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target >> $insl
+			save_version_info
+			disable_sleep
 			systemctl restart apache2
 			echo "Upgrade process finished."
 			echo "Job done!"
@@ -390,190 +524,22 @@ then
 			echo "$pverr2" >> $insl
 			echo "Version 1.6 installer has been used previously."
 			echo "Doing some updates if they are available."
-			if [ "$nv" = "24" ]
-			then
-				echo "Older version of Nextcloud configured, skipping updates and exit."
-				echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
-				echo -e "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
-				echo -e "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
-				mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
-				unset LC_ALL
-				exit 0
-			fi
-			if [ "$nv" = "25" ]
-			then
-				echo "Older version of Nextcloud configured, skipping updates and exit."
-				echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
-				echo -e "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
-				echo -e "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
-				mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
-				unset LC_ALL
-				exit 0
-			fi
-			if [ "$nv" = "26" ]
-			then
-				echo "Older version of Nextcloud configured, skipping updates and exit."
-				echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
-				echo -e "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
-				echo -e "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
-				mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
-				unset LC_ALL
-				exit 0
-			fi
-			if [ "$nv" = "27" ]
-			then
-				echo "Older version of Nextcloud configured, skipping updates and exit."
-				echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
-				echo -e "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
-				echo -e "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
-				mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
-				unset LC_ALL
-				exit 0
-			fi
-			if [ "$nv" = "28" ]
-			then
-				echo "Older version of Nextcloud configured, skipping updates and exit."
-				echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
-				echo -e "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
-				echo -e "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
-				mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
-				unset LC_ALL
-				exit 0
-			fi
-			apt-get update -o DPkg::Lock::Timeout=-1 >> $insl && apt-get upgrade -y -o DPkg::Lock::Timeout=-1 >> $insl && apt-get autoremove -y >> $insl
-			unset ncver
-			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-			if [ "$ncver" = "26" ]
-			then
-				rm -rf /var/www/nextcloud/composer.lock >> $insl
-				rm -rf /var/www/nextcloud/package-lock.json >> $insl
-				rm -rf /var/www/nextcloud/package.json >> $insl
-				rm -rf /var/www/nextcloud/composer.json >> $insl
-				sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices >> $insl
-				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-			fi
-			unset ncver
-			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-			if [ "$ncver" = "26" ]
-			then
-				rm -rf /var/www/nextcloud/composer.lock >> $insl
-				rm -rf /var/www/nextcloud/package-lock.json >> $insl
-				rm -rf /var/www/nextcloud/package.json >> $insl
-				rm -rf /var/www/nextcloud/composer.json >> $insl
-				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-			fi
-			unset ncver
-			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-			if [ "$ncver" = "26" ]
-			then
-				rm -rf /var/www/nextcloud/composer.lock >> $insl
-				rm -rf /var/www/nextcloud/package-lock.json >> $insl
-				rm -rf /var/www/nextcloud/package.json >> $insl
-				rm -rf /var/www/nextcloud/composer.json >> $insl
-				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-			fi
-			unset ncver
-			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-			if [ "$ncver" = "27" ]
-			then
-				rm -rf /var/www/nextcloud/composer.lock >> $insl
-				rm -rf /var/www/nextcloud/package-lock.json >> $insl
-				rm -rf /var/www/nextcloud/package.json >> $insl
-				rm -rf /var/www/nextcloud/composer.json >> $insl
-				sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices >> $insl
-				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-			fi
-			unset ncver
-			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-			if [ "$ncver" = "27" ]
-			then
-				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-			fi
-			unset ncver
-			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-			if [ "$ncver" = "27" ]
-			then
-				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-			fi
-			unset ncver
-			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-			if [ "$ncver" = "28" ]
-			then
-				rm -rf /var/www/nextcloud/composer.lock >> $insl
-				rm -rf /var/www/nextcloud/package-lock.json >> $insl
-				rm -rf /var/www/nextcloud/package.json >> $insl
-				rm -rf /var/www/nextcloud/composer.json >> $insl
-				sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices >> $insl
-				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-				sudo -u www-data php /var/www/nextcloud/occ upgrade >> $insl
-				sudo -u www-data php /var/www/nextcloud/occ maintenance:mode --off >> $insl
-			fi
-			unset ncver
-			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-			if [ "$ncver" = "28" ]
-			then
-				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-				sudo -u www-data php /var/www/nextcloud/occ upgrade >> $insl
-				sudo -u www-data php /var/www/nextcloud/occ maintenance:mode --off >> $insl
-			fi
-			unset ncver
-			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-			if [ "$ncver" = "28" ]
-			then
-				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-				sudo -u www-data php /var/www/nextcloud/occ upgrade >> $insl
-				sudo -u www-data php /var/www/nextcloud/occ maintenance:mode --off >> $insl
-			fi
+			nv_verify
+			update_os
+			nv_update
 			sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices >> $insl
 			# Installing additional packages added with v1.7
 			echo "Installing additional packages added with v1.7 upgrade" >> $insl
-			apt-get install -y -o DPkg::Lock::Timeout=-1 imagemagick webp libreoffice ghostscript jq libfontconfig1 libfuse2 socat tree >> $insl
+			install_soft
+			install_php82
 			a2enmod http2 >> $insl
-			# adding more thumbnails configurations
-			echo "adding more thumbnails configurations" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 0 --value="OC\\Preview\\PNG" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 1 --value="OC\\Preview\\JPEG" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 2 --value="OC\\Preview\\GIF" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 3 --value="OC\\Preview\\BMP" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 4 --value="OC\\Preview\\XBitmap" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 5 --value="OC\\Preview\\MP3" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 6 --value="OC\\Preview\\TXT" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 7 --value="OC\\Preview\\MarkDown" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 8 --value="OC\\Preview\\OpenDocument" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 9 --value="OC\\Preview\\Krita" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 10 --value="OC\\Preview\\Illustrator" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 11 --value="OC\\Preview\\HEIC" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 12 --value="OC\\Preview\\HEIF" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 13 --value="OC\\Preview\\Movie" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 14 --value="OC\\Preview\\MSOffice2003" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 15 --value="OC\\Preview\\MSOffice2007" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 16 --value="OC\\Preview\\MSOfficeDoc" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 17 --value="OC\\Preview\\PDF" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 18 --value="OC\\Preview\\Photoshop" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 19 --value="OC\\Preview\\Postscript" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 20 --value="OC\\Preview\\StarOffice" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 21 --value="OC\\Preview\\SVG" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 22 --value="OC\\Preview\\TIFF" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 23 --value="OC\\Preview\\WEBP" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 24 --value="OC\\Preview\\EMF" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 25 --value="OC\\Preview\\Font" >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 26 --value="OC\\Preview\\Image" >> $insl
-			sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*PS.*\/>\)/\1read|write\3/1' /etc/ImageMagick-6/policy.xml
-			sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*PS2.*\/>\)/\1read|write\3/1' /etc/ImageMagick-6/policy.xml
-			sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*PS3.*\/>\)/\1read|write\3/1' /etc/ImageMagick-6/policy.xml
-			sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*EPS.*\/>\)/\1read|write\3/1' /etc/ImageMagick-6/policy.xml
-			sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*PDF.*\/>\)/\1read|write\3/1' /etc/ImageMagick-6/policy.xml
-			# modyfing nextcloud vhost by adding http2
-			echo "modyfing nextcloud vhost by adding http2" >> $insl
-			sed -i "/LimitRequestBody 0/a\ \ H2WindowSize 5242880" /etc/apache2/sites-available/nextcloud.conf
-			sed -i "/LimitRequestBody 0/a\ \ ProtocolsHonorOrder Off" /etc/apache2/sites-available/nextcloud.conf
-			sed -i "/LimitRequestBody 0/a\ \ Protocols h2 h2c http/1.1" /etc/apache2/sites-available/nextcloud.conf
+			preview_tweaks
+			add_http2
 			rm -rf /opt/latest.zip
 			rm -rf /var/www/nextcloud/config/autoconfig.php
-			echo -e "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
-			echo -e "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)\n$(</var/local/nextcloud-installer.ver)" > /var/local/nextcloud-installer.ver
-			echo "Disabling sleep states." >> $insl
-			systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target >> $insl
+			maintenance_window_setup
+			save_version_info
+			disable_sleep
 			systemctl restart apache2
 			echo "Upgrade process finished."
 			echo "Job done!"
@@ -587,124 +553,12 @@ then
 			echo "$pverr1" >> $insl
 			echo "$pverr2" >> $insl
 			echo "Same version already used."
-			if [ "$nv" = "24" ]
-			then
-				echo "Older version of Nextcloud configured, skipping updates and exit."
-				echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
-				mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
-				unset LC_ALL
-				exit 0
-			fi
-			if [ "$nv" = "25" ]
-			then
-				echo "Older version of Nextcloud configured, skipping updates and exit."
-				echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
-				mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
-				unset LC_ALL
-				exit 0
-			fi
-			if [ "$nv" = "26" ]
-			then
-				echo "Older version of Nextcloud configured, skipping updates and exit."
-				echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
-				mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
-				unset LC_ALL
-				exit 0
-			fi
-			if [ "$nv" = "27" ]
-			then
-				echo "Older version of Nextcloud configured, skipping updates and exit."
-				echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl
-				mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
-				unset LC_ALL
-				exit 0
-			fi
+			nv_verify
 			echo "Doing some updates if they are available."
-			apt-get update -o DPkg::Lock::Timeout=-1 >> $insl && apt-get upgrade -y -o DPkg::Lock::Timeout=-1 >> $insl && apt-get autoremove -y >> $insl
-			unset ncver
-			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-			if [ "$ncver" = "26" ]
-			then
-				rm -rf /var/www/nextcloud/composer.lock >> $insl
-				rm -rf /var/www/nextcloud/package-lock.json >> $insl
-				rm -rf /var/www/nextcloud/package.json >> $insl
-				rm -rf /var/www/nextcloud/composer.json >> $insl
-				sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices >> $insl
-				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-			fi
-			unset ncver
-			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-			if [ "$ncver" = "26" ]
-			then
-				rm -rf /var/www/nextcloud/composer.lock >> $insl
-				rm -rf /var/www/nextcloud/package-lock.json >> $insl
-				rm -rf /var/www/nextcloud/package.json >> $insl
-				rm -rf /var/www/nextcloud/composer.json >> $insl
-				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-			fi
-			unset ncver
-			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-			if [ "$ncver" = "26" ]
-			then
-				rm -rf /var/www/nextcloud/composer.lock >> $insl
-				rm -rf /var/www/nextcloud/package-lock.json >> $insl
-				rm -rf /var/www/nextcloud/package.json >> $insl
-				rm -rf /var/www/nextcloud/composer.json >> $insl
-				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-			fi
-			unset ncver
-			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-			if [ "$ncver" = "27" ]
-			then
-				rm -rf /var/www/nextcloud/composer.lock >> $insl
-				rm -rf /var/www/nextcloud/package-lock.json >> $insl
-				rm -rf /var/www/nextcloud/package.json >> $insl
-				rm -rf /var/www/nextcloud/composer.json >> $insl
-				sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices >> $insl
-				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-			fi
-			unset ncver
-			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-			if [ "$ncver" = "27" ]
-			then
-				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-			fi
-			unset ncver
-			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-			if [ "$ncver" = "27" ]
-			then
-				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-			fi
-			unset ncver
-			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-			if [ "$ncver" = "28" ]
-			then
-				rm -rf /var/www/nextcloud/composer.lock >> $insl
-				rm -rf /var/www/nextcloud/package-lock.json >> $insl
-				rm -rf /var/www/nextcloud/package.json >> $insl
-				rm -rf /var/www/nextcloud/composer.json >> $insl
-				sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices >> $insl
-				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-				sudo -u www-data php /var/www/nextcloud/occ upgrade >> $insl
-				sudo -u www-data php /var/www/nextcloud/occ maintenance:mode --off >> $insl
-			fi
-			unset ncver
-			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-			if [ "$ncver" = "28" ]
-			then
-				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-				sudo -u www-data php /var/www/nextcloud/occ upgrade >> $insl
-				sudo -u www-data php /var/www/nextcloud/occ maintenance:mode --off >> $insl
-			fi
-			unset ncver
-			ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
-			if [ "$ncver" = "28" ]
-			then
-				sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-				sudo -u www-data php /var/www/nextcloud/occ upgrade >> $insl
-				sudo -u www-data php /var/www/nextcloud/occ maintenance:mode --off >> $insl
-			fi
+			update_os
+			nv_update
 			sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices >> $insl
+			maintenance_window_setup
 			systemctl restart apache2
 			echo "Upgrade process finished."
 			echo "Job done!"
@@ -717,11 +571,10 @@ then
 		echo "Detected installer version 1.4 or older already used." >> $insl
 		echo "Upgrading in progress..."
 		echo "Updating OS."
-		echo "Updating OS." >> $insl
-		apt-get update -o DPkg::Lock::Timeout=-1 >> $insl && apt-get upgrade -y -o DPkg::Lock::Timeout=-1 >> $insl && apt-get autoremove -y >> $insl
+		echo "!!!!!!! Updating OS." >> $insl
+		update_os
 		echo "Installing additional packages."
-		apt-get install -y -o DPkg::Lock::Timeout=-1 lbzip2 software-properties-common miniupnpc imagemagick webp libreoffice ghostscript jq libfontconfig1 libfuse2 socat tree >> $insl
-		yes | sudo DEBIAN_FRONTEND=noninteractive apt-get -yqq -o DPkg::Lock::Timeout=-1 install ddclient >> $insl
+		install_soft
 		systemctl restart apache2 >> $insl
 		echo "Setting up firewall"
 		echo "Setting up firewall" >> $insl
@@ -753,192 +606,120 @@ exit 0" >> /etc/rc.local
 		chmod +x /etc/rc.local
 		systemctl daemon-reload
 		systemctl start rc-local
-		echo "Upgrading Nextcloud." >> $insl
+		echo "!!!!!!! Upgrading Nextcloud." >> $insl
 		echo "Upgrading Nextcloud."
 		echo "Checking currently installed version." >> $insl
 		sudo -u www-data php /var/www/nextcloud/occ config:system:get version >> $insl
 		ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 		if [ "$ncver" = "24" ]
 		then
-			sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			nv_upd_simpl
 		fi
 		unset ncver
 		ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 		if [ "$ncver" = "24" ]
 		then
-			sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			nv_upd_simpl
 		fi
 		unset ncver
 		ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 		if [ "$ncver" = "24" ]
 		then
-			sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			nv_upd_simpl
 		fi
 		unset ncver
 		ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 		if [ "$ncver" = "24" ]
 		then
-			sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			nv_upd_simpl
 		fi
 		unset ncver
 		ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 		if [ "$ncver" = "25" ]
 		then
-			sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			nv_upd_simpl
 		fi
 		unset ncver
 		ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 		if [ "$ncver" = "25" ]
 		then
-			sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			nv_upd_simpl
 		fi
 		unset ncver
 		ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 		if [ "$ncver" = "25" ]
 		then
-			sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			nv_upd_simpl
 		fi
 		unset ncver
 		ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 		if [ "$ncver" = "25" ]
 		then
-			sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			nv_upd_simpl
 		fi
 		unset ncver
 		ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 		if [ "$ncver" = "26" ]
 		then
-			sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			nv_upd_simpl
 		fi
 		unset ncver
 		ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 		if [ "$ncver" = "26" ]
 		then
-			sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			nv_upd_simpl
 		fi
 		unset ncver
 		ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 		if [ "$ncver" = "26" ]
 		then
-			sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			nv_upd_simpl
 		fi
 		unset ncver
 		ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 		if [ "$ncver" = "26" ]
 		then
-			sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			nv_upd_simpl
 		fi
 		if [ "$ncver" = "27" ]
 		then
 			echo "Installing PHP 8.2"
-			apt-get install -y -o DPkg::Lock::Timeout=-1 php8.2 libapache2-mod-php8.2 libmagickcore-6.q16-6-extra php8.2-mysql php8.2-common php8.2-bz2 php8.2-redis php8.2-dom php8.2-curl php8.2-exif php8.2-fileinfo php8.2-bcmath php8.2-gmp php8.2-imagick php8.2-mbstring php8.2-xml php8.2-zip php8.2-iconv php8.2-intl php8.2-simplexml php8.2-xmlreader php8.2-ftp php8.2-ssh2 php8.2-sockets php8.2-gd php8.2-imap php8.2-soap php8.2-xmlrpc php8.2-apcu php8.2-dev php8.2-cli >> $insl
-			echo "PHP config files tweaking."
-			echo 'apc.enable_cli=1' >> /etc/php/8.2/cli/conf.d/20-apcu.ini
-			sed -i 's/\b128M\b/1024M/g' /etc/php/8.2/apache2/php.ini
-			sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.2/apache2/php.ini
-			sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.2/apache2/php.ini
-			sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.2/apache2/php.ini
-			sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.2/apache2/php.ini
-			sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.2/apache2/php.ini
-			sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.2/apache2/php.ini
-			sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.2/apache2/php.ini
-			sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.2/apache2/php.ini
-			sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.2/apache2/php.ini
-			sed -i 's/\b128M\b/1024M/g' /etc/php/8.2/cli/php.ini
-			sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.2/cli/php.ini
-			sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.2/cli/php.ini
-			sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.2/cli/php.ini
-			sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.2/cli/php.ini
-			sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.2/cli/php.ini
-			sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.2/cli/php.ini
-			sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.2/cli/php.ini
-			sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.2/cli/php.ini
-			sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.2/cli/php.ini
-			echo 'opcache.enable_cli=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-			echo 'opcache.interned_strings_buffer=64' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-			echo 'opcache.max_accelerated_files=20000' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-			echo 'opcache.memory_consumption=256' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-			echo 'opcache.save_comments=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-			echo 'opcache.enable=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-			systemctl restart apache2 >> $insl
-			rm -rf /var/www/nextcloud/composer.lock >> $insl
-			rm -rf /var/www/nextcloud/package-lock.json >> $insl
-			rm -rf /var/www/nextcloud/package.json >> $insl
-			rm -rf /var/www/nextcloud/composer.json >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices >> $insl
-			sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			install_php82
+			php82_tweaks
+			nv_upd_simpl
 		fi
 		unset ncver
 		ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 		if [ "$ncver" = "27" ]
 		then
-			sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			nv_upd_simpl
 		fi
 		unset ncver
 		ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 		if [ "$ncver" = "27" ]
 		then
-			sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
+			nv_upd_simpl
 		fi
 		unset ncver
 		ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 		if [ "$ncver" = "28" ]
 		then
 			echo "Installing PHP 8.2"
-			apt-get install -y -o DPkg::Lock::Timeout=-1 php8.2 libapache2-mod-php8.2 libmagickcore-6.q16-6-extra php8.2-mysql php8.2-common php8.2-bz2 php8.2-redis php8.2-dom php8.2-curl php8.2-exif php8.2-fileinfo php8.2-bcmath php8.2-gmp php8.2-imagick php8.2-mbstring php8.2-xml php8.2-zip php8.2-iconv php8.2-intl php8.2-simplexml php8.2-xmlreader php8.2-ftp php8.2-ssh2 php8.2-sockets php8.2-gd php8.2-imap php8.2-soap php8.2-xmlrpc php8.2-apcu php8.2-dev php8.2-cli >> $insl
-			echo "PHP config files tweaking."
-			echo 'apc.enable_cli=1' >> /etc/php/8.2/cli/conf.d/20-apcu.ini
-			sed -i 's/\b128M\b/1024M/g' /etc/php/8.2/apache2/php.ini
-			sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.2/apache2/php.ini
-			sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.2/apache2/php.ini
-			sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.2/apache2/php.ini
-			sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.2/apache2/php.ini
-			sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.2/apache2/php.ini
-			sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.2/apache2/php.ini
-			sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.2/apache2/php.ini
-			sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.2/apache2/php.ini
-			sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.2/apache2/php.ini
-			sed -i 's/\b128M\b/1024M/g' /etc/php/8.2/cli/php.ini
-			sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.2/cli/php.ini
-			sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.2/cli/php.ini
-			sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.2/cli/php.ini
-			sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.2/cli/php.ini
-			sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.2/cli/php.ini
-			sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.2/cli/php.ini
-			sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.2/cli/php.ini
-			sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.2/cli/php.ini
-			sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.2/cli/php.ini
-			echo 'opcache.enable_cli=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-			echo 'opcache.interned_strings_buffer=64' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-			echo 'opcache.max_accelerated_files=20000' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-			echo 'opcache.memory_consumption=256' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-			echo 'opcache.save_comments=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-			echo 'opcache.enable=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-			systemctl restart apache2 >> $insl
-			rm -rf /var/www/nextcloud/composer.lock >> $insl
-			rm -rf /var/www/nextcloud/package-lock.json >> $insl
-			rm -rf /var/www/nextcloud/package.json >> $insl
-			rm -rf /var/www/nextcloud/composer.json >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices >> $insl
-			sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ upgrade >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ maintenance:mode --off >> $insl
+			install_php82
+			php82_tweaks
+			nv_upd_simpl
 		fi
 		unset ncver
 		ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 		if [ "$ncver" = "28" ]
 		then
-			sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ upgrade >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ maintenance:mode --off >> $insl
+			nv_upd_simpl
 		fi
 		unset ncver
 		ncver=$( sudo -u www-data php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 		if [ "$ncver" = "28" ]
 		then
-			sudo -u www-data php /var/www/nextcloud/updater/updater.phar --no-interaction >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ upgrade >> $insl
-			sudo -u www-data php /var/www/nextcloud/occ maintenance:mode --off >> $insl
+			nv_upd_simpl
 		fi
 		sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices >> $insl
 		echo ""
@@ -951,6 +732,7 @@ exit 0" >> /etc/rc.local
 		sudo -u www-data php /var/www/nextcloud/occ maintenance:repair >> $insl
 		echo ""
 		sed -i "/installed' => true,/a\ \ 'htaccess.RewriteBase' => '/'," /var/www/nextcloud/config/config.php
+		maintenance_window_setup
 		sudo -u www-data php /var/www/nextcloud/occ maintenance:update:htaccess >> $insl
 		sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices >> $insl
 		sudo -u www-data php /var/www/nextcloud/occ db:convert-filecache-bigint --no-interaction >> $insl
@@ -965,59 +747,21 @@ exit 0" >> /etc/rc.local
 		sudo -u www-data php /var/www/nextcloud/occ app:install twofactor_webauthn >> $insl
 		sudo -u www-data php /var/www/nextcloud/occ app:enable twofactor_webauthn >> $insl
 		sudo -u www-data php /var/www/nextcloud/occ config:app:set files max_chunk_size --value="20971520" >> $insl
-		touch /var/local/nextcloud-installer.ver
-		echo "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)" >> /var/local/nextcloud-installer.ver
-		echo "pver=$ver lang=$lang mail=$mail dm=$dm" >> /var/local/nextcloud-installer.ver
+		touch $ver_file
+		echo "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)" >> $ver_file
+		echo "pver=$ver lang=$lang mail=$mail dm=$dm" >> $ver_file
 		echo "Removing PHP 8.1"
 		apt-get remove -y -o DPkg::Lock::Timeout=-1 php8.1 php8.1-* >> $insl
 		a2enmod http2 >> $insl
 		a2enmod php8.2 >> $insl
-		# modyfing nextcloud vhost by adding http2
-		echo "modyfing nextcloud vhost by adding http2" >> $insl
-		sed -i "/LimitRequestBody 0/a\ \ H2WindowSize 5242880" /etc/apache2/sites-available/nextcloud.conf
-		sed -i "/LimitRequestBody 0/a\ \ ProtocolsHonorOrder Off" /etc/apache2/sites-available/nextcloud.conf
-		sed -i "/LimitRequestBody 0/a\ \ Protocols h2 h2c http/1.1" /etc/apache2/sites-available/nextcloud.conf
-		# adding more thumbnails configurations
-		echo "adding more thumbnails configurations" >> $insl
-		sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 0 --value="OC\\Preview\\PNG" >> $insl
-		sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 1 --value="OC\\Preview\\JPEG" >> $insl
-		sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 2 --value="OC\\Preview\\GIF" >> $insl
-		sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 3 --value="OC\\Preview\\BMP" >> $insl
-		sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 4 --value="OC\\Preview\\XBitmap" >> $insl
-		sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 5 --value="OC\\Preview\\MP3" >> $insl
-		sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 6 --value="OC\\Preview\\TXT" >> $insl
-		sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 7 --value="OC\\Preview\\MarkDown" >> $insl
-		sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 8 --value="OC\\Preview\\OpenDocument" >> $insl
-		sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 9 --value="OC\\Preview\\Krita" >> $insl
-		sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 10 --value="OC\\Preview\\Illustrator" >> $insl
-		sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 11 --value="OC\\Preview\\HEIC" >> $insl
-		sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 12 --value="OC\\Preview\\HEIF" >> $insl
-		sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 13 --value="OC\\Preview\\Movie" >> $insl
-		sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 14 --value="OC\\Preview\\MSOffice2003" >> $insl
-		sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 15 --value="OC\\Preview\\MSOffice2007" >> $insl
-		sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 16 --value="OC\\Preview\\MSOfficeDoc" >> $insl
-		sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 17 --value="OC\\Preview\\PDF" >> $insl
-		sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 18 --value="OC\\Preview\\Photoshop" >> $insl
-		sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 19 --value="OC\\Preview\\Postscript" >> $insl
-		sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 20 --value="OC\\Preview\\StarOffice" >> $insl
-		sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 21 --value="OC\\Preview\\SVG" >> $insl
-		sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 22 --value="OC\\Preview\\TIFF" >> $insl
-		sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 23 --value="OC\\Preview\\WEBP" >> $insl
-		sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 24 --value="OC\\Preview\\EMF" >> $insl
-		sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 25 --value="OC\\Preview\\Font" >> $insl
-		sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 26 --value="OC\\Preview\\Image" >> $insl
-		sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*PS.*\/>\)/\1read|write\3/1' /etc/ImageMagick-6/policy.xml
-		sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*PS2.*\/>\)/\1read|write\3/1' /etc/ImageMagick-6/policy.xml
-		sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*PS3.*\/>\)/\1read|write\3/1' /etc/ImageMagick-6/policy.xml
-		sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*EPS.*\/>\)/\1read|write\3/1' /etc/ImageMagick-6/policy.xml
-		sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*PDF.*\/>\)/\1read|write\3/1' /etc/ImageMagick-6/policy.xml
+		add_http2
+		preview_tweaks
 		rm -rf /opt/latest.zip
 		rm -rf /var/www/nextcloud/config/autoconfig.php
 		systemctl restart mariadb >> $insl
 		systemctl restart redis-server >> $insl
 		systemctl restart apache2 >> $insl
-		echo "Disabling sleep states." >> $insl
-		systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target >> $insl
+		disable_sleep
 		echo "Upgrade process finished."
 		echo "Job done!"
 		mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
@@ -1028,10 +772,7 @@ else
 	echo ""
 fi
 
-#		echo "Old settings will be used for the upgrade process."
-#		echo "You may now cancel this script with CRTL+C,"
-#		echo "or wait 35 seconds so it will upgrade old install."
-
+# Here clean install starts!
 echo "This script will automatically install Nextcloud service."
 echo "Additional packages will be installed too:"
 echo "Apache, PHP, MariaDB, ddclient and Let's encrypt."
@@ -1052,7 +793,6 @@ echo "additional variables."
 echo ""
 echo -e "\e[1;32m*\e[39;0m - domain and router must already be configured to work with this server from Internet."
 sleep 36
-
 
 if [ $cpu = x86_64 ]
 then
@@ -1083,7 +823,7 @@ fi
 
 touch /var/log/nextcloud-installer.log
 
-echo "Nextcloud installer for Debian 11/12 - $ver (www.marcinwilk.eu) started." >> $insl
+echo "Nextcloud installer - $ver (www.marcinwilk.eu) started." >> $insl
 date >> $insl
 echo "---------------------------------------------------------------------------" >> $insl
 
@@ -1128,7 +868,7 @@ mp2=$( cat /root/superadminpass )
 
 echo "Updating OS."
 echo "!!!!!!! Updating OS" >> $insl
-apt-get update -o DPkg::Lock::Timeout=-1 >> $insl && apt-get upgrade -y -o DPkg::Lock::Timeout=-1 >> $insl && apt-get autoremove -y >> $insl
+update_os
 
 if [ "$lang" = "ar" ]
 then
@@ -1187,10 +927,8 @@ then
 	locale-gen >> $insl
 fi
 
-echo "Installing standard packages. It may take some time - be patient."
-echo "!!!!!!! Installing standard packages" >> $insl
-apt-get install -y -o DPkg::Lock::Timeout=-1 git lbzip2 unzip zip lsb-release locales-all rsync wget curl sed screen gawk mc sudo net-tools ethtool vim nano ufw apt-transport-https ca-certificates software-properties-common miniupnpc jq libfontconfig1 libfuse2 socat tree >> $insl
-yes | sudo DEBIAN_FRONTEND=noninteractive apt-get -yqq -o DPkg::Lock::Timeout=-1 install ddclient  >> $insl
+echo "Installing software packages. It may take some time - be patient."
+install_soft
 
 deb12=$( sudo cat /etc/debian_version | awk -F '.' '{print $1}' )
 if [ "$deb12" = "12" ]
@@ -1204,15 +942,12 @@ else
 	systemctl restart ntp >> $insl
 fi
 
-echo "Disabling sleep states." >> $insl
-systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target >> $insl
-
+disable_sleep
 echo "Installing web server with PHP."
 echo "!!!!!!! Installing web server with PHP" >> $insl
 curl -sSLo /usr/share/keyrings/deb.sury.org-php.gpg https://packages.sury.org/php/apt.gpg >> $insl
 sh -c 'echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.sury.org/php/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/php.list' >> $insl
-apt-get update -o DPkg::Lock::Timeout=-1 >> $insl
-apt-get upgrade -y -o DPkg::Lock::Timeout=-1 >> $insl
+update_os
 apt-get install -y -o DPkg::Lock::Timeout=-1 apache2 apache2-utils >> $insl
 
 if [ "$nv" = "24" ]; then
@@ -1222,23 +957,23 @@ if [ "$nv" = "24" ]; then
 elif [ "$nv" = "25" ]; then
 	echo "Installing PHP version 8.1 for Nextcloud v25."
 	echo "!!!!!!! Installing PHP version 8.1 for Nextcloud v25" >> $insl
-	apt-get install -y -o DPkg::Lock::Timeout=-1 php8.1 libapache2-mod-php8.1 libmagickcore-6.q16-6-extra php8.1-mysql php8.1-common php8.1-redis php8.1-dom php8.1-curl php8.1-exif php8.1-fileinfo php8.1-bcmath php8.1-gmp php8.1-imagick php8.1-mbstring php8.1-xml php8.1-zip php8.1-iconv php8.1-intl php8.1-simplexml php8.1-xmlreader php8.1-ftp php8.1-ssh2 php8.1-sockets php8.1-gd php8.1-imap php8.1-soap php8.1-xmlrpc php8.1-apcu php8.1-dev php8.1-cli >> $insl
+	install_php81
 elif [ "$nv" = "26" ]; then
 	echo "Installing PHP version 8.1 for Nextcloud v26."
 	echo "!!!!!!! Installing PHP version 8.1 for Nextcloud v26" >> $insl
-	apt-get install -y -o DPkg::Lock::Timeout=-1 php8.1 libapache2-mod-php8.1 libmagickcore-6.q16-6-extra php8.1-mysql php8.1-common php8.1-redis php8.1-dom php8.1-curl php8.1-exif php8.1-fileinfo php8.1-bcmath php8.1-gmp php8.1-imagick php8.1-mbstring php8.1-xml php8.1-zip php8.1-iconv php8.1-intl php8.1-simplexml php8.1-xmlreader php8.1-ftp php8.1-ssh2 php8.1-sockets php8.1-gd php8.1-imap php8.1-soap php8.1-xmlrpc php8.1-apcu php8.1-dev php8.1-cli >> $insl
+	install_php81
 elif [ "$nv" = "27" ]; then
 	echo "Installing PHP version 8.2 for Nextcloud v27."
 	echo "!!!!!!! Installing PHP version 8.2 for Nextcloud v27" >> $insl
-	apt-get install -y -o DPkg::Lock::Timeout=-1 php8.2 libapache2-mod-php8.2 libmagickcore-6.q16-6-extra php8.2-bz2 php8.2-mysql php8.2-common php8.2-redis php8.2-dom php8.2-curl php8.2-exif php8.2-fileinfo php8.2-bcmath php8.2-gmp php8.2-imagick php8.2-mbstring php8.2-xml php8.2-zip php8.2-iconv php8.2-intl php8.2-simplexml php8.2-xmlreader php8.2-ftp php8.2-ssh2 php8.2-sockets php8.2-gd php8.2-imap php8.2-soap php8.2-xmlrpc php8.2-apcu php8.2-dev php8.2-cli >> $insl
+	install_php82
 elif [ "$nv" = "28" ]; then
 	echo "Installing PHP version 8.2 for Nextcloud v28."
 	echo "!!!!!!! Installing PHP version 8.2 for Nextcloud v28" >> $insl
-	apt-get install -y -o DPkg::Lock::Timeout=-1 php8.2 libapache2-mod-php8.2 libmagickcore-6.q16-6-extra php8.2-bz2 php8.2-mysql php8.2-common php8.2-redis php8.2-dom php8.2-curl php8.2-exif php8.2-fileinfo php8.2-bcmath php8.2-gmp php8.2-imagick php8.2-mbstring php8.2-xml php8.2-zip php8.2-iconv php8.2-intl php8.2-simplexml php8.2-xmlreader php8.2-ftp php8.2-ssh2 php8.2-sockets php8.2-gd php8.2-imap php8.2-soap php8.2-xmlrpc php8.2-apcu php8.2-dev php8.2-cli >> $insl
+	install_php82
 elif [ -z "$nv" ]; then
 	echo "Installing newest PHP version for Nextcloud."
 	echo "!!!!!!! Installing newest PHP version for Nextcloud" >> $insl
-	apt-get install -y -o DPkg::Lock::Timeout=-1 php8.2 libapache2-mod-php8.2 libmagickcore-6.q16-6-extra php8.2-bz2 php8.2-mysql php8.2-common php8.2-redis php8.2-dom php8.2-curl php8.2-exif php8.2-fileinfo php8.2-bcmath php8.2-gmp php8.2-imagick php8.2-mbstring php8.2-xml php8.2-zip php8.2-iconv php8.2-intl php8.2-simplexml php8.2-xmlreader php8.2-ftp php8.2-ssh2 php8.2-sockets php8.2-gd php8.2-imap php8.2-soap php8.2-xmlrpc php8.2-apcu php8.2-dev php8.2-cli >> $insl
+	install_php
 fi
 
 systemctl restart apache2 >> $insl
@@ -1256,7 +991,7 @@ ufw default deny >> $insl
 ufw show added >> $insl
 
 echo "Simple PHP testing..."
-echo "PHP check:" >> $insl
+echo "!!!!!!! PHP check:" >> $insl
 touch test.php
 echo '<?php
    echo "PHP is working! \n";
@@ -1270,9 +1005,7 @@ php info.php >> $insl
 rm -rf test.php >> $insl
 rm -rf info.php >> $insl
 
-echo "Installing cache (redis) and multimedia (ffmpeg) packages."
-echo "!!!!!!! Installing cache (redis) and multimedia (ffmpeg) packages" >> $insl
-# Tweaks for redis first
+# Tweaks for redis first.
 sysctl vm.overcommit_memory=1 >> $insl
 echo "vm.overcommit_memory = 1" >> /etc/sysctl.conf
 echo "#!/bin/sh -e
@@ -1294,223 +1027,30 @@ exit 0
 chmod +x /etc/rc.local
 systemctl daemon-reload
 systemctl start rc-local
-# REDIS cache configure, adding socket for faster communication on local host
+# REDIS cache configure, adding socket for faster communication on local host.
 apt-get install -y -o DPkg::Lock::Timeout=-1 redis-server >> $insl
 sed -i '/# unixsocketperm 700/aunixsocketperm 777' /etc/redis/redis.conf
 sed -i '/# unixsocketperm 700/aunixsocket /var/run/redis/redis.sock' /etc/redis/redis.conf
 usermod -a -G redis www-data
 systemctl restart redis >> $insl
 
-## ffmpeg installing - used for generating thumbnails of video files
-apt-get install -y -o DPkg::Lock::Timeout=-1 ffmpeg imagemagick webp libreoffice ghostscript >> $insl
-
 echo "!!!!!!! Configuring PHP options" >> $insl
 if [ "$nv" = "24" ]; then
-	#Enable APCu command line support
-	echo 'apc.enable_cli=1' >> /etc/php/7.4/cli/conf.d/20-apcu.ini
-
-	sed -i 's/\b128M\b/1024M/g' /etc/php/7.4/apache2/php.ini
-	sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/7.4/apache2/php.ini
-	sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/7.4/apache2/php.ini
-	sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/7.4/apache2/php.ini
-	sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/7.4/apache2/php.ini
-	sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/7.4/apache2/php.ini
-	sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/7.4/apache2/php.ini
-	sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/7.4/apache2/php.ini
-	sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/7.4/apache2/php.ini
-	sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/7.4/apache2/php.ini
-
-	sed -i 's/\b128M\b/1024M/g' /etc/php/7.4/cli/php.ini
-	sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/7.4/cli/php.ini
-	sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/7.4/cli/php.ini
-	sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/7.4/cli/php.ini
-	sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/7.4/cli/php.ini
-	sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/7.4/cli/php.ini
-	sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/7.4/cli/php.ini
-	sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/7.4/cli/php.ini
-	sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/7.4/cli/php.ini
-	sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/7.4/cli/php.ini
-
-	echo 'opcache.enable_cli=1' >> /etc/php/7.4/apache2/conf.d/10-opcache.ini
-	echo 'opcache.interned_strings_buffer=64' >> /etc/php/7.4/apache2/conf.d/10-opcache.ini
-	echo 'opcache.max_accelerated_files=20000' >> /etc/php/7.4/apache2/conf.d/10-opcache.ini
-	echo 'opcache.memory_consumption=256' >> /etc/php/7.4/apache2/conf.d/10-opcache.ini
-	echo 'opcache.save_comments=1' >> /etc/php/7.4/apache2/conf.d/10-opcache.ini
-	# echo 'opcache.revalidate_freq=1' >> /etc/php/7.4/apache2/conf.d/10-opcache.ini
-	echo 'opcache.enable=1' >> /etc/php/7.4/apache2/conf.d/10-opcache.ini
-	# echo 'opcache.jit=disable' >> /etc/php/7.4/apache2/conf.d/10-opcache.inifi
+	php74_tweaks
 elif [ "$nv" = "25" ]; then
-	#Enable APCu command line support
-	echo 'apc.enable_cli=1' >> /etc/php/8.1/cli/conf.d/20-apcu.ini
-
-	sed -i 's/\b128M\b/1024M/g' /etc/php/8.1/apache2/php.ini
-	sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.1/apache2/php.ini
-	sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.1/apache2/php.ini
-	sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.1/apache2/php.ini
-	sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.1/apache2/php.ini
-	sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.1/apache2/php.ini
-	sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.1/apache2/php.ini
-	sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.1/apache2/php.ini
-	sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.1/apache2/php.ini
-	sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.1/apache2/php.ini
-
-	sed -i 's/\b128M\b/1024M/g' /etc/php/8.1/cli/php.ini
-	sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.1/cli/php.ini
-	sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.1/cli/php.ini
-	sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.1/cli/php.ini
-	sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.1/cli/php.ini
-	sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.1/cli/php.ini
-	sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.1/cli/php.ini
-	sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.1/cli/php.ini
-	sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.1/cli/php.ini
-	sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.1/cli/php.ini
-
-	echo 'opcache.enable_cli=1' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
-	echo 'opcache.interned_strings_buffer=64' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
-	echo 'opcache.max_accelerated_files=20000' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
-	echo 'opcache.memory_consumption=256' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
-	echo 'opcache.save_comments=1' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
-	# echo 'opcache.revalidate_freq=1' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
-	echo 'opcache.enable=1' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
-	# echo 'opcache.jit=disable' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
+	php81_tweaks
 elif [ "$nv" = "26" ]; then
-	#Enable APCu command line support
-	echo 'apc.enable_cli=1' >> /etc/php/8.1/cli/conf.d/20-apcu.ini
-
-	sed -i 's/\b128M\b/1024M/g' /etc/php/8.1/apache2/php.ini
-	sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.1/apache2/php.ini
-	sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.1/apache2/php.ini
-	sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.1/apache2/php.ini
-	sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.1/apache2/php.ini
-	sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.1/apache2/php.ini
-	sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.1/apache2/php.ini
-	sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.1/apache2/php.ini
-	sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.1/apache2/php.ini
-	sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.1/apache2/php.ini
-
-	sed -i 's/\b128M\b/1024M/g' /etc/php/8.1/cli/php.ini
-	sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.1/cli/php.ini
-	sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.1/cli/php.ini
-	sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.1/cli/php.ini
-	sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.1/cli/php.ini
-	sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.1/cli/php.ini
-	sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.1/cli/php.ini
-	sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.1/cli/php.ini
-	sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.1/cli/php.ini
-	sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.1/cli/php.ini
-
-	echo 'opcache.enable_cli=1' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
-	echo 'opcache.interned_strings_buffer=64' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
-	echo 'opcache.max_accelerated_files=20000' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
-	echo 'opcache.memory_consumption=256' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
-	echo 'opcache.save_comments=1' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
-	# echo 'opcache.revalidate_freq=1' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
-	echo 'opcache.enable=1' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
-	# echo 'opcache.jit=disable' >> /etc/php/8.1/apache2/conf.d/10-opcache.ini
+	php81_tweaks
 elif [ "$nv" = "27" ]; then
-	#Enable APCu command line support
-	echo 'apc.enable_cli=1' >> /etc/php/8.2/cli/conf.d/20-apcu.ini
-
-	sed -i 's/\b128M\b/1024M/g' /etc/php/8.2/apache2/php.ini
-	sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.2/apache2/php.ini
-	sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.2/apache2/php.ini
-	sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.2/apache2/php.ini
-	sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.2/apache2/php.ini
-	sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.2/apache2/php.ini
-	sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.2/apache2/php.ini
-	sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.2/apache2/php.ini
-	sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.2/apache2/php.ini
-	sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.2/apache2/php.ini
-
-	sed -i 's/\b128M\b/1024M/g' /etc/php/8.2/cli/php.ini
-	sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.2/cli/php.ini
-	sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.2/cli/php.ini
-	sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.2/cli/php.ini
-	sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.2/cli/php.ini
-	sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.2/cli/php.ini
-	sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.2/cli/php.ini
-	sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.2/cli/php.ini
-	sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.2/cli/php.ini
-	sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.2/cli/php.ini
-
-	echo 'opcache.enable_cli=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-	echo 'opcache.interned_strings_buffer=64' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-	echo 'opcache.max_accelerated_files=20000' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-	echo 'opcache.memory_consumption=256' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-	echo 'opcache.save_comments=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-	# echo 'opcache.revalidate_freq=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-	echo 'opcache.enable=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-	# echo 'opcache.jit=disable' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+	php82_tweaks
 elif [ "$nv" = "28" ]; then
-	#Enable APCu command line support
-	echo 'apc.enable_cli=1' >> /etc/php/8.2/cli/conf.d/20-apcu.ini
-
-	sed -i 's/\b128M\b/1024M/g' /etc/php/8.2/apache2/php.ini
-	sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.2/apache2/php.ini
-	sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.2/apache2/php.ini
-	sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.2/apache2/php.ini
-	sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.2/apache2/php.ini
-	sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.2/apache2/php.ini
-	sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.2/apache2/php.ini
-	sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.2/apache2/php.ini
-	sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.2/apache2/php.ini
-	sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.2/apache2/php.ini
-
-	sed -i 's/\b128M\b/1024M/g' /etc/php/8.2/cli/php.ini
-	sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.2/cli/php.ini
-	sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.2/cli/php.ini
-	sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.2/cli/php.ini
-	sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.2/cli/php.ini
-	sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.2/cli/php.ini
-	sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.2/cli/php.ini
-	sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.2/cli/php.ini
-	sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.2/cli/php.ini
-	sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.2/cli/php.ini
-
-	echo 'opcache.enable_cli=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-	echo 'opcache.interned_strings_buffer=64' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-	echo 'opcache.max_accelerated_files=20000' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-	echo 'opcache.memory_consumption=256' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-	echo 'opcache.save_comments=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-	# echo 'opcache.revalidate_freq=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-	echo 'opcache.enable=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-	# echo 'opcache.jit=disable' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+	php82_tweaks
 elif [ -z "$nv" ]; then
-	#Enable APCu command line support
-	echo 'apc.enable_cli=1' >> /etc/php/8.2/cli/conf.d/20-apcu.ini
-
-	sed -i 's/\b128M\b/1024M/g' /etc/php/8.2/apache2/php.ini
-	sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.2/apache2/php.ini
-	sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.2/apache2/php.ini
-	sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.2/apache2/php.ini
-	sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.2/apache2/php.ini
-	sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.2/apache2/php.ini
-	sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.2/apache2/php.ini
-	sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.2/apache2/php.ini
-	sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.2/apache2/php.ini
-	sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.2/apache2/php.ini
-
-	sed -i 's/\b128M\b/1024M/g' /etc/php/8.2/cli/php.ini
-	sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.2/cli/php.ini
-	sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.2/cli/php.ini
-	sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.2/cli/php.ini
-	sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.2/cli/php.ini
-	sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.2/cli/php.ini
-	sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.2/cli/php.ini
-	sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.2/cli/php.ini
-	sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.2/cli/php.ini
-	sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.2/cli/php.ini
-
-	echo 'opcache.enable_cli=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-	echo 'opcache.interned_strings_buffer=64' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-	echo 'opcache.max_accelerated_files=20000' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-	echo 'opcache.memory_consumption=256' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-	echo 'opcache.save_comments=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-	# echo 'opcache.revalidate_freq=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-	echo 'opcache.enable=1' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
-	# echo 'opcache.jit=disable' >> /etc/php/8.2/apache2/conf.d/10-opcache.ini
+	php_tweaks
 fi
 echo "!!!!!!! Creating certificates for localhost and vhost" >> $insl
+echo "Generating keys & certificates for web access."
+echo "Few strange lines with . and + will appear."
 # Creating certificate for localhost
 cd /opt/
 touch open_ssl.conf
@@ -1538,7 +1078,7 @@ cp localhost.crt /etc/ssl/certs/localhost.crt >> $insl
 # mkdir /etc/ssl/private/
 cp localhost.key /etc/ssl/private/localhost.key >> $insl
 
-# Creating VHost for Apache
+# Creating VHost for Apache.
 echo '<VirtualHost *:80>
   ServerAdmin webmaster@localhost
   # ServerName localhost
@@ -1614,7 +1154,7 @@ echo "Installing MariaDB database server."
 echo "!!!!!!! Installing MariaDB database server" >> $insl
 apt-get install -y -o DPkg::Lock::Timeout=-1 mariadb-server >> $insl
 
-# Adding MariaDB options
+# Adding MariaDB options.
 touch /etc/mysql/mariadb.conf.d/70-nextcloud.cnf
 echo '[server]
 skip-name-resolve
@@ -1639,33 +1179,33 @@ innodb_io_capacity=4000
 systemctl enable mariadb >> $insl
 systemctl restart mariadb >> $insl
 
-# MariaDB Installed Snapshot
+# MariaDB Installed Snapshot.
 
-# Make sure that NOBODY can access the server without a password
+# Make sure that NOBODY can access the server without a password.
 mysql -e "SET PASSWORD FOR 'root'@'localhost' = PASSWORD('$mp');" >> $insl
-# Kill the anonymous users
+# Kill the anonymous users.
 # mysql -e "DROP USER ''@'localhost'" >> $insl
 # Because our hostname varies we'll use some Bash magic here.
 # mysql -e "DROP USER ''@'$(hostname)'" >> $insl
-# Disable remote root user access
+# Disable remote root user access.
 mysql -e "DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1')" >> $insl
-# Kill off the demo database
+# Kill off the demo database.
 
-# Creating database for Nextcloud
+# Creating database for Nextcloud.
 mysql -e "SET GLOBAL innodb_default_row_format='dynamic'" >> $insl
 mysql -e "CREATE DATABASE nextdrive CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci" >> $insl
 mysql -e "GRANT ALL on nextdrive.* to 'nextcloud'@'%' identified by '$mp'" >> $insl
 
-# Make our changes take effect
+# Make our changes take effect.
 mysql -e "FLUSH PRIVILEGES" >> $insl
 
 # Importing data into database: enabling smb share in nextcloud, enabling plugins if needed.
 # Export cmd: mysqldump -u root -p --all-databases --skip-lock-tables > alldb.sql
 
-# Downloading and installing Let's encrypt mechanism
+# Downloading and installing Let's encrypt mechanism.
 apt-get install -y -o DPkg::Lock::Timeout=-1 python3-certbot-apache >> $insl
 
-# Downloading and installing Nextcloud
+# Downloading and installing Nextcloud.
 echo "!!!!!!! Downloading and installing Nextcloud" >> $insl
 mkdir /var/www/nextcloud
 mkdir /var/www/nextcloud/data
@@ -1706,7 +1246,7 @@ fi
 
 chown -R www-data:www-data /var/www/
 
-# Making Nextcloud preconfiguration
+# Making Nextcloud preconfiguration.
 touch /var/www/nextcloud/config/autoconfig.php
 echo '<?php' >> /var/www/nextcloud/config/autoconfig.php
 echo '$AUTOCONFIG = array(' >> /var/www/nextcloud/config/autoconfig.php
@@ -1766,7 +1306,7 @@ then
 	sudo -u www-data php /var/www/nextcloud/occ config:system:set default_language --value="uk" >> $insl
 fi
 
-# Enabling Redis in config file - default cache engine now
+# Enabling Redis in config file - default cache engine now.
 sed -i "/installed' => true,/a\ \ 'memcache.local' => '\\\OC\\\Memcache\\\Redis',\n\ \ 'filelocking.enabled' => true,\n \ 'memcache.locking' => '\\\OC\\\Memcache\\\Redis',\n \ 'memcache.distributed' => '\\\OC\\\Memcache\\\Redis',\n \ 'redis' =>\n \ array (\n \  \ 'host' => '/var/run/redis/redis.sock',\n \  \ 'port' => 0,\n \  \ 'dbindex' => 0,\n \  \ 'timeout' => 600.0,\n \ )," /var/www/nextcloud/config/config.php
 
 # APCu cacheing
@@ -1774,6 +1314,9 @@ sed -i "/installed' => true,/a\ \ 'memcache.local' => '\\\OC\\\Memcache\\\Redis'
 
 # Disabling info about creating free account on shared pages/links when logged out (because it is missleading for private nextcloud instances).
 sed -i "/installed' => true,/a\ \ 'simpleSignUpLink.shown' => false," /var/www/nextcloud/config/config.php
+
+# Setting up maintenance window start time to 1 am (UTC).
+maintenance_window_setup
 
 # Command below should do nothing, but once in the past i needed that, so let it stay here...
 sudo -u www-data php /var/www/nextcloud/occ db:add-missing-indices >> $insl
@@ -1813,6 +1356,10 @@ sudo -u www-data php /var/www/nextcloud/occ app:install camerarawpreviews >> $in
 sudo -u www-data php /var/www/nextcloud/occ app:enable camerarawpreviews >> $insl
 sudo -u www-data php /var/www/nextcloud/occ config:app:set files max_chunk_size --value="20971520" >> $insl
 
+# Import certificate by Nextcloud so it will not cry that it'cant check for mjs support by JavaScript MIME type on server.
+# Actually it do not resolve problem with information, so i think it is just another inside error ignored by NC.
+sudo -u www-data php /var/www/nextcloud/occ security:certificates:import /etc/ssl/certs/localhost.crt
+
 # Below lines will give more data if something goes wrong!
 curl -I http://127.0.0.1/  >> $insl
 cat /var/www/nextcloud/data/nextcloud.log >> $insl
@@ -1826,7 +1373,7 @@ systemctl stop apache2
 sudo -u www-data php /var/www/nextcloud/occ db:convert-filecache-bigint --no-interaction >> $insl
 # sudo -u www-data php /var/www/nextcloud/occ maintenance:mode --off >> $insl
 
-# Preparing cron service to run cron.php every 5 minute
+# Preparing cron service to run cron.php every 5 minute.
 touch /etc/systemd/system/nextcloudcron.service
 touch /etc/systemd/system/nextcloudcron.timer
 
@@ -1855,7 +1402,7 @@ systemctl start nextcloudcron.timer
 systemctl enable nextcloudcron.timer
 systemctl restart apache2
 
-#Additional things that may fix some unknown Nextcloud problems (that appeared for me when started using v19)
+# Additional things that may fix some unknown Nextcloud problems (that appeared for me when started using v19).
 chown -R www-data:www-data /var/www/nextcloud
 chmod 775 /var/www/nextcloud
 
@@ -1866,44 +1413,11 @@ sudo -u www-data php /var/www/nextcloud/occ files:scan --all; >> $insl
 sudo -u www-data php /var/www/nextcloud/occ files:cleanup; >> $insl
 # sudo -u www-data php /var/www/nextcloud/occ preview:generate-all -vvv
 
-# hide index.php from urls
+# hide index.php from urls.
 sed -i "/installed' => true,/a\ \ 'htaccess.RewriteBase' => '/'," /var/www/nextcloud/config/config.php
 sudo -u www-data php /var/www/nextcloud/occ maintenance:update:htaccess >> $insl
 
-# adding more thumbnails configurations
-echo "adding more thumbnails configurations" >> $insl
-sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 0 --value="OC\\Preview\\PNG" >> $insl
-sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 1 --value="OC\\Preview\\JPEG" >> $insl
-sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 2 --value="OC\\Preview\\GIF" >> $insl
-sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 3 --value="OC\\Preview\\BMP" >> $insl
-sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 4 --value="OC\\Preview\\XBitmap" >> $insl
-sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 5 --value="OC\\Preview\\MP3" >> $insl
-sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 6 --value="OC\\Preview\\TXT" >> $insl
-sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 7 --value="OC\\Preview\\MarkDown" >> $insl
-sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 8 --value="OC\\Preview\\OpenDocument" >> $insl
-sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 9 --value="OC\\Preview\\Krita" >> $insl
-sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 10 --value="OC\\Preview\\Illustrator" >> $insl
-sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 11 --value="OC\\Preview\\HEIC" >> $insl
-sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 12 --value="OC\\Preview\\HEIF" >> $insl
-sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 13 --value="OC\\Preview\\Movie" >> $insl
-sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 14 --value="OC\\Preview\\MSOffice2003" >> $insl
-sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 15 --value="OC\\Preview\\MSOffice2007" >> $insl
-sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 16 --value="OC\\Preview\\MSOfficeDoc" >> $insl
-sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 17 --value="OC\\Preview\\PDF" >> $insl
-sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 18 --value="OC\\Preview\\Photoshop" >> $insl
-sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 19 --value="OC\\Preview\\Postscript" >> $insl
-sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 20 --value="OC\\Preview\\StarOffice" >> $insl
-sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 21 --value="OC\\Preview\\SVG" >> $insl
-sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 22 --value="OC\\Preview\\TIFF" >> $insl
-sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 23 --value="OC\\Preview\\WEBP" >> $insl
-sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 24 --value="OC\\Preview\\EMF" >> $insl
-sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 25 --value="OC\\Preview\\Font" >> $insl
-sudo -u www-data php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 26 --value="OC\\Preview\\Image" >> $insl
-sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*PS.*\/>\)/\1read|write\3/1' /etc/ImageMagick-6/policy.xml
-sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*PS2.*\/>\)/\1read|write\3/1' /etc/ImageMagick-6/policy.xml
-sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*PS3.*\/>\)/\1read|write\3/1' /etc/ImageMagick-6/policy.xml
-sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*EPS.*\/>\)/\1read|write\3/1' /etc/ImageMagick-6/policy.xml
-sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*PDF.*\/>\)/\1read|write\3/1' /etc/ImageMagick-6/policy.xml
+preview_tweaks
 
 echo "Using UPNP to open ports for now." >> $insl
 upnpc -e "Web Server HTTP" -a $addr1 80 80 TCP >> $insl 2>&1
@@ -2012,9 +1526,9 @@ rm -rf /opt/latest.zip
 rm -rf /var/www/nextcloud/config/autoconfig.php
 apt-get autoremove -y >> $insl
 systemctl restart apache2
-touch /var/local/nextcloud-installer.ver
-echo "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)" >> /var/local/nextcloud-installer.ver
-echo "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv" >> /var/local/nextcloud-installer.ver
+touch $ver_file
+echo "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)" >> $ver_file
+echo "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv" >> $ver_file
 mv $cdir/nextcloud-debian-ins.sh nextcloud-debian-ins-$(date +"%FT%H%M").sh
 unset LC_ALL
 exit 0
