@@ -48,8 +48,9 @@
 # 1. You use it at your own risk. Author is not responsible for any damage made with that script.
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
-# V 1.8 10.02.2024
+# V 1.8 - 04.02.2024
 # - first release with Rocky Linux (9), and other Enterprise Linux distributions support
+# - a little more code optimizations
 # V 1.7.1 - 01.02.2024
 # - code cleanup
 # - add maintenance window start time configuration (for 28.0.2 released today)
