@@ -1,9 +1,8 @@
 #!/bin/bash
 
 # Nextcloud Install Script
-# Made for Linux distributions: 
-# Debian(x86_64, supported versions: 11, 12).
-# Rocky Linux / other Enterprise Linux distributions (x86_64, v9).
+# Made for freshly installed, server Linux distributions using AMD64(x86_64) architecture: 
+# Debian (11,12), Enterprise Linux (9), Ubuntu Server (22), Fedora Server (39).
 #
 # It will update OS, preconfigure everything, install neeeded packages and Nextcloud.
 # There is also support for upgrading Nextcloud and OS packages (just download and run latest version of this script).
@@ -48,6 +47,8 @@
 # 1. You use it at your own risk. Author is not responsible for any damage made with that script.
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
+# V 1.8.1 - 07.02.2024
+# - first release with Fedora Server 39, and Ubuntu Server LTS (22) distributions support
 # V 1.8 - 04.02.2024
 # - first release with Rocky Linux (9), and other Enterprise Linux distributions support
 # - a little more code optimizations
@@ -126,11 +127,25 @@ ver=1.8
 cpu=$( uname -m )
 user=$( whoami )
 debvf=/etc/debian_version
+ubuvf=/etc/dpkg/origins/ubuntu
 if [ -e $debvf ]
 then
+	if [ -e $ubuvf ]
+	then
+		ubuv=$( cat /etc/lsb-release | grep "Ubuntu 22" | awk -F '"' '{print $2}' )
+		unset debv
+		debv=$ubuv
+		ubu19=$( cat /etc/lsb-release | grep "Ubuntu 19" )
+		ubu20=$( cat /etc/lsb-release | grep "Ubuntu 20" )
+		ubu21=$( cat /etc/lsb-release | grep "Ubuntu 21" )
+		ubu22=$( cat /etc/lsb-release | grep "Ubuntu 22" )
+		ubu23=$( cat /etc/lsb-release | grep "Ubuntu 23" )
+	else
 	debv=$( cat $debvf )
+	fi
 fi
 elvf=/etc/redhat-release
+fedvf=/etc/fedora-release
 if [ -e $elvf ]
 then
 	elv=$( cat $elvf )
@@ -139,6 +154,13 @@ then
 	el8=$( cat /etc/redhat-release | grep "release 8" )
 	el9=$( cat /etc/redhat-release | grep "release 9" )
 	el10=$( cat /etc/redhat-release | grep "release 10" )
+	if [ -e $fedvf ]
+	then
+		fed36=$( cat /etc/redhat-release | grep "release 36" )
+		fed37=$( cat /etc/redhat-release | grep "release 37" )
+		fed38=$( cat /etc/redhat-release | grep "release 38" )
+		fed39=$( cat /etc/redhat-release | grep "release 39" )
+	fi
 fi
 addr=$( hostname -I )
 addr1=$( hostname -I | awk '{print $1}' )
@@ -181,10 +203,11 @@ function restart_websrv {
 	then
 		systemctl stop httpd >> $insl 2>&1
 		if [ -d /etc/opt/remi/php74 ]
-	then
-		systemctl stop php74-php-fpm >> $insl 2>&1
-		rm -rf /var/opt/remi/php74/lib/php/opcache/* >> $insl 2>&1
-		systemctl start php74-php-fpm >> $insl 2>&1
+		then
+			systemctl stop php74-php-fpm >> $insl 2>&1
+			rm -rf /var/opt/remi/php74/lib/php/opcache/* >> $insl 2>&1
+			systemctl start php74-php-fpm >> $insl 2>&1
+		fi
 	fi
 	if [ -d /etc/opt/remi/php81 ]
 	then
@@ -211,7 +234,6 @@ function restart_websrv {
 		systemctl start php84-php-fpm >> $insl 2>&1
 	fi
 	systemctl start httpd >> $insl 2>&1
-fi
 }
 
 function maintenance_window_setup {
@@ -258,11 +280,11 @@ function nv_upd_simpl {
 function update_os {
 	if [ -e $debvf ]
 	then
-	apt-get update -o DPkg::Lock::Timeout=-1 >> $insl 2>&1 && apt-get upgrade -y -o DPkg::Lock::Timeout=-1 >> $insl 2>&1 && apt-get autoremove -y >> $insl 2>&1
+		apt-get update -o DPkg::Lock::Timeout=-1 >> $insl 2>&1 && apt-get upgrade -y -o DPkg::Lock::Timeout=-1 >> $insl 2>&1 && apt-get autoremove -y >> $insl 2>&1
 	fi
 	if [ -e $elvf ]
 	then
-	dnf update -y -q
+		dnf update -y -q
 	fi
 }
 
@@ -270,8 +292,9 @@ function install_soft {
 	echo "!!!!!!! Installing all needed standard packages" >> $insl 2>&1
 	if [ -e $debvf ]
 	then
-	apt-get install -y -o DPkg::Lock::Timeout=-1 git lbzip2 unzip zip lsb-release locales-all rsync wget curl sed screen gawk mc sudo net-tools ethtool vim nano ufw apt-transport-https ca-certificates software-properties-common miniupnpc jq libfontconfig1 libfuse2 socat tree ffmpeg imagemagick webp libreoffice ghostscript >> $insl 2>&1
-	yes | sudo DEBIAN_FRONTEND=noninteractive apt-get -yqq -o DPkg::Lock::Timeout=-1 install ddclient  >> $insl 2>&1
+		DEBIAN_FRONTEND=noninteractive
+		apt-get install -y -o DPkg::Lock::Timeout=-1 git lbzip2 unzip zip lsb-release locales-all rsync wget curl sed screen gawk mc sudo net-tools ethtool vim nano ufw apt-transport-https ca-certificates software-properties-common miniupnpc jq libfontconfig1 libfuse2 socat tree ffmpeg imagemagick webp libreoffice ghostscript >> $insl 2>&1
+		yes | sudo DEBIAN_FRONTEND=noninteractive apt-get -yqq -o DPkg::Lock::Timeout=-1 install ddclient  >> $insl 2>&1
 	fi
 	if [ -e $elvf ]
 	then
@@ -280,9 +303,15 @@ function install_soft {
 		# grubby --update-kernel ALL --args selinux=0 >> $insl 2>&1
 		# sed --in-place=.bak 's/^SELINUX\=enforcing/SELINUX\=permissive/g' /etc/selinux/config
 		
-		dnf -q config-manager --set-enabled crb && dnf install -y -q epel-release >> $insl 2>&1
-		dnf install -q --nogpgcheck https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-$(rpm -E %rhel).noarch.rpm -y >> $insl 2>&1
-		dnf install -q --nogpgcheck https://mirrors.rpmfusion.org/nonfree/el/rpmfusion-nonfree-release-$(rpm -E %rhel).noarch.rpm -y >> $insl 2>&1
+		if [ -e $fedvf ]
+		then
+			dnf install -y -q https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm >> $insl 2>&1
+			dnf config-manager -y --enable fedora-cisco-openh264 >> $insl 2>&1
+		else
+			dnf -q config-manager --set-enabled crb && dnf install -y -q epel-release >> $insl 2>&1
+			dnf install -q --nogpgcheck https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-$(rpm -E %rhel).noarch.rpm -y >> $insl 2>&1
+			dnf install -q --nogpgcheck https://mirrors.rpmfusion.org/nonfree/el/rpmfusion-nonfree-release-$(rpm -E %rhel).noarch.rpm -y >> $insl 2>&1
+		fi
 		dnf install -y -q git lbzip2 unzip zip lsb-release rsync wget curl sed screen gawk mc sudo net-tools ethtool vim nano ca-certificates miniupnpc jq fontconfig-devel socat tree ffmpeg ImageMagick libwebp libreoffice ghostscript ddclient >> $insl 2>&1
 	fi
 }
@@ -290,11 +319,19 @@ function install_soft {
 function install_php81 {
 	if [ -e $debvf ]
 	then
-	apt-get install -y -o DPkg::Lock::Timeout=-1 php8.1 libapache2-mod-php8.1 libmagickcore-6.q16-6-extra php8.1-mysql php8.1-common php8.1-redis php8.1-dom php8.1-curl php8.1-exif php8.1-fileinfo php8.1-bcmath php8.1-gmp php8.1-imagick php8.1-mbstring php8.1-xml php8.1-zip php8.1-iconv php8.1-intl php8.1-simplexml php8.1-xmlreader php8.1-ftp php8.1-ssh2 php8.1-sockets php8.1-gd php8.1-imap php8.1-soap php8.1-xmlrpc php8.1-apcu php8.1-dev php8.1-cli >> $insl 2>&1
+		curl -sSLo /usr/share/keyrings/deb.sury.org-php.gpg https://packages.sury.org/php/apt.gpg >> $insl 2>&1
+		sh -c 'echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.sury.org/php/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/php.list' >> $insl 2>&1
+		apt-get install -y -o DPkg::Lock::Timeout=-1 php8.1 libapache2-mod-php8.1 libmagickcore-6.q16-6-extra php8.1-mysql php8.1-common php8.1-redis php8.1-dom php8.1-curl php8.1-exif php8.1-fileinfo php8.1-bcmath php8.1-gmp php8.1-imagick php8.1-mbstring php8.1-xml php8.1-zip php8.1-iconv php8.1-intl php8.1-simplexml php8.1-xmlreader php8.1-ftp php8.1-ssh2 php8.1-sockets php8.1-gd php8.1-imap php8.1-soap php8.1-xmlrpc php8.1-apcu php8.1-dev php8.1-cli >> $insl 2>&1
 	fi
 	if [ -e $elvf ]
 	then
-		dnf install -y -q https://rpms.remirepo.net/enterprise/remi-release-9.rpm >> $insl 2>&1
+		if [ -e $fedvf ]
+		then
+			dnf install -y -q https://rpms.remirepo.net/fedora/remi-release-39.rpm >> $insl 2>&1
+			dnf config-manager --set-enabled remi
+		else
+			dnf install -y -q https://rpms.remirepo.net/enterprise/remi-release-9.rpm >> $insl 2>&1
+		fi
 		dnf install -y -q php81 php81-php-apcu php81-php-opcache php81-php-mysql php81-php-bcmath php81-php-common php81-php-geos php81-php-gmp php81-php-pecl-imagick-im7 php81-php-pecl-lzf php81-php-pecl-mcrypt php81-php-pecl-recode php81-php-process php81-php-zstd php81-php-redis php81-php-dom php81-php-curl php81-php-exif php81-php-fileinfo php81-php-mbstring php81-php-xml php81-php-zip php81-php-iconv php81-php-intl php81-php-simplexml php81-php-xmlreader php81-php-ftp php81-php-ssh2 php81-php-sockets php81-php-gd php81-php-imap php81-php-soap php81-php-xmlrpc php81-php-apcu php81-php-cli php81-php-ast php81-php-brotli php81-php-enchant php81-php-ffi php81-php-lz4 php81-php-phalcon5 php81-php-phpiredis php81-php-smbclient php81-php-tidy php81-php-xz >> $insl 2>&1
 		dnf install -y -q php81-syspaths php81-mod_php >> $insl 2>&1
 		ln -s /var/opt/remi/php81/log/php-fpm /var/log/php-fpm
@@ -304,11 +341,26 @@ function install_php81 {
 function install_php82 {
 	if [ -e $debvf ]
 	then
-	apt-get install -y -o DPkg::Lock::Timeout=-1 php8.2 libapache2-mod-php8.2 libmagickcore-6.q16-6-extra php8.2-mysql php8.2-common php8.2-bz2 php8.2-redis php8.2-dom php8.2-curl php8.2-exif php8.2-fileinfo php8.2-bcmath php8.2-gmp php8.2-imagick php8.2-mbstring php8.2-xml php8.2-zip php8.2-iconv php8.2-intl php8.2-simplexml php8.2-xmlreader php8.2-ftp php8.2-ssh2 php8.2-sockets php8.2-gd php8.2-imap php8.2-soap php8.2-xmlrpc php8.2-apcu php8.2-dev php8.2-cli >> $insl 2>&1
+		if [ -e $ubuvf ]
+		then
+			add-apt-repository -y ppa:ondrej/php  >> $insl 2>&1
+			DEBIAN_FRONTEND=noninteractive
+		else
+			curl -sSLo /usr/share/keyrings/deb.sury.org-php.gpg https://packages.sury.org/php/apt.gpg >> $insl 2>&1
+			sh -c 'echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.sury.org/php/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/php.list' >> $insl 2>&1
+		fi
+		apt-get update >> $insl 2>&1
+		apt-get install -y -o DPkg::Lock::Timeout=-1 php8.2 libapache2-mod-php8.2 libmagickcore-6.q16-6-extra php8.2-mysql php8.2-common php8.2-bz2 php8.2-redis php8.2-dom php8.2-curl php8.2-exif php8.2-fileinfo php8.2-bcmath php8.2-gmp php8.2-imagick php8.2-mbstring php8.2-xml php8.2-zip php8.2-iconv php8.2-intl php8.2-simplexml php8.2-xmlreader php8.2-ftp php8.2-ssh2 php8.2-sockets php8.2-gd php8.2-imap php8.2-soap php8.2-xmlrpc php8.2-apcu php8.2-dev php8.2-cli >> $insl 2>&1
 	fi
 	if [ -e $elvf ]
 	then
-		dnf install -y -q https://rpms.remirepo.net/enterprise/remi-release-9.rpm >> $insl 2>&1
+		if [ -e $fedvf ]
+		then
+			dnf install -y -q https://rpms.remirepo.net/fedora/remi-release-39.rpm >> $insl 2>&1
+			dnf config-manager --set-enabled remi
+		else
+			dnf install -y -q https://rpms.remirepo.net/enterprise/remi-release-9.rpm >> $insl 2>&1
+		fi
 		dnf install -y -q php82 php82-php-apcu php82-php-opcache php82-php-mysql php82-php-bcmath php82-php-common php82-php-geos php82-php-gmp php82-php-pecl-imagick-im7 php82-php-pecl-lzf php82-php-pecl-mcrypt php82-php-pecl-recode php82-php-process php82-php-zstd php82-php-redis php82-php-dom php82-php-curl php82-php-exif php82-php-fileinfo php82-php-mbstring php82-php-xml php82-php-zip php82-php-iconv php82-php-intl php82-php-simplexml php82-php-xmlreader php82-php-ftp php82-php-ssh2 php82-php-sockets php82-php-gd php82-php-imap php82-php-soap php82-php-xmlrpc php82-php-apcu php82-php-cli php82-php-ast php82-php-brotli php82-php-enchant php82-php-ffi php82-php-lz4 php82-php-phalcon5 php82-php-phpiredis php82-php-smbclient php82-php-tidy php82-php-xz >> $insl 2>&1
 		dnf install -y -q php82-syspaths php82-mod_php >> $insl 2>&1
 		ln -s /var/opt/remi/php82/log/php-fpm /var/log/php-fpm
@@ -641,7 +693,7 @@ function nv_update {
 }
 
 echo -e "\e[38;5;214mNextcloud Install Script\e[39;0m
-Version $ver for x86_64 (Support for Debian versions: 11, 12 & Rocky Linux 9)
+Version $ver for x86_64, for popular server Linux distributions.
 by marcin@marcinwilk.eu - www.marcinwilk.eu"
 echo "---------------------------------------------------------------------------"
 
@@ -758,9 +810,9 @@ then
 	else
 		echo "Detected installer version 1.4 or older already used."
 		echo "Detected installer version 1.4 or older already used." >> $insl 2>&1
-		if [ -e $elvf ]
+		if [ -e $elvf ] || [ -e $ubuvf ]
 		then
-			echo "In case of EL this is impossible, must be some error."
+			echo "In case of Fedora/EL/Ubuntu this is impossible, must be some error."
 			echo "Highly possible that script was canceled during work."
 			echo "Clearing now..."
 			rm -rf $insl
@@ -974,9 +1026,9 @@ fi
 # Here clean install starts!
 if [ -e $debvf ] || [ -e $elvf ]
 then
-	if [ -n "$el5" ] || [ -n "$el6" ] || [ -n "$el7" ] || [ -n "$el8" ]
+	if [ -n "$el5" ] || [ -n "$el6" ] || [ -n "$el7" ] || [ -n "$el8" ] || [ -n "$ubu19" ] || [ -n "$ubu20" ] || [ -n "$ubu21" ] || [ -n "$fed36" ] || [ -n "$fed37" ] || [ -n "$fed38" ]
 	then
-		echo "Too old main version release, try v9 or newer."
+		echo "Too old main Linux distribution release, try newer."
 		exit 0
 	else
 		echo "" > /dev/null
@@ -1028,7 +1080,12 @@ fi
 echo "Detected Supported Linux distribution:"
 if [ -e $debvf ]
 then
-	echo -e "Debian Linux release $debv"
+	if [ -e $ubuvf ]
+	then
+		echo -e "$ubuv"
+	else
+		echo -e "Debian Linux release $debv"
+	fi
 fi
 if [ -e $elvf ]
 then
@@ -1202,9 +1259,16 @@ then
 		systemctl enable systemd-timesyncd >> $insl 2>&1
 		systemctl restart systemd-timesyncd >> $insl 2>&1
 	else
-		apt-get install -y -o DPkg::Lock::Timeout=-1 ntp >> $insl 2>&1
-		systemctl enable ntp >> $insl 2>&1
-		systemctl restart ntp >> $insl 2>&1
+		if [ -e $ubuvf ]
+		then
+			apt-get install -y -o DPkg::Lock::Timeout=-1 systemd-timesyncd >> $insl 2>&1
+			systemctl enable systemd-timesyncd >> $insl 2>&1
+			systemctl restart systemd-timesyncd >> $insl 2>&1
+		else
+			apt-get install -y -o DPkg::Lock::Timeout=-1 ntp >> $insl 2>&1
+			systemctl enable ntp >> $insl 2>&1
+			systemctl restart ntp >> $insl 2>&1
+		fi
 	fi
 fi
 if [ -e $elvf ]
@@ -1220,11 +1284,6 @@ fi
 disable_sleep
 echo "Installing web server with PHP."
 echo "!!!!!!! Installing web server with PHP" >> $insl 2>&1
-if [ -e $debvf ]
-then
-	curl -sSLo /usr/share/keyrings/deb.sury.org-php.gpg https://packages.sury.org/php/apt.gpg >> $insl 2>&1
-	sh -c 'echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.sury.org/php/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/php.list' >> $insl 2>&1
-fi
 update_os
 if [ -e $debvf ]
 then
@@ -1250,11 +1309,24 @@ if [ "$nv" = "24" ]; then
 	echo "!!!!!!! Installing PHP version 7.x for Nextcloud v24" >> $insl 2>&1
 	if [ -e $debvf ]
 	then
+		if [ -e $ubuvf ]
+		then
+			add-apt-repository -y ppa:ondrej/php >> $insl 2>&1
+		else
+			curl -sSLo /usr/share/keyrings/deb.sury.org-php.gpg https://packages.sury.org/php/apt.gpg >> $insl 2>&1
+			sh -c 'echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.sury.org/php/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/php.list' >> $insl 2>&1
+		fi
 		apt-get install -y -o DPkg::Lock::Timeout=-1 php7.4 libapache2-mod-php7.4 libmagickcore-6.q16-6-extra php7.4-mysql php7.4-common php7.4-redis php7.4-dom php7.4-curl php7.4-exif php7.4-fileinfo php7.4-bcmath php7.4-gmp php7.4-imagick php7.4-mbstring php7.4-xml php7.4-zip php7.4-iconv php7.4-intl php7.4-simplexml php7.4-xmlreader php7.4-ftp php7.4-ssh2 php7.4-sockets php7.4-gd php7.4-imap php7.4-soap php7.4-xmlrpc php7.4-apcu php7.4-dev php7.4-cli >> $insl 2>&1
 	fi
 	if [ -e $elvf ]
 	then
-		dnf install -y -q https://rpms.remirepo.net/enterprise/remi-release-9.rpm >> $insl 2>&1
+		if [ -e $fedvf ]
+		then
+			dnf install -y -q https://rpms.remirepo.net/fedora/remi-release-39.rpm >> $insl 2>&1
+			dnf config-manager --set-enabled remi
+		else
+			dnf install -y -q https://rpms.remirepo.net/enterprise/remi-release-9.rpm >> $insl 2>&1
+		fi
 		dnf install -y -q php74 php74-php-apcu php74-php-opcache php74-php-mysql php74-php-bcmath php74-php-common php74-php-geos php74-php-gmp php74-php-pecl-imagick-im7 php74-php-pecl-lzf php74-php-pecl-mcrypt php74-php-pecl-recode php74-php-process php74-php-zstd php74-php-redis php74-php-dom php74-php-curl php74-php-exif php74-php-fileinfo php74-php-mbstring php74-php-xml php74-php-zip php74-php-iconv php74-php-intl php74-php-simplexml php74-php-xmlreader php74-php-ftp php74-php-ssh2 php74-php-sockets php74-php-gd php74-php-imap php74-php-soap php74-php-xmlrpc php74-php-apcu php74-php-cli php74-php-ast php74-php-brotli php74-php-enchant php74-php-ffi php74-php-lz4 php74-php-phalcon5 php74-php-phpiredis php74-php-smbclient php74-php-tidy php74-php-xz >> $insl 2>&1
 		dnf install -y -q php74-syspaths php74-mod_php >> $insl 2>&1
 	fi
@@ -1282,14 +1354,14 @@ fi
 
 if [ -e $debvf ]
 then
-	restart_websrv
-	systemctl enable apache2 >> $insl 2>&1
 	a2dissite 000-default >> $insl 2>&1
+	systemctl enable apache2 >> $insl 2>&1
+	restart_websrv
 fi
 if [ -e $elvf ]
 then
-	restart_websrv
 	systemctl enable httpd >> $insl 2>&1
+	restart_websrv
 fi
 
 echo "Setting up firewall"
@@ -1300,6 +1372,7 @@ then
 	ufw --force enable >> $insl 2>&1
 	ufw allow OpenSSH >> $insl 2>&1
 	ufw allow 'WWW Full' >> $insl 2>&1
+	ufw allow 'Apache Full' >> $insl 2>&1
 	ufw allow 7867/tcp >> $insl 2>&1
 	ufw default deny >> $insl 2>&1
 	ufw show added >> $insl 2>&1
@@ -1333,6 +1406,7 @@ if [ -e $debvf ]
 then
 	sysctl vm.overcommit_memory=1 >> $insl 2>&1
 	echo "vm.overcommit_memory = 1" >> /etc/sysctl.conf
+	touch /etc/rc.local
 	echo "#!/bin/sh -e
 #
 # rc.local
@@ -1824,10 +1898,11 @@ sudo -u $websrv_usr php /var/www/nextcloud/occ config:app:set files max_chunk_si
 
 # Import certificate by Nextcloud so it will not cry that it'cant check for mjs support by JavaScript MIME type on server.
 # Actually it do not resolve problem with information, so i think it is just another inside error ignored by NC.
-sudo -u $websrv_usr php /var/www/nextcloud/occ security:certificates:import /etc/ssl/certs/nextcloud.crt
+sudo -u $websrv_usr php /var/www/nextcloud/occ security:certificates:import /etc/ssl/certs/nextcloud.crt >> $insl 2>&1
 
 # Below lines will give more data if something goes wrong!
 curl -I http://127.0.0.1/  >> $insl 2>&1
+echo "!!!!!!!!!!! Copying nextcloud.log file after empty call for future diagnose." >> $insl 2>&1
 cat /var/www/nextcloud/data/nextcloud.log >> $insl 2>&1
 
 # Disable .htaccess blocking because we use nginx that do not use it, also it should be handled by Nextcloud itself!
@@ -1835,12 +1910,12 @@ cat /var/www/nextcloud/data/nextcloud.log >> $insl 2>&1
 
 if [ -e $debvf ]
 then
-	systemctl stop apache2
+	systemctl stop apache2 >> $insl 2>&1
 fi
 
 if [ -e $elvf ]
 then
-	systemctl stop httpd
+	systemctl stop httpd >> $insl 2>&1
 fi
 
 # Another lines that helped me in the past are here to stay...
@@ -1849,6 +1924,7 @@ sudo -u $websrv_usr php /var/www/nextcloud/occ db:convert-filecache-bigint --no-
 # sudo -u $websrv_usr php /var/www/nextcloud/occ maintenance:mode --off >> $insl 2>&1
 
 # Preparing cron service to run cron.php every 5 minute.
+echo "!!!!!!!!!!! Creating cron configuration." >> $insl 2>&1
 touch /etc/systemd/system/nextcloudcron.service
 touch /etc/systemd/system/nextcloudcron.timer
 
