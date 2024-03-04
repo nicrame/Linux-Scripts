@@ -47,6 +47,8 @@
 # 1. You use it at your own risk. Author is not responsible for any damage made with that script.
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
+# V 1.9 - 04.03.2024
+# - new argument that allow to configure location of "data" directory, where user files are stored (it use mount/fstab for security mechanisms compatibility)
 # V 1.8.1 - 07.02.2024
 # - first release with Fedora Server 39, and Ubuntu Server LTS (22) distributions support
 # V 1.8 - 04.02.2024
@@ -123,7 +125,7 @@
 
 export LC_ALL=C
 
-ver=1.8
+ver=1.9
 cpu=$( uname -m )
 user=$( whoami )
 debvf=/etc/debian_version
@@ -177,6 +179,7 @@ lang=""
 mail=""
 dm=""
 nv=""
+fdir=""
 insl=/var/log/nextcloud-installer.log
 ver_file=/var/local/nextcloud-installer.ver
 scrpt=nextcloud-ins
@@ -186,8 +189,9 @@ while [ "$#" -gt 0 ]; do
         -lang=*) lang="${1#*=}" ;;
         -mail=*) mail="${1#*=}" ;;
 		-dm=*) dm="${1#*=}" ;;
-		-nv=*) nv="${1#*=}" ;;
-        *) echo "Unknown parameter: $1" >&2; echo "Remember to add one, or more variables after equals sign."; echo -e "Eg. \e[1;32m-\e[39;0mmail\e[1;32m=\e[39;0mmail@example.com \e[1;32m-\e[39;0mlang\e[1;32m=\e[39;0mpl \e[1;32m-\e[39;0mdm\e[1;32m=\e[39;0mdomain.com \e[1;32m-\e[39;0mnv\e[1;32m=\e[39;024"; exit 1 ;;
+		-c=*) nv="${1#*=}" ;;
+		-fdir=*) fdir="${1#*=}" ;;
+        *) echo "Unknown parameter: $1" >&2; echo "Remember to add one, or more variables after equals sign."; echo -e "Eg. \e[1;32m-\e[39;0mmail\e[1;32m=\e[39;0mmail@example.com \e[1;32m-\e[39;0mlang\e[1;32m=\e[39;0mpl \e[1;32m-\e[39;0mdm\e[1;32m=\e[39;0mdomain.com \e[1;32m-\e[39;0mnv\e[1;32m=\e[39;024 \e[1;32m-\e[39;0mfdir\e[1;32m=\e[39;0/mnt/sdc5/nextcloud-data"; exit 1 ;;
     esac
     shift
 done
@@ -197,7 +201,7 @@ done
 function restart_websrv {
 	if [ -e $debvf ]
 	then
-		systemctl restart apache2 >> $insl 2>&1
+		systemctl stop apache2 >> $insl 2>&1
 	fi
 	if [ -e $elvf ]
 	then
@@ -233,7 +237,14 @@ function restart_websrv {
 		rm -rf /var/opt/remi/php84/lib/php/opcache/* >> $insl 2>&1
 		systemctl start php84-php-fpm >> $insl 2>&1
 	fi
-	systemctl start httpd >> $insl 2>&1
+	if [ -e $elvf ]
+	then
+		systemctl start httpd >> $insl 2>&1
+	fi
+	if [ -e $debvf ]
+	then
+		systemctl start apache2 >> $insl 2>&1
+	fi
 }
 
 function maintenance_window_setup {
@@ -251,7 +262,7 @@ function maintenance_window_setup {
 function nv_check_upd {
 	echo "Older version of Nextcloud configured, skipping updates and exit."
 	echo "Older version of Nextcloud configured, skipping updates and exit." >> $insl 2>&1
-	echo -e "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv\n$(</var/local/nextcloud-installer.ver)" > $ver_file
+	echo -e "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv fdir=$fdir\n$(</var/local/nextcloud-installer.ver)" > $ver_file
 	echo -e "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)\n$(</var/local/nextcloud-installer.ver)" > $ver_file
 	mv $cdir/$scrpt.sh $scrpt-$(date +"%FT%H%M").sh
 	unset LC_ALL
@@ -284,7 +295,7 @@ function update_os {
 	fi
 	if [ -e $elvf ]
 	then
-		dnf update -y -q
+		dnf update -y -q >> $insl 2>&1
 	fi
 }
 
@@ -293,7 +304,7 @@ function install_soft {
 	if [ -e $debvf ]
 	then
 		DEBIAN_FRONTEND=noninteractive
-		apt-get install -y -o DPkg::Lock::Timeout=-1 git lbzip2 unzip zip lsb-release locales-all rsync wget curl sed screen gawk mc sudo net-tools ethtool vim nano ufw apt-transport-https ca-certificates software-properties-common miniupnpc jq libfontconfig1 libfuse2 socat tree ffmpeg imagemagick webp libreoffice ghostscript >> $insl 2>&1
+		apt-get install -y -o DPkg::Lock::Timeout=-1 git lbzip2 unzip zip lsb-release locales-all rsync wget curl sed screen gawk mc sudo net-tools ethtool vim nano ufw apt-transport-https ca-certificates software-properties-common miniupnpc jq libfontconfig1 libfuse2 socat tree ffmpeg imagemagick webp libreoffice ghostscript bindfs >> $insl 2>&1
 		yes | sudo DEBIAN_FRONTEND=noninteractive apt-get -yqq -o DPkg::Lock::Timeout=-1 install ddclient  >> $insl 2>&1
 	fi
 	if [ -e $elvf ]
@@ -599,7 +610,7 @@ function php_tweaks {
 }
 
 function save_version_info {
-	echo -e "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv\n$(</var/local/nextcloud-installer.ver)" > $ver_file
+	echo -e "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv fdir=$fdir\n$(</var/local/nextcloud-installer.ver)" > $ver_file
 	echo -e "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)\n$(</var/local/nextcloud-installer.ver)" > $ver_file
 }
 
@@ -727,6 +738,7 @@ then
         mail=$(echo $pverr2 | awk -F'[ =]' '/mail/ {print $6}')
         dm=$(echo $pverr2 | awk -F'[ =]' '/dm/ {print $8}')
 		nv=$(echo $pverr2 | awk -F'[ =]' '/nv/ {print $10}')
+		fdir=$(echo $pverr2 | awk -F'[ =]' '/fdir/ {print $12}')
 		if [ "$pver" = "1.5" ]
 		then
 			echo "Detected previous version installer." >> $insl 2>&1
@@ -788,7 +800,7 @@ then
 			unset LC_ALL
 			exit 0
 		fi
-		if [ "$pver" = "1.7" ] || [ "$pver" = "1.8" ]
+		if [ "$pver" = "1.7" ] || [ "$pver" = "1.8" ] || [ "$pver" = "1.9" ]
 		then
 			echo "Detected similar version already used." >> $insl 2>&1
 			echo "$pverr1" >> $insl 2>&1
@@ -1000,7 +1012,7 @@ exit 0" >> /etc/rc.local
 		sudo -u $websrv_usr php /var/www/nextcloud/occ config:app:set files max_chunk_size --value="20971520" >> $insl 2>&1
 		touch $ver_file
 		echo "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)" >> $ver_file
-		echo "pver=$ver lang=$lang mail=$mail dm=$dm" >> $ver_file
+		echo "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv fdir=$fdir" >> $ver_file
 		echo "Removing PHP 8.1"
 		apt-get remove -y -o DPkg::Lock::Timeout=-1 php8.1 php8.1-* >> $insl 2>&1
 		a2enmod http2 >> $insl 2>&1
@@ -1040,24 +1052,28 @@ else
     exit 0
 fi
 echo "This script will automatically install Nextcloud service."
-echo "Additional packages will be installed too:"
-echo "Apache, PHP, MariaDB, ddclient and Let's encrypt."
+echo "Few addditional packages will be installed:"
+echo "Apache, PHP, MariaDB, ddclient, Let's encrypt and more."
 echo ""
-echo -e "You may add some variables like -lang=, -mail=, -dm= and nv="
+echo -e "You may add some variables like -lang=, -mail=, -dm=, -nv= and -fdir="
 echo "Where lang is for language, supported are: Arabic (ar), Chinese (zh),"
 echo "French (fr), Hindi (hi), Polish (pl), Spanish (es) and Ukrainian (uk),"
 echo "(empty/undefinied use browser language)."
 echo "-mail is for e_mail address of admin, -dm for domain name,"
 echo -e "that should be \e[1;32m*preconfigured\e[39;0m,"
-echo "and -nv for installing older versions (24,25,26,27 and 28, empty means latest)."
+echo "-nv for installing older versions (24,25,26,27 and 28, empty means latest),"
+echo -e "-fdir let you configure \e[1;32m**\e[39;0mdirectory where Nextcloud users files are stored,"
+echo 'this option will not change NC config, but mount "data" directory'
+echo "to another location, and save that to fstab."
 echo ""
-echo "./$scrpt.sh -lang=pl -mail=my@email.com -dm=mydomain.com -nv=24"
+echo "./$scrpt.sh -lang=pl -mail=my@email.com -dm=mydomain.com -nv=24 -fdir=/mnt/sdc5/nextcloud-data"
 echo ""
 echo "You may now cancel this script with CRTL+C,"
 echo "or wait 35 seconds so it will install without"
 echo "additional variables."
 echo ""
-echo -e "\e[1;32m*\e[39;0m - domain and router must already be configured to work with this server from Internet."
+echo -e "\e[1;32m*\e[39;0m - domain and router must already be configured to work with this server from Internet.\e[39;0m"
+echo -e "\e[1;32m**\e[39;0m - target directory must already be prepared, for example if another disk is used, it must be already (auto)mounted.\e[39;0m"
 sleep 36
 
 if [ $cpu = x86_64 ]
@@ -1128,6 +1144,14 @@ then
 else
 	echo -e "Using version variable: \e[1;32m$nv\e[39;0m"
 	echo "Using version variable: $nv" >> $insl 2>&1
+fi
+
+if [ -z "$fdir" ]
+then
+	echo "No user files directory variable used." >> $insl 2>&1
+else
+	echo -e "Using user files directory variable: \e[1;32m$fdir\e[39;0m"
+	echo "Using user files directory variable: $fdir" >> $insl 2>&1
 fi
 
 # Generating passwords for database and SuperAdmin user.
@@ -1735,6 +1759,18 @@ fi
 echo "!!!!!!! Downloading and installing Nextcloud" >> $insl 2>&1
 mkdir /var/www/nextcloud
 mkdir /var/www/nextcloud/data
+
+# Configuring/mounting data directory to specified location
+echo "!!!!!!! Configuring/mounting data directory to specified location" >> $insl 2>&1
+if [ -z "$fdir" ]
+then
+	echo "User files directory not configured." >> $insl 2>&1
+else
+	cp /etc/fstab /etc/fstab-nc.bak >> $insl 2>&1
+	echo "$fdir /var/www/nextcloud/data               none     bind        0 0" >> /etc/fstab
+	mount --bind $fdir /var/www/nextcloud/data >> $insl 2>&1
+fi
+
 if [ -e latest.zip ]
 then
 	mv latest.zip $(date +"%FT%H%M")-latest.zip >> $insl 2>&1
@@ -2118,7 +2154,7 @@ fi
 restart_websrv
 touch $ver_file
 echo "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)" >> $ver_file
-echo "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv" >> $ver_file
+echo "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv fdir=$fdir" >> $ver_file
 mv $cdir/$scrpt.sh $scrpt-$(date +"%FT%H%M").sh
 echo "!!!!!!! Install finished!" >> $insl 2>&1
 unset LC_ALL
