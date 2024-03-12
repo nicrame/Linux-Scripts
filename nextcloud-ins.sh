@@ -7,7 +7,7 @@
 # It will update OS, preconfigure everything, install neeeded packages and Nextcloud.
 # There is also support for upgrading Nextcloud and OS packages (just download and run latest version of this script).
 # 
-# This Nextcloud installer allow it working locally and thru Internet: 
+# This Nextcloud installer allowa it working locally and thru Internet: 
 # - local IP address with and without SSL (it use self signed SSL certificate for https protocol),
 # - using domain name (local and over Internet), if domain is already configured correctly (it will use free Let's Encrypt service for certificate signing). 
 # Used software packages are Apache (web server), MariaDB (database server), PHP 8.2 (programming language with interpreter), 
@@ -19,12 +19,17 @@
 # sudo sh -c "wget -q https://github.com/nicrame/Linux-Scripts/raw/master/nextcloud-ins.sh && chmod +x nextcloud-ins.sh && ./nextcloud-ins.sh"
 # 
 # You may also add specific variables (lang, mail, dns) that will be used, by adding them to command above, e.g:
-# sudo sh -c "wget -q https://github.com/nicrame/Linux-Scripts/raw/master/nextcloud-ins.sh && chmod +x nextcloud-ins.sh && ./nextcloud-ins.sh -lang=pl -mail=my@email.com -dm=domain.com -nv=24"
+# sudo sh -c "wget -q https://github.com/nicrame/Linux-Scripts/raw/master/nextcloud-ins.sh && chmod +x nextcloud-ins.sh && ./nextcloud-ins.sh -lang=pl -mail=my@email.com -dm=domain.com -nv=24 -fdir=/mnt/sdc5/nextcloud-data"
 # -lang (for language) variable will install additional packages specific for choosed language and setup Nextcloud default language.
-# Currently supported languages are: none (default value is none/empty that will use web browser language), Arabic (ar), Chinese (zh), French (fr), Hindi (hi), Polish (pl), Spanish (es) and Ukrainian (uk)
-# -mail variable is for information about Your email address, that will be presented to let's encrypt, so you'll be informed if domain name SSL certificate couldn't be refreshed (default value is empty).
-# -dm variable is used when you got (already prepared and configured) domain name, it will be configured for Nextcloud server and Let's encrypt SSL (default value is empty).
-# -nv variable allows You to choose older version to install, supported version are: 24-28, empty (it will install newest, currently v28)
+# Currently supported languages are: none (default value is none/empty that will use web browser language), Arabic (ar), Chinese (zh), French (fr), Hindi (hi), Polish (pl), Spanish (es) and Ukrainian (uk),
+# -mail variable is for information about Your email address, that will be presented to let's encrypt, so you'll be informed if domain name SSL certificate couldn't be refreshed (default value is empty),
+# -dm variable is used when you got (already prepared and configured) domain name, it will be configured for Nextcloud server and Let's encrypt SSL (default value is empty),
+# -nv variable allows You to choose older version to install, supported version are: 24-28, empty (it will install newest, currently v28),
+# -fdir variable gives possibility to specify where user files and nextcloud.log files are stored, by default this settings will leave default location that is /var/www/nextcloud/data.
+# selecting different location will not change Nextcloud configuration, but will bind (using mount) default Nextcloud location, to the specified one,
+# so using security mechanism like chroot/jail/SELinux etc. will work correctly without additional configuration for them, web server etc.
+# For example if option -fdir=/mnt/sdc5/nextcloud-data will be used, then entering directory /var/www/nextcloud/data will actually show content of /mnt/sdc5/nextcloud-data.
+# To remember that setting, and mount one directory into another /etc/fstab file is modified.
 #
 # After install You may use Your web browser to access Nextcloud using local IP address,
 # or domain name, if You have configured it before (DNS setting, router configuration should be done earlier by You). 
@@ -47,6 +52,9 @@
 # 1. You use it at your own risk. Author is not responsible for any damage made with that script.
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
+# V 1.9.1 - 12.03.2024
+# - some description update, and few code changes that do not affect the way script is working
+# - add PHP 8.3 install code (currently disabled) for future NC versions
 # V 1.9 - 04.03.2024
 # - new argument that allow to configure location of "data" directory, where user files are stored (it use mount/fstab for security mechanisms compatibility)
 # V 1.8.1 - 07.02.2024
@@ -378,6 +386,35 @@ function install_php82 {
 	fi
 }
 
+function install_php83 {
+	if [ -e $debvf ]
+	then
+		if [ -e $ubuvf ]
+		then
+			add-apt-repository -y ppa:ondrej/php  >> $insl 2>&1
+			DEBIAN_FRONTEND=noninteractive
+		else
+			curl -sSLo /usr/share/keyrings/deb.sury.org-php.gpg https://packages.sury.org/php/apt.gpg >> $insl 2>&1
+			sh -c 'echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.sury.org/php/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/php.list' >> $insl 2>&1
+		fi
+		apt-get update >> $insl 2>&1
+		apt-get install -y -o DPkg::Lock::Timeout=-1 php8.3 libapache2-mod-php8.3 libmagickcore-6.q16-6-extra php8.3-mysql php8.3-common php8.3-bz2 php8.3-redis php8.3-dom php8.3-curl php8.3-exif php8.3-fileinfo php8.3-bcmath php8.3-gmp php8.3-imagick php8.3-mbstring php8.3-xml php8.3-zip php8.3-iconv php8.3-intl php8.3-simplexml php8.3-xmlreader php8.3-ftp php8.3-ssh2 php8.3-sockets php8.3-gd php8.3-imap php8.3-soap php8.3-xmlrpc php8.3-apcu php8.3-dev php8.3-cli >> $insl 2>&1
+	fi
+	if [ -e $elvf ]
+	then
+		if [ -e $fedvf ]
+		then
+			dnf install -y -q https://rpms.remirepo.net/fedora/remi-release-39.rpm >> $insl 2>&1
+			dnf config-manager --set-enabled remi
+		else
+			dnf install -y -q https://rpms.remirepo.net/enterprise/remi-release-9.rpm >> $insl 2>&1
+		fi
+		dnf install -y -q php83 php83-php-apcu php83-php-opcache php83-php-mysql php83-php-bcmath php83-php-common php83-php-geos php83-php-gmp php83-php-pecl-imagick-im7 php83-php-pecl-lzf php83-php-pecl-mcrypt php83-php-pecl-recode php83-php-process php83-php-zstd php83-php-redis php83-php-dom php83-php-curl php83-php-exif php83-php-fileinfo php83-php-mbstring php83-php-xml php83-php-zip php83-php-iconv php83-php-intl php83-php-simplexml php83-php-xmlreader php83-php-ftp php83-php-ssh2 php83-php-sockets php83-php-gd php83-php-imap php83-php-soap php83-php-xmlrpc php83-php-apcu php83-php-cli php83-php-ast php83-php-brotli php83-php-enchant php83-php-ffi php83-php-lz4 php83-php-phalcon5 php83-php-phpiredis php83-php-smbclient php83-php-tidy php83-php-xz >> $insl 2>&1
+		dnf install -y -q php83-syspaths php83-mod_php >> $insl 2>&1
+		ln -s /var/opt/remi/php83/log/php-fpm /var/log/php-fpm
+	fi
+}
+
 # This is function for installing currently used latest version of PHP.
 function install_php {
 	install_php82
@@ -604,6 +641,62 @@ function php82_tweaks {
 	restart_websrv
 }
 
+function php83_tweaks {
+	echo "!!!!!!! PHP 8.3 config files modify." >> $insl 2>&1
+	echo "PHP config files tweaking."
+	if [ -e $debvf ]
+	then
+		php83_in1=/etc/php/8.3/apache2
+		php83_in2=/etc/php/8.3/apache2/conf.d
+		php83_inc=/etc/php/8.3/cli/php.ini
+	fi
+	if [ -e $elvf ]
+	then
+		php83_in1=/etc/opt/remi/php83
+		php83_in2=/etc/opt/remi/php83/php.d
+	fi
+	if [ -e $debvf ]
+	then
+		echo 'apc.enable_cli=1' >> /etc/php/8.3/cli/conf.d/20-apcu.ini
+	fi
+	if [ -e $elvf ]
+	then
+		echo 'apc.enable_cli=1' >> $php83_in2/40-apcu.ini
+	fi
+	sed -i 's/\b128M\b/1024M/g' $php83_in1/php.ini
+	sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' $php83_in1/php.ini
+	sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' $php83_in1/php.ini
+	sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' $php83_in1/php.ini
+	sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' $php83_in1/php.ini
+	sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' $php83_in1/php.ini
+	sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' $php83_in1/php.ini
+	sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' $php83_in1/php.ini
+	sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' $php83_in1/php.ini
+	sed -i '/MySQLi]/amysqli.cache_size = 2000' $php83_in1/php.ini
+	if [ -e $debvf ]
+	then
+		sed -i 's/\b128M\b/1024M/g' /etc/php/8.2/cli/php.ini
+		sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' $php83_inc
+		sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' $php83_inc
+		sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' $php83_inc
+		sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' $php83_inc
+		sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' $php83_inc
+		sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' $php83_inc
+		sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' $php83_inc
+		sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' $php83_inc
+		sed -i '/MySQLi]/amysqli.cache_size = 2000' $php83_inc
+	fi
+	echo 'opcache.enable_cli=1' >> $php83_in2/10-opcache.ini
+	echo 'opcache.interned_strings_buffer=64' >> $php83_in2/10-opcache.ini
+	echo 'opcache.max_accelerated_files=20000' >> $php83_in2/10-opcache.ini
+	echo 'opcache.memory_consumption=256' >> $php83_in2/10-opcache.ini
+	echo 'opcache.save_comments=1' >> $php83_in2/10-opcache.ini
+	echo 'opcache.enable=1' >> $php83_in2/10-opcache.ini
+	# echo 'opcache.revalidate_freq=1' >> $php83_in2/10-opcache.ini
+	# echo 'opcache.jit=disable' >> $php83_in2/10-opcache.ini
+	restart_websrv
+}
+
 # This are tweaks for currently latest verion used.
 function php_tweaks {
 	php82_tweaks
@@ -612,6 +705,11 @@ function php_tweaks {
 function save_version_info {
 	echo -e "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv fdir=$fdir\n$(</var/local/nextcloud-installer.ver)" > $ver_file
 	echo -e "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)\n$(</var/local/nextcloud-installer.ver)" > $ver_file
+}
+
+function save_upg_info {
+	echo -e "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv fdir=$fdir\n$(</var/local/nextcloud-installer.ver)" > $ver_file
+	echo -e "Succesfully upgraded to $ver at $(date +%d-%m-%Y_%H:%M:%S)\n$(</var/local/nextcloud-installer.ver)" > $ver_file
 }
 
 function disable_sleep {
@@ -645,58 +743,55 @@ function nv_verify {
 	fi
 }
 
+# Unset nver variable and read fresh value
+function sncver {
+	unset ncver
+	ncver=$( sudo -u $websrv_usr php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+}
+
 # Check for every version and update it one by one.
 function nv_update {
-	unset ncver
-	ncver=$( sudo -u $websrv_usr php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+	sncver
 	if [ "$ncver" = "26" ]
 	then
 		nv_upd_simpl
 	fi
-	unset ncver
-	ncver=$( sudo -u $websrv_usr php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+	sncver
 	if [ "$ncver" = "26" ]
 	then
 		nv_upd_simpl
 	fi
-	unset ncver
-	ncver=$( sudo -u $websrv_usr php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+	sncver
 	if [ "$ncver" = "26" ]
 	then
 		nv_upd_simpl
 	fi
-	unset ncver
-	ncver=$( sudo -u $websrv_usr php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+	sncver
 	if [ "$ncver" = "27" ]
 	then
 		nv_upd_simpl
 	fi
-	unset ncver
-	ncver=$( sudo -u $websrv_usr php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+	sncver
 	if [ "$ncver" = "27" ]
 	then
 		nv_upd_simpl
 	fi
-	unset ncver
-	ncver=$( sudo -u $websrv_usr php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+	sncver
 	if [ "$ncver" = "27" ]
 	then
 		nv_upd_simpl
 	fi
-	unset ncver
-	ncver=$( sudo -u $websrv_usr php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+	sncver
 	if [ "$ncver" = "28" ]
 	then
 		nv_upd_simpl
 	fi
-	unset ncver
-	ncver=$( sudo -u $websrv_usr php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+	sncver
 	if [ "$ncver" = "28" ]
 	then
 		nv_upd_simpl
 	fi
-	unset ncver
-	ncver=$( sudo -u $websrv_usr php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+	sncver
 	if [ "$ncver" = "28" ]
 	then
 		nv_upd_simpl
@@ -761,7 +856,7 @@ then
 			maintenance_window_setup
 			rm -rf /opt/latest.zip
 			rm -rf /var/www/nextcloud/config/autoconfig.php
-			save_version_info
+			save_upg_info
 			disable_sleep
 			restart_websrv
 			echo "Upgrade process finished."
@@ -791,7 +886,7 @@ then
 			rm -rf /opt/latest.zip
 			rm -rf /var/www/nextcloud/config/autoconfig.php
 			maintenance_window_setup
-			save_version_info
+			save_upg_info
 			disable_sleep
 			restart_websrv
 			echo "Upgrade process finished."
@@ -815,6 +910,7 @@ then
 			restart_websrv
 			echo "Upgrade process finished."
 			echo "Job done!"
+			save_upg_info
 			mv $cdir/$scrpt.sh $scrpt-$(date +"%FT%H%M").sh
 			unset LC_ALL
 			exit 0
@@ -873,73 +969,62 @@ exit 0" >> /etc/rc.local
 		echo "Upgrading Nextcloud."
 		echo "Checking currently installed version." >> $insl 2>&1
 		sudo -u $websrv_usr php /var/www/nextcloud/occ config:system:get version >> $insl 2>&1
-		ncver=$( sudo -u $websrv_usr php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		sncver
 		if [ "$ncver" = "24" ]
 		then
 			nv_upd_simpl
 		fi
-		unset ncver
-		ncver=$( sudo -u $websrv_usr php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		sncver
 		if [ "$ncver" = "24" ]
 		then
 			nv_upd_simpl
 		fi
-		unset ncver
-		ncver=$( sudo -u $websrv_usr php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		sncver
 		if [ "$ncver" = "24" ]
 		then
 			nv_upd_simpl
 		fi
-		unset ncver
-		ncver=$( sudo -u $websrv_usr php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		sncver
 		if [ "$ncver" = "24" ]
 		then
 			nv_upd_simpl
 		fi
-		unset ncver
-		ncver=$( sudo -u $websrv_usr php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		sncver
 		if [ "$ncver" = "25" ]
 		then
 			nv_upd_simpl
 		fi
-		unset ncver
-		ncver=$( sudo -u $websrv_usr php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		sncver
 		if [ "$ncver" = "25" ]
 		then
 			nv_upd_simpl
 		fi
-		unset ncver
-		ncver=$( sudo -u $websrv_usr php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		sncver
 		if [ "$ncver" = "25" ]
 		then
 			nv_upd_simpl
 		fi
-		unset ncver
-		ncver=$( sudo -u $websrv_usr php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		sncver
 		if [ "$ncver" = "25" ]
 		then
 			nv_upd_simpl
 		fi
-		unset ncver
-		ncver=$( sudo -u $websrv_usr php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		sncver
 		if [ "$ncver" = "26" ]
 		then
 			nv_upd_simpl
 		fi
-		unset ncver
-		ncver=$( sudo -u $websrv_usr php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		sncver
 		if [ "$ncver" = "26" ]
 		then
 			nv_upd_simpl
 		fi
-		unset ncver
-		ncver=$( sudo -u $websrv_usr php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		sncver
 		if [ "$ncver" = "26" ]
 		then
 			nv_upd_simpl
 		fi
-		unset ncver
-		ncver=$( sudo -u $websrv_usr php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		sncver
 		if [ "$ncver" = "26" ]
 		then
 			nv_upd_simpl
@@ -951,20 +1036,17 @@ exit 0" >> /etc/rc.local
 			php82_tweaks
 			nv_upd_simpl
 		fi
-		unset ncver
-		ncver=$( sudo -u $websrv_usr php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		sncver
 		if [ "$ncver" = "27" ]
 		then
 			nv_upd_simpl
 		fi
-		unset ncver
-		ncver=$( sudo -u $websrv_usr php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		sncver
 		if [ "$ncver" = "27" ]
 		then
 			nv_upd_simpl
 		fi
-		unset ncver
-		ncver=$( sudo -u $websrv_usr php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		sncver
 		if [ "$ncver" = "28" ]
 		then
 			echo "Installing PHP 8.2"
@@ -972,14 +1054,12 @@ exit 0" >> /etc/rc.local
 			php82_tweaks
 			nv_upd_simpl
 		fi
-		unset ncver
-		ncver=$( sudo -u $websrv_usr php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		sncver
 		if [ "$ncver" = "28" ]
 		then
 			nv_upd_simpl
 		fi
-		unset ncver
-		ncver=$( sudo -u $websrv_usr php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
+		sncver
 		if [ "$ncver" = "28" ]
 		then
 			nv_upd_simpl
@@ -1011,8 +1091,6 @@ exit 0" >> /etc/rc.local
 		sudo -u $websrv_usr php /var/www/nextcloud/occ app:enable twofactor_webauthn >> $insl 2>&1
 		sudo -u $websrv_usr php /var/www/nextcloud/occ config:app:set files max_chunk_size --value="20971520" >> $insl 2>&1
 		touch $ver_file
-		echo "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)" >> $ver_file
-		echo "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv fdir=$fdir" >> $ver_file
 		echo "Removing PHP 8.1"
 		apt-get remove -y -o DPkg::Lock::Timeout=-1 php8.1 php8.1-* >> $insl 2>&1
 		a2enmod http2 >> $insl 2>&1
@@ -1025,6 +1103,7 @@ exit 0" >> /etc/rc.local
 		systemctl restart redis-server >> $insl 2>&1
 		restart_websrv
 		disable_sleep
+		save_upg_info
 		echo "Upgrade process finished."
 		echo "Job done!"
 		mv $cdir/$scrpt.sh $scrpt-$(date +"%FT%H%M").sh
