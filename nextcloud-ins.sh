@@ -7,7 +7,7 @@
 # It will update OS, preconfigure everything, install neeeded packages and Nextcloud.
 # There is also support for upgrading Nextcloud and OS packages (just download and run latest version of this script).
 # 
-# This Nextcloud installer allowa it working locally and thru Internet: 
+# This Nextcloud installer allows it working locally and thru Internet: 
 # - local IP address with and without SSL (it use self signed SSL certificate for https protocol),
 # - using domain name (local and over Internet), if domain is already configured correctly (it will use free Let's Encrypt service for certificate signing). 
 # Used software packages are Apache (web server), MariaDB (database server), PHP 8.2 (programming language with interpreter), 
@@ -29,7 +29,10 @@
 # selecting different location will not change Nextcloud configuration, but will bind (using mount) default Nextcloud location, to the specified one,
 # so using security mechanism like chroot/jail/SELinux etc. will work correctly without additional configuration for them, web server etc.
 # For example if option -fdir=/mnt/sdc5/nextcloud-data will be used, then entering directory /var/www/nextcloud/data will actually show content of /mnt/sdc5/nextcloud-data.
-# To remember that setting, and mount one directory into another /etc/fstab file is modified.
+# If you want to use spaces between words in directory name, then put path inside double quotes, eg. -fdir="/mnt/sdx/users data folder"
+# To remember data directory settings, and mount them each OS start /etc/fstab file is modified.
+# 
+# You may start the script again, so it will upgrade OS packages and Nextcloud to newer versions.
 #
 # After install You may use Your web browser to access Nextcloud using local IP address,
 # or domain name, if You have configured it before (DNS setting, router configuration should be done earlier by You). 
@@ -52,6 +55,9 @@
 # 1. You use it at your own risk. Author is not responsible for any damage made with that script.
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
+# V 1.9.2 - 13.03.2024
+# - checking if "fdir" parameter is configured for already existing directory and inform if not
+# - fix spaces in directory names saved in fstab, configured with -fdir argument (fstab do not support spaces in directory names)
 # V 1.9.1 - 12.03.2024
 # - some description update, and few code changes that do not affect the way script is working
 # - add PHP 8.3 install code (currently disabled) for future NC versions
@@ -199,7 +205,7 @@ while [ "$#" -gt 0 ]; do
 		-dm=*) dm="${1#*=}" ;;
 		-c=*) nv="${1#*=}" ;;
 		-fdir=*) fdir="${1#*=}" ;;
-        *) echo "Unknown parameter: $1" >&2; echo "Remember to add one, or more variables after equals sign."; echo -e "Eg. \e[1;32m-\e[39;0mmail\e[1;32m=\e[39;0mmail@example.com \e[1;32m-\e[39;0mlang\e[1;32m=\e[39;0mpl \e[1;32m-\e[39;0mdm\e[1;32m=\e[39;0mdomain.com \e[1;32m-\e[39;0mnv\e[1;32m=\e[39;024 \e[1;32m-\e[39;0mfdir\e[1;32m=\e[39;0/mnt/sdc5/nextcloud-data"; exit 1 ;;
+        *) echo "Unknown parameter: $1" >&2; echo "Remember to add one, or more variables after equals sign."; echo -e "Eg. \e[1;32m-\e[39;0mmail\e[1;32m=\e[39;0mmail@example.com \e[1;32m-\e[39;0mlang\e[1;32m=\e[39;0mpl \e[1;32m-\e[39;0mdm\e[1;32m=\e[39;0mdomain.com \e[1;32m-\e[39;0mnv\e[1;32m=\e[39;0m24 \e[1;32m-\e[39;0mfdir\e[1;32m=\e[39;0m/mnt/sdc5/nextcloud-data"; exit 1 ;;
     esac
     shift
 done
@@ -1144,6 +1150,8 @@ echo "-nv for installing older versions (24,25,26,27 and 28, empty means latest)
 echo -e "-fdir let you configure \e[1;32m**\e[39;0mdirectory where Nextcloud users files are stored,"
 echo 'this option will not change NC config, but mount "data" directory'
 echo "to another location, and save that to fstab."
+echo "If you want to use spaces between words in directory name,"
+echo -e 'then put path inside double quotes, eg. -fdir="/mnt/sdx/users data folder"'
 echo ""
 echo "./$scrpt.sh -lang=pl -mail=my@email.com -dm=mydomain.com -nv=24 -fdir=/mnt/sdc5/nextcloud-data"
 echo ""
@@ -1231,6 +1239,18 @@ then
 else
 	echo -e "Using user files directory variable: \e[1;32m$fdir\e[39;0m"
 	echo "Using user files directory variable: $fdir" >> $insl 2>&1
+	if [ -e "$fdir" ]
+	then
+		echo "User files directory is prepared." >> $insl 2>&1
+	else
+		echo "ERROR: Defined Nextcloud data directory do not exist!"
+		echo ""
+		echo "Please prepare directory for Nextcloud user data files."
+		echo "Installer will now exit, You may restart it, after directory is prepared."
+		echo "Mission aborted!"
+		rm -rf $insl
+		exit 0
+	fi
 fi
 
 # Generating passwords for database and SuperAdmin user.
@@ -1846,8 +1866,9 @@ then
 	echo "User files directory not configured." >> $insl 2>&1
 else
 	cp /etc/fstab /etc/fstab-nc.bak >> $insl 2>&1
-	echo "$fdir /var/www/nextcloud/data               none     bind        0 0" >> /etc/fstab
-	mount --bind $fdir /var/www/nextcloud/data >> $insl 2>&1
+	fs_fdir="${fdir// /\\040}"
+	echo "$fs_fdir /var/www/nextcloud/data               none     bind        0 0" >> /etc/fstab
+	mount --bind "$fdir" /var/www/nextcloud/data >> $insl 2>&1
 fi
 
 if [ -e latest.zip ]
