@@ -55,6 +55,10 @@
 # 1. You use it at your own risk. Author is not responsible for any damage made with that script.
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
+# V 1.10 - 19.04.2024
+# - Nextcloud Hub 8 (v29) is now default/latest
+# - PHP 8.3 is used as default PHP version
+# - Fixed error that didn't allow installing older versions of NC (and PHP 7.4)
 # V 1.9.2 - 13.03.2024
 # - checking if "fdir" parameter is configured for already existing directory and inform if not
 # - fix spaces in directory names saved in fstab, configured with -fdir argument (fstab do not support spaces in directory names)
@@ -139,7 +143,7 @@
 
 export LC_ALL=C
 
-ver=1.9
+ver=1.10
 cpu=$( uname -m )
 user=$( whoami )
 debvf=/etc/debian_version
@@ -203,7 +207,7 @@ while [ "$#" -gt 0 ]; do
         -lang=*) lang="${1#*=}" ;;
         -mail=*) mail="${1#*=}" ;;
 		-dm=*) dm="${1#*=}" ;;
-		-c=*) nv="${1#*=}" ;;
+		-nv=*) nv="${1#*=}" ;;
 		-fdir=*) fdir="${1#*=}" ;;
         *) echo "Unknown parameter: $1" >&2; echo "Remember to add one, or more variables after equals sign."; echo -e "Eg. \e[1;32m-\e[39;0mmail\e[1;32m=\e[39;0mmail@example.com \e[1;32m-\e[39;0mlang\e[1;32m=\e[39;0mpl \e[1;32m-\e[39;0mdm\e[1;32m=\e[39;0mdomain.com \e[1;32m-\e[39;0mnv\e[1;32m=\e[39;0m24 \e[1;32m-\e[39;0mfdir\e[1;32m=\e[39;0m/mnt/sdc5/nextcloud-data"; exit 1 ;;
     esac
@@ -250,6 +254,18 @@ function restart_websrv {
 		systemctl stop php84-php-fpm >> $insl 2>&1
 		rm -rf /var/opt/remi/php84/lib/php/opcache/* >> $insl 2>&1
 		systemctl start php84-php-fpm >> $insl 2>&1
+	fi
+	if [ -d /etc/opt/remi/php85 ]
+	then
+		systemctl stop php85-php-fpm >> $insl 2>&1
+		rm -rf /var/opt/remi/php85/lib/php/opcache/* >> $insl 2>&1
+		systemctl start php85-php-fpm >> $insl 2>&1
+	fi
+	if [ -d /etc/opt/remi/php86 ]
+	then
+		systemctl stop php86-php-fpm >> $insl 2>&1
+		rm -rf /var/opt/remi/php86/lib/php/opcache/* >> $insl 2>&1
+		systemctl start php86-php-fpm >> $insl 2>&1
 	fi
 	if [ -e $elvf ]
 	then
@@ -346,6 +362,7 @@ function install_php81 {
 	then
 		curl -sSLo /usr/share/keyrings/deb.sury.org-php.gpg https://packages.sury.org/php/apt.gpg >> $insl 2>&1
 		sh -c 'echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.sury.org/php/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/php.list' >> $insl 2>&1
+		apt-get update >> $insl 2>&1
 		apt-get install -y -o DPkg::Lock::Timeout=-1 php8.1 libapache2-mod-php8.1 libmagickcore-6.q16-6-extra php8.1-mysql php8.1-common php8.1-redis php8.1-dom php8.1-curl php8.1-exif php8.1-fileinfo php8.1-bcmath php8.1-gmp php8.1-imagick php8.1-mbstring php8.1-xml php8.1-zip php8.1-iconv php8.1-intl php8.1-simplexml php8.1-xmlreader php8.1-ftp php8.1-ssh2 php8.1-sockets php8.1-gd php8.1-imap php8.1-soap php8.1-xmlrpc php8.1-apcu php8.1-dev php8.1-cli >> $insl 2>&1
 	fi
 	if [ -e $elvf ]
@@ -359,7 +376,7 @@ function install_php81 {
 		fi
 		dnf install -y -q php81 php81-php-apcu php81-php-opcache php81-php-mysql php81-php-bcmath php81-php-common php81-php-geos php81-php-gmp php81-php-pecl-imagick-im7 php81-php-pecl-lzf php81-php-pecl-mcrypt php81-php-pecl-recode php81-php-process php81-php-zstd php81-php-redis php81-php-dom php81-php-curl php81-php-exif php81-php-fileinfo php81-php-mbstring php81-php-xml php81-php-zip php81-php-iconv php81-php-intl php81-php-simplexml php81-php-xmlreader php81-php-ftp php81-php-ssh2 php81-php-sockets php81-php-gd php81-php-imap php81-php-soap php81-php-xmlrpc php81-php-apcu php81-php-cli php81-php-ast php81-php-brotli php81-php-enchant php81-php-ffi php81-php-lz4 php81-php-phalcon5 php81-php-phpiredis php81-php-smbclient php81-php-tidy php81-php-xz >> $insl 2>&1
 		dnf install -y -q php81-syspaths php81-mod_php >> $insl 2>&1
-		ln -s /var/opt/remi/php81/log/php-fpm /var/log/php-fpm
+		ln -s /var/opt/remi/php81/log/php-fpm /var/log/php81-fpm
 	fi
 }
 
@@ -388,7 +405,7 @@ function install_php82 {
 		fi
 		dnf install -y -q php82 php82-php-apcu php82-php-opcache php82-php-mysql php82-php-bcmath php82-php-common php82-php-geos php82-php-gmp php82-php-pecl-imagick-im7 php82-php-pecl-lzf php82-php-pecl-mcrypt php82-php-pecl-recode php82-php-process php82-php-zstd php82-php-redis php82-php-dom php82-php-curl php82-php-exif php82-php-fileinfo php82-php-mbstring php82-php-xml php82-php-zip php82-php-iconv php82-php-intl php82-php-simplexml php82-php-xmlreader php82-php-ftp php82-php-ssh2 php82-php-sockets php82-php-gd php82-php-imap php82-php-soap php82-php-xmlrpc php82-php-apcu php82-php-cli php82-php-ast php82-php-brotli php82-php-enchant php82-php-ffi php82-php-lz4 php82-php-phalcon5 php82-php-phpiredis php82-php-smbclient php82-php-tidy php82-php-xz >> $insl 2>&1
 		dnf install -y -q php82-syspaths php82-mod_php >> $insl 2>&1
-		ln -s /var/opt/remi/php82/log/php-fpm /var/log/php-fpm
+		ln -s /var/opt/remi/php82/log/php-fpm /var/log/php82-fpm
 	fi
 }
 
@@ -417,13 +434,13 @@ function install_php83 {
 		fi
 		dnf install -y -q php83 php83-php-apcu php83-php-opcache php83-php-mysql php83-php-bcmath php83-php-common php83-php-geos php83-php-gmp php83-php-pecl-imagick-im7 php83-php-pecl-lzf php83-php-pecl-mcrypt php83-php-pecl-recode php83-php-process php83-php-zstd php83-php-redis php83-php-dom php83-php-curl php83-php-exif php83-php-fileinfo php83-php-mbstring php83-php-xml php83-php-zip php83-php-iconv php83-php-intl php83-php-simplexml php83-php-xmlreader php83-php-ftp php83-php-ssh2 php83-php-sockets php83-php-gd php83-php-imap php83-php-soap php83-php-xmlrpc php83-php-apcu php83-php-cli php83-php-ast php83-php-brotli php83-php-enchant php83-php-ffi php83-php-lz4 php83-php-phalcon5 php83-php-phpiredis php83-php-smbclient php83-php-tidy php83-php-xz >> $insl 2>&1
 		dnf install -y -q php83-syspaths php83-mod_php >> $insl 2>&1
-		ln -s /var/opt/remi/php83/log/php-fpm /var/log/php-fpm
+		ln -s /var/opt/remi/php83/log/php-fpm /var/log/php83-fpm
 	fi
 }
 
 # This is function for installing currently used latest version of PHP.
 function install_php {
-	install_php82
+	install_php83
 }
 
 # Check and add http2 support to Apache.
@@ -681,7 +698,7 @@ function php83_tweaks {
 	sed -i '/MySQLi]/amysqli.cache_size = 2000' $php83_in1/php.ini
 	if [ -e $debvf ]
 	then
-		sed -i 's/\b128M\b/1024M/g' /etc/php/8.2/cli/php.ini
+		sed -i 's/\b128M\b/1024M/g' $php83_inc
 		sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' $php83_inc
 		sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' $php83_inc
 		sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' $php83_inc
@@ -705,7 +722,7 @@ function php83_tweaks {
 
 # This are tweaks for currently latest verion used.
 function php_tweaks {
-	php82_tweaks
+	php83_tweaks
 }
 
 function save_version_info {
@@ -745,6 +762,10 @@ function nv_verify {
 	if [ "$nv" = "28" ]
 	then
 		maintenance_window_setup
+		nv_check_upd
+	fi
+	if [ "$nv" = "29" ]
+	then
 		nv_check_upd
 	fi
 }
@@ -802,6 +823,40 @@ function nv_update {
 	then
 		nv_upd_simpl
 	fi
+	if [ "$ncver" = "29" ]
+	then
+		nv_upd_simpl
+	fi
+	if [ "$ncver" = "29" ]
+	then
+		nv_upd_simpl
+	fi
+	if [ "$ncver" = "29" ]
+	then
+		nv_upd_simpl
+	fi
+}
+
+# Collabora Office installing
+function collab_inst {
+	wget https://collaboraoffice.com/downloads/gpg/collaboraonline-release-keyring.gpg --directory-prefix=/usr/share/keyrings/ >> $insl 2>&1
+	echo "Types: deb
+URIs: https://www.collaboraoffice.com/repos/CollaboraOnline/CODE-deb
+Suites: ./
+Signed-By: /usr/share/keyrings/collaboraonline-release-keyring.gpg" >> /etc/apt/sources.list.d/collaboraonline.sources
+	echo "deb http://deb.debian.org/debian bookworm contrib non-free" > /etc/apt/sources.list.d/contrib.list
+	apt-get update >> $insl 2>&1
+	apt-get install -y -o DPkg::Lock::Timeout=-1 ttf-mscorefonts-installer coolwsd code-brand collaboraoffice-dict-en collaboraofficebasis-pl collaboraoffice-dict-pl >> $insl 2>&1
+	systemctl enable coolwsd >> $insl 2>&1
+	coolconfig set ssl.enable true >> $insl 2>&1
+	coolconfig set ssl.termination true >> $insl 2>&1
+	coolconfig set storage.wopi.host $(hostname -I) >> $insl 2>&1
+	# coolconfig set net.post_allow.host "192\.168\.[0-9]{1,3}\.[0-9]{1,3}"
+	# coolconfig set-admin-password
+	coolconfig update-system-template >> $insl 2>&1
+	systemctl restart coolwsd >> $insl 2>&1
+	sudo -u $websrv_usr php /var/www/nextcloud/occ app:install richdocuments >> $insl 2>&1
+	ufw allow 9980/tcp
 }
 
 echo -e "\e[38;5;214mNextcloud Install Script\e[39;0m
@@ -902,6 +957,28 @@ then
 			exit 0
 		fi
 		if [ "$pver" = "1.7" ] || [ "$pver" = "1.8" ] || [ "$pver" = "1.9" ]
+		then
+			echo "Detected similar version already used." >> $insl 2>&1
+			echo "$pverr1" >> $insl 2>&1
+			echo "$pverr2" >> $insl 2>&1
+			echo "Similar version already used (it means not many works ahead)."
+			nv_verify
+			echo "Doing some updates if they are available."
+			update_os
+			install_php83
+			php83_tweaks
+			nv_update
+			sudo -u $websrv_usr php /var/www/nextcloud/occ db:add-missing-indices >> $insl 2>&1
+			maintenance_window_setup
+			restart_websrv
+			echo "Upgrade process finished."
+			echo "Job done!"
+			save_upg_info
+			mv $cdir/$scrpt.sh $scrpt-$(date +"%FT%H%M").sh
+			unset LC_ALL
+			exit 0
+		fi
+		if [ "$pver" = "1.10" ]
 		then
 			echo "Detected similar version already used." >> $insl 2>&1
 			echo "$pverr1" >> $insl 2>&1
@@ -1070,6 +1147,24 @@ exit 0" >> /etc/rc.local
 		then
 			nv_upd_simpl
 		fi
+		sncver
+		if [ "$ncver" = "29" ]
+		then
+			echo "Installing PHP 8.3"
+			install_php83
+			php83_tweaks
+			nv_upd_simpl
+		fi
+		sncver
+		if [ "$ncver" = "29" ]
+		then
+			nv_upd_simpl
+		fi
+		sncver
+		if [ "$ncver" = "29" ]
+		then
+			nv_upd_simpl
+		fi
 		sudo -u $websrv_usr php /var/www/nextcloud/occ db:add-missing-indices >> $insl 2>&1
 		echo ""
 		echo ""
@@ -1100,7 +1195,7 @@ exit 0" >> /etc/rc.local
 		echo "Removing PHP 8.1"
 		apt-get remove -y -o DPkg::Lock::Timeout=-1 php8.1 php8.1-* >> $insl 2>&1
 		a2enmod http2 >> $insl 2>&1
-		a2enmod php8.2 >> $insl 2>&1
+		a2enmod php8.3 >> $insl 2>&1
 		add_http2
 		preview_tweaks
 		rm -rf /opt/latest.zip
@@ -1156,12 +1251,12 @@ echo ""
 echo "./$scrpt.sh -lang=pl -mail=my@email.com -dm=mydomain.com -nv=24 -fdir=/mnt/sdc5/nextcloud-data"
 echo ""
 echo "You may now cancel this script with CRTL+C,"
-echo "or wait 35 seconds so it will install without"
+echo "or wait 50 seconds so it will install without"
 echo "additional variables."
 echo ""
 echo -e "\e[1;32m*\e[39;0m - domain and router must already be configured to work with this server from Internet.\e[39;0m"
 echo -e "\e[1;32m**\e[39;0m - target directory must already be prepared, for example if another disk is used, it must be already (auto)mounted.\e[39;0m"
-sleep 36
+sleep 51
 
 if [ $cpu = x86_64 ]
 then
@@ -1274,7 +1369,7 @@ then
 	fi
 	if [ -e $elvf ]
 	then
-		dnf install -y -q glibc-langpack-ar
+		dnf install -y -q glibc-langpack-ar >> $insl 2>&1
 	fi
 	localectl set-locale LANG=ar_EG.UTF-8 >> $insl 2>&1
 fi
@@ -1289,7 +1384,7 @@ then
 	fi
 	if [ -e $elvf ]
 	then
-		dnf install -y -q glibc-langpack-zh
+		dnf install -y -q glibc-langpack-zh >> $insl 2>&1
 	fi
 	localectl set-locale LANG=zh_CN.UTF-8 >> $insl 2>&1
 fi
@@ -1304,7 +1399,7 @@ then
 	fi
 	if [ -e $elvf ]
 	then
-		dnf install -y -q glibc-langpack-fr
+		dnf install -y -q glibc-langpack-fr >> $insl 2>&1
 	fi
 	localectl set-locale LANG=fr_FR.UTF-8 >> $insl 2>&1
 fi
@@ -1319,7 +1414,7 @@ then
 	fi
 	if [ -e $elvf ]
 	then
-		dnf install -y -q glibc-langpack-hi
+		dnf install -y -q glibc-langpack-hi >> $insl 2>&1
 	fi
 	localectl set-locale LANG=hi_IN >> $insl 2>&1
 fi
@@ -1334,7 +1429,7 @@ then
 	fi
 	if [ -e $elvf ]
 	then
-		dnf install -y -q glibc-langpack-pl
+		dnf install -y -q glibc-langpack-pl >> $insl 2>&1
 	fi
 	timedatectl set-timezone Europe/Warsaw >> $insl 2>&1
 	localectl set-locale LANG=pl_PL.UTF-8 >> $insl 2>&1
@@ -1350,7 +1445,7 @@ then
 	fi
 	if [ -e $elvf ]
 	then
-		dnf install -y -q glibc-langpack-es
+		dnf install -y -q glibc-langpack-es >> $insl 2>&1
 	fi
 	localectl set-locale LANG=es_ES.UTF-8 >> $insl 2>&1
 fi
@@ -1365,7 +1460,7 @@ then
 	fi
 	if [ -e $elvf ]
 	then
-		dnf install -y -q glibc-langpack-uk
+		dnf install -y -q glibc-langpack-uk >> $insl 2>&1
 	fi
 	localectl set-locale LANG=uk_UA.UTF-8 >> $insl 2>&1
 fi
@@ -1411,6 +1506,7 @@ update_os
 if [ -e $debvf ]
 then
 	apt-get install -y -o DPkg::Lock::Timeout=-1 apache2 apache2-utils >> $insl 2>&1
+	echo "ServerName 127.0.0.1" >> /etc/apache2/apache2.conf
 fi
 if [ -e $elvf ]
 then
@@ -1439,6 +1535,7 @@ if [ "$nv" = "24" ]; then
 			curl -sSLo /usr/share/keyrings/deb.sury.org-php.gpg https://packages.sury.org/php/apt.gpg >> $insl 2>&1
 			sh -c 'echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.sury.org/php/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/php.list' >> $insl 2>&1
 		fi
+		apt-get update >> $insl 2>&1
 		apt-get install -y -o DPkg::Lock::Timeout=-1 php7.4 libapache2-mod-php7.4 libmagickcore-6.q16-6-extra php7.4-mysql php7.4-common php7.4-redis php7.4-dom php7.4-curl php7.4-exif php7.4-fileinfo php7.4-bcmath php7.4-gmp php7.4-imagick php7.4-mbstring php7.4-xml php7.4-zip php7.4-iconv php7.4-intl php7.4-simplexml php7.4-xmlreader php7.4-ftp php7.4-ssh2 php7.4-sockets php7.4-gd php7.4-imap php7.4-soap php7.4-xmlrpc php7.4-apcu php7.4-dev php7.4-cli >> $insl 2>&1
 	fi
 	if [ -e $elvf ]
@@ -1469,6 +1566,10 @@ elif [ "$nv" = "28" ]; then
 	echo "Installing PHP version 8.2 for Nextcloud v28."
 	echo "!!!!!!! Installing PHP version 8.2 for Nextcloud v28" >> $insl 2>&1
 	install_php82
+elif [ "$nv" = "29" ]; then
+	echo "Installing PHP version 8.3 for Nextcloud v29."
+	echo "!!!!!!! Installing PHP version 8.3 for Nextcloud v29" >> $insl 2>&1
+	install_php83
 elif [ -z "$nv" ]; then
 	echo "Installing newest PHP version for Nextcloud."
 	echo "!!!!!!! Installing newest PHP version for Nextcloud" >> $insl 2>&1
@@ -1593,6 +1694,8 @@ elif [ "$nv" = "27" ]; then
 	php82_tweaks
 elif [ "$nv" = "28" ]; then
 	php82_tweaks
+elif [ "$nv" = "29" ]; then
+	php83_tweaks
 elif [ -z "$nv" ]; then
 	php_tweaks
 fi
@@ -1890,12 +1993,16 @@ elif [ "$nv" = "26" ]; then
 	mv nextcloud-26.0.4.zip latest.zip >> $insl 2>&1
 elif [ "$nv" = "27" ]; then
 	echo "Downloading and unpacking Nextcloud v$nv." >> $insl 2>&1
-	wget -q https://download.nextcloud.com/server/releases/nextcloud-27.0.1.zip >> $insl 2>&1
-	mv nextcloud-27.0.1.zip latest.zip >> $insl 2>&1
+	wget -q https://download.nextcloud.com/server/releases/nextcloud-27.1.7.zip >> $insl 2>&1
+	mv nextcloud-27.1.7.zip latest.zip >> $insl 2>&1
 elif [ "$nv" = "28" ]; then
 	echo "Downloading and unpacking Nextcloud v$nv." >> $insl 2>&1
-	wget -q https://download.nextcloud.com/server/releases/nextcloud-28.0.2.zip >> $insl 2>&1
-	mv nextcloud-28.0.2.zip latest.zip >> $insl 2>&1
+	wget -q https://download.nextcloud.com/server/releases/nextcloud-28.0.3.zip >> $insl 2>&1
+	mv nextcloud-28.0.3.zip latest.zip >> $insl 2>&1
+elif [ "$nv" = "29" ]; then
+	echo "Downloading and unpacking Nextcloud v$nv." >> $insl 2>&1
+	wget -q https://download.nextcloud.com/server/releases/latest.zip >> $insl 2>&1
+	mv nextcloud-29.0.0beta4.zip latest.zip >> $insl 2>&1
 fi
 
 if [ -e latest.zip ]
