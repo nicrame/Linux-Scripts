@@ -31,8 +31,10 @@
 # For example if option -fdir=/mnt/sdc5/nextcloud-data will be used, then entering directory /var/www/nextcloud/data will actually show content of /mnt/sdc5/nextcloud-data.
 # If you want to use spaces between words in directory name, then put path inside double quotes, eg. -fdir="/mnt/sdx/users data folder"
 # To remember data directory settings, and mount them each OS start /etc/fstab file is modified.
-# 
-# You may start the script again, so it will upgrade OS packages and Nextcloud to newer versions.
+# -restore argument is used for recovering older Nextcloud files/database. Since v 1.11 this script generate backup of Nextcloud files (excluding users data) and database,
+# when it's started for upgrade process (which is default scenario when script is started another time after first use).
+# You may use -restore=list to check the list of previously created backups, or -restore=filename.tar.bz2 to select one of those files, and use them to restore Nextcloud.
+# IMPORTSNT: When -restore argument is used with any kind of parameters, then any other is ignored. It means You can't use -restore variable with others.
 #
 # After install You may use Your web browser to access Nextcloud using local IP address,
 # or domain name, if You have configured it before (DNS setting, router configuration should be done earlier by You). 
@@ -41,9 +43,24 @@
 #
 # It was tested with many Nextcloud versions since v24.
 # 
+# Updates of Nextcloud after using this script:
+# By default this script disable updatenotification app that allow You to update it using Nextcloud administration panel.
+# The main reason is fact, that such updates leave files that shouldn't be there, which brakes their update system at some points (i had many such problems in the past).
+# So, to update your Nextcloud there are two options:
+# 1. You may start the script again, so it will upgrade OS packages and Nextcloud to newest version (it will update between major releases too),
+# so for example if You have version 28.0.3, it will update it to 29.0.0(that was newest version when this text was edited).
+# But if You selected version to install with "-nv" argument (eg. -nv=28) when script was used for the first time, then starting script again will not update anything,
+# and leave You with selected version, without updating minor release. 
+# So if You got 28.0.3 it will not update to 28.0.5 (because when this script is released, i do not know how many minor releases will be in the future).
+# 2. You may also enable updatenotification app using Nextcloud GUI - go to Apps -> Disabled apps -> click on Enable button near "Update notification" app.
+# Yhen go to "Administration settings" -> Overwiew, where will be information about new version available for updating.
+# 
 # In case of problems, LOG output is generated at /var/log/nextcloud-installer.log.
-# Attach it if You want to report errors.
-#
+# Attach it if You want to report errors with installation process.
+# 
+# If You want to report errors that You think may be made by the script, please add logs of Apache web server, PHP and Nextcloud.
+# This script was never tested, and not reccomended to be used on containerization enviroment (like Docker, LXC etc.)
+# 
 # More info:
 # [PL/ENG] https://www.marcinwilk.eu/pl/projects/linux-scripts/nextcloud-debian-install/
 #
@@ -55,6 +72,9 @@
 # 1. You use it at your own risk. Author is not responsible for any damage made with that script.
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
+# V 1.11 - 16.05.2024
+# - Update documentation inside script
+# - First attempt to backup/restore feature
 # V 1.10 - 19.04.2024
 # - Nextcloud Hub 8 (v29) is now default/latest
 # - PHP 8.3 is used as default PHP version
@@ -143,7 +163,7 @@
 
 export LC_ALL=C
 
-ver=1.10
+ver=1.11
 cpu=$( uname -m )
 user=$( whoami )
 debvf=/etc/debian_version
@@ -198,8 +218,12 @@ mail=""
 dm=""
 nv=""
 fdir=""
+restore=""
 insl=/var/log/nextcloud-installer.log
+rstl=/var/log/nextcloud-ins-rst.log
 ver_file=/var/local/nextcloud-installer.ver
+nbckd=/var/local/nextcloud-installer-backups
+nbckf=nextcloud.tar
 scrpt=nextcloud-ins
 
 while [ "$#" -gt 0 ]; do
@@ -209,6 +233,7 @@ while [ "$#" -gt 0 ]; do
 		-dm=*) dm="${1#*=}" ;;
 		-nv=*) nv="${1#*=}" ;;
 		-fdir=*) fdir="${1#*=}" ;;
+		-restore=*) restore="${1#*=}" ;;
         *) echo "Unknown parameter: $1" >&2; echo "Remember to add one, or more variables after equals sign."; echo -e "Eg. \e[1;32m-\e[39;0mmail\e[1;32m=\e[39;0mmail@example.com \e[1;32m-\e[39;0mlang\e[1;32m=\e[39;0mpl \e[1;32m-\e[39;0mdm\e[1;32m=\e[39;0mdomain.com \e[1;32m-\e[39;0mnv\e[1;32m=\e[39;0m24 \e[1;32m-\e[39;0mfdir\e[1;32m=\e[39;0m/mnt/sdc5/nextcloud-data"; exit 1 ;;
     esac
     shift
@@ -838,6 +863,7 @@ function nv_update {
 }
 
 # Collabora Office installing
+# Currently disabled since no multiple domains support
 function collab_inst {
 	wget https://collaboraoffice.com/downloads/gpg/collaboraonline-release-keyring.gpg --directory-prefix=/usr/share/keyrings/ >> $insl 2>&1
 	echo "Types: deb
@@ -859,6 +885,137 @@ Signed-By: /usr/share/keyrings/collaboraonline-release-keyring.gpg" >> /etc/apt/
 	ufw allow 9980/tcp
 }
 
+# Backup
+function ncbackup {
+echo "!!!!!!! Creating backup." >> $insl 2>&1
+echo "Creating backup - it may take some time, please wait."
+echo "Check if directory for backup exist, and create it if not." >> $insl 2>&1
+mkdir $nbckd >> $insl 2>&1
+
+echo "Backing up database." >> $insl 2>&1
+echo "Backing up database."
+dbname=$(grep "dbname" "/var/www/nextcloud/config/config.php" | awk -F"'" '{print $4}')
+dbpassword=$(grep "dbpassword" "/var/www/nextcloud/config/config.php" | awk -F"'" '{print $4}')
+dbuser=$(grep "dbuser" "/var/www/nextcloud/config/config.php" | awk -F"'" '{print $4}')
+mysqldump -u $dbuser -p$dbpassword $dbname > /var/www/nextcloud/nextcloud.sql
+
+echo "Backing up Nextcloud directory - excluding files stored by users!" >> $insl 2>&1
+echo "Backing up Nextcloud directory - excluding files stored by users!"
+rm -rf $nbckd/$nbckf >> $insl 2>&1
+tar -pcf $nbckd/$nbckf --exclude="/var/www/nextcloud/data" /var/www/nextcloud >> $insl 2>&1
+tar -rpf $nbckd/$nbckf /var/www/nextcloud/data/.h* >> $insl 2>&1
+tar -rpf $nbckd/$nbckf /var/www/nextcloud/data/.o* >> $insl 2>&1
+tar -rpf $nbckd/$nbckf /var/www/nextcloud/data/audit.log >> $insl 2>&1
+tar -rpf $nbckd/$nbckf /var/www/nextcloud/data/index.* >> $insl 2>&1
+tar -rpf $nbckd/$nbckf /var/www/nextcloud/data/nextcloud.log >> $insl 2>&1
+tar -rpf $nbckd/$nbckf /var/www/nextcloud/data/updater.log >> $insl 2>&1
+tar -rpf $nbckd/$nbckf --exclude="preview" /var/www/nextcloud/data/appdata_* >> $insl 2>&1
+tar -rpf $nbckd/$nbckf /var/www/nextcloud/data/bridge-bot >> $insl 2>&1
+tar -rpf $nbckd/$nbckf /var/www/nextcloud/data/files_external >> $insl 2>&1
+tar -rpf $nbckd/$nbckf --exclude="backups" /var/www/nextcloud/data/updater-* >> $insl 2>&1
+
+echo "Compressing backup." >> $insl 2>&1
+echo "Compressing backup." 
+lbzip2 -k -z -9 $nbckd/$nbckf
+rm -rf $nbckd/$nbckf
+mv $nbckd/nextcloud.tar.bz2 $nbckd/nextcloud-$(date +%Y-%m-%d-at-%H:%M:%S).tar.bz2
+rm -rf /var/www/nextcloud/nextcloud.sql >> $insl 2>&1
+echo "Backup creation finished." >> $insl 2>&1
+echo "Backup creation finished."
+}
+
+# Restore
+function ncrestore {
+echo "Nextcloud installer $ver (www.marcinwilk.eu) started. RESTORE MODE." >> $rstl 2>&1
+date >> $rstl 2>&1
+echo "---------------------------------------------------------------------------" >> $rstl 2>&1
+if [ "$restore" = "list" ]; then
+	echo "Backup files that can be used as argument to do restore (eg. nextcloud-ins.sh -restore=filename.tar.bz2):"
+	ls -1 $nbckd/
+	echo "Listing files for restore process:" >> $rstl 2>&1
+	ls -1 $nbckd/ >> $rstl 2>&1
+else
+	if [ -e "$nbckd/$restore" ]; then
+		echo "Printing informations for user." >> $rstl 2>&1
+		echo "Trying to restore Nextcloud files and it's database from the moment before last upgrade with this script."
+		echo "It will not restore users data or software upgraded inside operating system (like PHP vetrsion)."
+		echo "So you may need to revert some changes in operating system by yourself."
+		echo ""
+		echo "You may now cancel this script with CRTL+C,"
+		echo "or wait 20 seconds so it will try to restore files"
+		echo "from backup file that you've selected as restore argument."
+		echo ""
+		sleep 21
+		echo "First the backup of current Nextcloud install will be made. It will take time, be patient!"
+		echo "Backing up database."
+		echo "Backup current Nextcloud started. First database." >> $rstl 2>&1
+		dbname=$(grep "dbname" "/var/www/nextcloud/config/config.php" | awk -F"'" '{print $4}')
+		dbpassword=$(grep "dbpassword" "/var/www/nextcloud/config/config.php" | awk -F"'" '{print $4}')
+		dbuser=$(grep "dbuser" "/var/www/nextcloud/config/config.php" | awk -F"'" '{print $4}')
+		mysqldump -u $dbuser -p$dbpassword $dbname > /var/www/nextcloud/nextcloud.sql
+		echo "Backing up files (excluding users files)."
+		echo "Creating Nextcloud files backup." >> $rstl 2>&1
+		rm -rf $nbckd/$nbckf >> $rstl 2>&1
+		cp /var/www/nextcloud/config/config.php $nbckd/config.php >> $rstl 2>&1
+		tar -pcf $nbckd/$nbckf --exclude="/var/www/nextcloud/data" /var/www/nextcloud >> $rstl 2>&1
+		tar -rpf $nbckd/$nbckf /var/www/nextcloud/data/.h* >> $rstl 2>&1
+		tar -rpf $nbckd/$nbckf /var/www/nextcloud/data/.o* >> $rstl 2>&1
+		tar -rpf $nbckd/$nbckf /var/www/nextcloud/data/audit.log >> $rstl 2>&1
+		tar -rpf $nbckd/$nbckf /var/www/nextcloud/data/index.* >> $rstl 2>&1
+		tar -rpf $nbckd/$nbckf /var/www/nextcloud/data/nextcloud.log >> $rstl 2>&1
+		tar -rpf $nbckd/$nbckf /var/www/nextcloud/data/updater.log >> $rstl 2>&1
+		tar -rpf $nbckd/$nbckf --exclude="preview" /var/www/nextcloud/data/appdata_* >> $rstl 2>&1
+		tar -rpf $nbckd/$nbckf /var/www/nextcloud/data/bridge-bot >> $rstl 2>&1
+		tar -rpf $nbckd/$nbckf /var/www/nextcloud/data/files_external >> $rstl 2>&1
+		tar -rpf $nbckd/$nbckf --exclude="backups" /var/www/nextcloud/data/updater-* >> $rstl 2>&1
+		echo "Compressing backup."
+		echo "Compressing backup." >> $rstl 2>&1
+		lbzip2 -k -z -9 $nbckd/$nbckf
+		rm -rf $nbckd/$nbckf
+		mv $nbckd/nextcloud.tar.bz2 $nbckd/nextcloud-rstbck-$(date +%Y-%m-%d-at-%H:%M:%S).tar.bz2
+		find /var/www/nextcloud/* -not -path "*/var/www/nextcloud/data*" -delete >> $rstl 2>&1
+		rm -rf /var/www/nextcloud/.* >> $rstl 2>&1
+		rm -rf /var/www/nextcloud/data/.* >> $rstl 2>&1
+		rm -rf /var/www/nextcloud/data/*.log >> $rstl 2>&1
+		rm -rf /var/www/nextcloud/data/index.* >> $rstl 2>&1
+		rm -rf /var/www/nextcloud/data/bridge-bot >> $rstl 2>&1
+		rm -rf /var/www/nextcloud/data/files_external >> $rstl 2>&1
+		rm -rf /var/www/nextcloud/data/appdata_*/preview >> $rstl 2>&1
+		rm -rf /var/www/nextcloud/data/updater-*/backups >> $rstl 2>&1
+		echo "Backup finished, restoring Nextcloud."
+		echo "Backup finished, restoring Nextcloud." >> $rstl 2>&1
+		tar -xf $nbckd/$restore --directory /
+		echo "Files extracting completed. Restoring database."
+		echo "Files extracting completed. Restoring database." >> $rstl 2>&1
+		dbname=$(grep "dbname" "$nbckd/config.php" | awk -F"'" '{print $4}')
+		dbpassword=$(grep "dbpassword" "$nbckd/config.php" | awk -F"'" '{print $4}')
+		dbuser=$(grep "dbuser" "$nbckd/config.php" | awk -F"'" '{print $4}')
+		mysql -u$dbuser -p$dbpassword -e "drop database $dbname" >> $rstl 2>&1
+		mysql -u$dbuser -p$dbpassword -e "create database $dbname" >> $rstl 2>&1
+		mysql -u$dbuser -p$dbpassword $dbname < /var/www/nextcloud/nextcloud.sql >> $rstl 2>&1
+		rm -rf /var/www/nextcloud/nextcloud.sql >> $rstl 2>&1
+		rm -rf $nbckd/config.php >> $rstl 2>&1
+		echo "Doing Nextcloud maintenance tasks." >> $rstl 2>&1
+		echo "Doing Nextcloud maintenance tasks."
+		sudo -u $websrv_usr php /var/www/nextcloud/occ maintenance:repair >> $rstl 2>&1
+		sudo -u $websrv_usr php /var/www/nextcloud/occ db:add-missing-indices >> $rstl 2>&1
+		echo "Rescanning and updating users files." >> $rstl 2>&1
+		echo "Rescanning and updating users files."
+		sudo -u $websrv_usr php /var/www/nextcloud/occ files:scan-app-data >> $rstl 2>&1
+		sudo -u $websrv_usr php /var/www/nextcloud/occ files:scan --all >> $rstl 2>&1
+		echo "Nextcloud restoration process finished." >> $rstl 2>&1
+		echo "Nextcloud restoration process finished."
+		echo ""
+		echo "You may try to login and check if everything is fine now."
+	else
+		echo "Wrong argument used for restore variable." >> $rstl 2>&1
+		echo "An incorrect file name was entered, or an invalid value for the restore argument."
+		echo "Please verify entered data and start again."
+		echo "Use restore=list to find out available restore files."
+	fi
+fi
+}
+
 echo -e "\e[38;5;214mNextcloud Install Script\e[39;0m
 Version $ver for x86_64, for popular server Linux distributions.
 by marcin@marcinwilk.eu - www.marcinwilk.eu"
@@ -869,6 +1026,16 @@ then
     echo -e "You must be \e[38;5;214mroot\e[39;0m. Mission aborted!"
     echo -e "You are trying to start this script as: \e[1;31m$user\e[39;0m"
     exit 0
+fi
+
+if [ -z "$restore" ]
+then
+	echo "" > /dev/null
+else
+	echo -e "Restore argument was used! \e[1;32mSkipping install/upgrade process!\e[39;0m"
+	
+	ncrestore
+	exit 0
 fi
 
 if [ -e $insl ] || [ -e $ver_file ]
@@ -901,6 +1068,7 @@ then
 			echo "$pverr1" >> $insl 2>&1
 			echo "$pverr2" >> $insl 2>&1
 			echo "Version 1.5 installer has been used previously."
+			ncbackup
 			echo "Doing some updates if they are available."
 			nv_verify
 			update_os
@@ -932,6 +1100,7 @@ then
 			echo "$pverr1" >> $insl 2>&1
 			echo "$pverr2" >> $insl 2>&1
 			echo "Version 1.6 installer has been used previously."
+			ncbackup
 			echo "Doing some updates if they are available."
 			nv_verify
 			update_os
@@ -962,6 +1131,7 @@ then
 			echo "$pverr1" >> $insl 2>&1
 			echo "$pverr2" >> $insl 2>&1
 			echo "Similar version already used (it means not many works ahead)."
+			ncbackup
 			nv_verify
 			echo "Doing some updates if they are available."
 			update_os
@@ -984,6 +1154,7 @@ then
 			echo "$pverr1" >> $insl 2>&1
 			echo "$pverr2" >> $insl 2>&1
 			echo "Similar version already used (it means not many works ahead)."
+			ncbackup
 			nv_verify
 			echo "Doing some updates if they are available."
 			update_os
@@ -1027,6 +1198,7 @@ then
 		ufw allow 7867/tcp >> $insl 2>&1
 		ufw default deny >> $insl 2>&1
 		ufw show added >> $insl 2>&1
+		ncbackup
 		echo "OS tweaking for Redis."
 		sysctl vm.overcommit_memory=1 >> $insl 2>&1
 		echo "vm.overcommit_memory = 1" >> /etc/sysctl.conf
@@ -1985,24 +2157,24 @@ if [ "$nv" = "24" ]; then
 	mv nextcloud-24.0.12.zip latest.zip >> $insl 2>&1
 elif [ "$nv" = "25" ]; then
 	echo "Downloading and unpacking Nextcloud v$nv." >> $insl 2>&1
-	wget -q https://download.nextcloud.com/server/releases/nextcloud-25.0.9.zip >> $insl 2>&1
-	mv nextcloud-25.0.9.zip latest.zip >> $insl 2>&1
+	wget -q https://download.nextcloud.com/server/releases/nextcloud-25.0.13.zip >> $insl 2>&1
+	mv nextcloud-25.0.13.zip latest.zip >> $insl 2>&1
 elif [ "$nv" = "26" ]; then
 	echo "Downloading and unpacking Nextcloud v$nv." >> $insl 2>&1
-	wget -q https://download.nextcloud.com/server/releases/nextcloud-26.0.4.zip >> $insl 2>&1
-	mv nextcloud-26.0.4.zip latest.zip >> $insl 2>&1
+	wget -q https://download.nextcloud.com/server/releases/nextcloud-26.0.13.zip >> $insl 2>&1
+	mv nextcloud-26.0.13.zip latest.zip >> $insl 2>&1
 elif [ "$nv" = "27" ]; then
 	echo "Downloading and unpacking Nextcloud v$nv." >> $insl 2>&1
-	wget -q https://download.nextcloud.com/server/releases/nextcloud-27.1.7.zip >> $insl 2>&1
-	mv nextcloud-27.1.7.zip latest.zip >> $insl 2>&1
+	wget -q https://download.nextcloud.com/server/releases/nextcloud-27.1.9.zip >> $insl 2>&1
+	mv nextcloud-27.1.9.zip latest.zip >> $insl 2>&1
 elif [ "$nv" = "28" ]; then
 	echo "Downloading and unpacking Nextcloud v$nv." >> $insl 2>&1
-	wget -q https://download.nextcloud.com/server/releases/nextcloud-28.0.3.zip >> $insl 2>&1
-	mv nextcloud-28.0.3.zip latest.zip >> $insl 2>&1
+	wget -q https://download.nextcloud.com/server/releases/nextcloud-28.0.5.zip >> $insl 2>&1
+	mv nextcloud-28.0.5.zip latest.zip >> $insl 2>&1
 elif [ "$nv" = "29" ]; then
 	echo "Downloading and unpacking Nextcloud v$nv." >> $insl 2>&1
-	wget -q https://download.nextcloud.com/server/releases/latest.zip >> $insl 2>&1
-	mv nextcloud-29.0.0beta4.zip latest.zip >> $insl 2>&1
+	wget -q https://download.nextcloud.com/server/releases/nextcloud-29.0.0.zip >> $insl 2>&1
+	mv nextcloud-29.0.0.zip latest.zip >> $insl 2>&1
 fi
 
 if [ -e latest.zip ]
