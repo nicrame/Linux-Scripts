@@ -5,15 +5,17 @@
 # Debian (11,12), Enterprise Linux (9), Ubuntu Server (22), Fedora Server (39).
 #
 # It will update OS, preconfigure everything, install neeeded packages and Nextcloud.
-# There is also support for upgrading Nextcloud and OS packages (just download and run latest version of this script).
+# There is also support for upgrading Nextcloud and OS packages - just download and run latest version of this script again.
+# It will create backup of current Nextcloud (but without users files) with it's database,
+# and then it will upgrade OS, software packages, and Nextcloud to the newest major version.
 # 
-# This Nextcloud installer allows it working locally and thru Internet: 
-# - local IP address with and without SSL (it use self signed SSL certificate for https protocol),
-# - using domain name (local and over Internet), if domain is already configured correctly (it will use free Let's Encrypt service for certificate signing). 
-# Used software packages are Apache (web server), MariaDB (database server), PHP 8.2 (programming language with interpreter), 
+# This Nextcloud installer allows Nextcloud to work locally and thru Internet: 
+# - by local IP address with and without SSL (it use self signed SSL certificate for https protocol),
+# - or using domain name (local and over Internet), if domain is already configured correctly (it will use free Let's Encrypt service for certificate signing). 
+# Software packages that are installed are Apache (web server), MariaDB (database server), PHP (programming language with interpreter), 
 # NTP (time synchronization service), and Redis (cache server) installed and used.
 # Some other software is also installed for better preview/thumbnails generation by Nextcloud like LibreOffice, Krita, ImageMagick etc.
-# Also new service for Nextcloud cron is generated that starts every 5 minutes so Nextcloud can dos ome work while users are not connected.
+# Also new service for Nextcloud "cron" is generated that starts every 5 minutes so Nextcloud can dos ome work while users are not connected.
 #
 # To use it just use this command:
 # sudo sh -c "wget -q https://github.com/nicrame/Linux-Scripts/raw/master/nextcloud-ins.sh && chmod +x nextcloud-ins.sh && ./nextcloud-ins.sh"
@@ -35,6 +37,8 @@
 # when it's started for upgrade process (which is default scenario when script is started another time after first use).
 # You may use -restore=list to check the list of previously created backups, or -restore=filename.tar.bz2 to select one of those files, and use them to restore Nextcloud.
 # IMPORTSNT: When -restore argument is used with any kind of parameters, then any other is ignored. It means You can't use -restore variable with others.
+# - backup argument starts backup process without doing any other tasks. It will just create backup of current Nextcloud install with database, excluding users files.
+# Similar to -restore, -backup argument must be used by itself (any other one will be ignored).
 #
 # After install You may use Your web browser to access Nextcloud using local IP address,
 # or domain name, if You have configured it before (DNS setting, router configuration should be done earlier by You). 
@@ -72,9 +76,12 @@
 # 1. You use it at your own risk. Author is not responsible for any damage made with that script.
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
+# V 1.11.2 - 16.05.2024
+# - new arguments: -backup (create backup) and -restore (that can be used with "list" argument to show previously created backups, or with filename to be used to restore from it)
+# - modify backup file names to show more data (date, time and Nextcloud version that is backed up)
 # V 1.11 - 16.05.2024
-# - Update documentation inside script
-# - First attempt to backup/restore feature
+# - update documentation inside script
+# - first attempt to backup/restore feature
 # V 1.10 - 19.04.2024
 # - Nextcloud Hub 8 (v29) is now default/latest
 # - PHP 8.3 is used as default PHP version
@@ -157,9 +164,10 @@
 # - initial version based on private install script (for EL)
 # 
 # Future plans:
+# - add option to delete very old backups
 # - add High Performance Backend (HPB) for Nextcloud (Push Service) 
-# - make backup of Nextcloud script (excluding users files) and database for recovery before upgrade
-# - add option to restore previosly created backup.
+# - make backup of Nextcloud script (excluding users files) and database for recovery before upgrade (done with v1.11)
+# - add option to restore previosly created backup (done with v1.11).
 
 export LC_ALL=C
 
@@ -225,6 +233,7 @@ ver_file=/var/local/nextcloud-installer.ver
 nbckd=/var/local/nextcloud-installer-backups
 nbckf=nextcloud.tar
 scrpt=nextcloud-ins
+backup=false
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -234,7 +243,17 @@ while [ "$#" -gt 0 ]; do
 		-nv=*) nv="${1#*=}" ;;
 		-fdir=*) fdir="${1#*=}" ;;
 		-restore=*) restore="${1#*=}" ;;
-        *) echo "Unknown parameter: $1" >&2; echo "Remember to add one, or more variables after equals sign."; echo -e "Eg. \e[1;32m-\e[39;0mmail\e[1;32m=\e[39;0mmail@example.com \e[1;32m-\e[39;0mlang\e[1;32m=\e[39;0mpl \e[1;32m-\e[39;0mdm\e[1;32m=\e[39;0mdomain.com \e[1;32m-\e[39;0mnv\e[1;32m=\e[39;0m24 \e[1;32m-\e[39;0mfdir\e[1;32m=\e[39;0m/mnt/sdc5/nextcloud-data"; exit 1 ;;
+		-backup) backup=true ;;
+        *) 
+		echo "Unknown parameter: $1" >&2; 
+		echo "Remember to add one, or more variables after equals sign:"; 
+		echo -e "Eg. \e[1;32m-\e[39;0mmail\e[1;32m=\e[39;0mmail@example.com \e[1;32m-\e[39;0mlang\e[1;32m=\e[39;0mpl \e[1;32m-\e[39;0mdm\e[1;32m=\e[39;0mdomain.com \e[1;32m-\e[39;0mnv\e[1;32m=\e[39;0m24 \e[1;32m-\e[39;0mfdir\e[1;32m=\e[39;0m/mnt/sdc5/nextcloud-data"; 
+		echo "or in case of backup and restore argument (used individually):";
+		echo -e "\e[1;32m-\e[39;0mbackup";
+		echo -e "\e[1;32m-\e[39;0mrestore\e[1;32m=\e[39;0mlist";
+		echo -e "\e[1;32m-\e[39;0mrestore\e[1;32m=\e[39;0mfilename-from-list.tar.bz2";
+		exit 1 
+		;;
     esac
     shift
 done
@@ -801,6 +820,11 @@ function sncver {
 	ncver=$( sudo -u $websrv_usr php /var/www/nextcloud/occ config:system:get version | awk -F '.' '{print $1}' )
 }
 
+function ncverf {
+	unset ncverf
+	ncverf=$( sudo -u $websrv_usr php /var/www/nextcloud/occ config:system:get version )
+}
+
 # Check for every version and update it one by one.
 function nv_update {
 	sncver
@@ -891,7 +915,7 @@ echo "!!!!!!! Creating backup." >> $insl 2>&1
 echo "Creating backup - it may take some time, please wait."
 echo "Check if directory for backup exist, and create it if not." >> $insl 2>&1
 mkdir $nbckd >> $insl 2>&1
-
+ncverf
 echo "Backing up database." >> $insl 2>&1
 echo "Backing up database."
 dbname=$(grep "dbname" "/var/www/nextcloud/config/config.php" | awk -F"'" '{print $4}')
@@ -918,7 +942,7 @@ echo "Compressing backup." >> $insl 2>&1
 echo "Compressing backup." 
 lbzip2 -k -z -9 $nbckd/$nbckf
 rm -rf $nbckd/$nbckf
-mv $nbckd/nextcloud.tar.bz2 $nbckd/nextcloud-$(date +%Y-%m-%d-at-%H:%M:%S).tar.bz2
+mv $nbckd/nextcloud.tar.bz2 $nbckd/$(date +%Y-%m-%d-at-%H:%M:%S)-nc-v$ncverf.tar.bz2
 rm -rf /var/www/nextcloud/nextcloud.sql >> $insl 2>&1
 echo "Backup creation finished." >> $insl 2>&1
 echo "Backup creation finished."
@@ -931,13 +955,14 @@ date >> $rstl 2>&1
 echo "---------------------------------------------------------------------------" >> $rstl 2>&1
 if [ "$restore" = "list" ]; then
 	echo "Backup files that can be used as argument to do restore (eg. nextcloud-ins.sh -restore=filename.tar.bz2):"
+	mkdir $nbckd >> $rstl 2>&1
 	ls -1 $nbckd/
 	echo "Listing files for restore process:" >> $rstl 2>&1
 	ls -1 $nbckd/ >> $rstl 2>&1
 else
 	if [ -e "$nbckd/$restore" ]; then
 		echo "Printing informations for user." >> $rstl 2>&1
-		echo "Trying to restore Nextcloud files and it's database from the moment before last upgrade with this script."
+		echo "Trying to restore Nextcloud files and it's database from selected backup file."
 		echo "It will not restore users data or software upgraded inside operating system (like PHP vetrsion)."
 		echo "So you may need to revert some changes in operating system by yourself."
 		echo ""
@@ -972,7 +997,9 @@ else
 		echo "Compressing backup." >> $rstl 2>&1
 		lbzip2 -k -z -9 $nbckd/$nbckf
 		rm -rf $nbckd/$nbckf
-		mv $nbckd/nextcloud.tar.bz2 $nbckd/nextcloud-rstbck-$(date +%Y-%m-%d-at-%H:%M:%S).tar.bz2
+		ncverf
+		mv $nbckd/nextcloud.tar.bz2 $nbckd/$(date +%Y-%m-%d-at-%H:%M:%S)-nc-v$ncverf.tar.bz2
+		echo "Clearing(deleting) old NC files." >> $rstl 2>&1
 		find /var/www/nextcloud/* -not -path "*/var/www/nextcloud/data*" -delete >> $rstl 2>&1
 		rm -rf /var/www/nextcloud/.* >> $rstl 2>&1
 		rm -rf /var/www/nextcloud/data/.* >> $rstl 2>&1
@@ -1025,6 +1052,7 @@ if [ $user != root ]
 then
     echo -e "You must be \e[38;5;214mroot\e[39;0m. Mission aborted!"
     echo -e "You are trying to start this script as: \e[1;31m$user\e[39;0m"
+	unset LC_ALL
     exit 0
 fi
 
@@ -1033,9 +1061,18 @@ then
 	echo "" > /dev/null
 else
 	echo -e "Restore argument was used! \e[1;32mSkipping install/upgrade process!\e[39;0m"
-	
 	ncrestore
+	unset LC_ALL
 	exit 0
+fi
+
+if $backup; then
+    echo -e "Backup argument was used! \e[1;32mForcing backup generation now!\e[39;0m"
+	ncbackup
+	unset LC_ALL
+	exit 0
+else
+    echo "" > /dev/null
 fi
 
 if [ -e $insl ] || [ -e $ver_file ]
@@ -1068,9 +1105,9 @@ then
 			echo "$pverr1" >> $insl 2>&1
 			echo "$pverr2" >> $insl 2>&1
 			echo "Version 1.5 installer has been used previously."
-			ncbackup
 			echo "Doing some updates if they are available."
 			nv_verify
+			ncbackup
 			update_os
 			nv_update
 			# Installing additional packages added with v1.7
@@ -1100,9 +1137,9 @@ then
 			echo "$pverr1" >> $insl 2>&1
 			echo "$pverr2" >> $insl 2>&1
 			echo "Version 1.6 installer has been used previously."
-			ncbackup
 			echo "Doing some updates if they are available."
 			nv_verify
+			ncbackup
 			update_os
 			nv_update
 			sudo -u $websrv_usr php /var/www/nextcloud/occ db:add-missing-indices >> $insl 2>&1
@@ -1131,8 +1168,8 @@ then
 			echo "$pverr1" >> $insl 2>&1
 			echo "$pverr2" >> $insl 2>&1
 			echo "Similar version already used (it means not many works ahead)."
-			ncbackup
 			nv_verify
+			ncbackup
 			echo "Doing some updates if they are available."
 			update_os
 			install_php83
@@ -1148,14 +1185,14 @@ then
 			unset LC_ALL
 			exit 0
 		fi
-		if [ "$pver" = "1.10" ]
+		if [ "$pver" = "1.10" ] || [ "$pver" = "1.11" ]
 		then
 			echo "Detected similar version already used." >> $insl 2>&1
 			echo "$pverr1" >> $insl 2>&1
 			echo "$pverr2" >> $insl 2>&1
 			echo "Similar version already used (it means not many works ahead)."
-			ncbackup
 			nv_verify
+			ncbackup
 			echo "Doing some updates if they are available."
 			update_os
 			nv_update
@@ -1393,6 +1430,7 @@ then
 	if [ -n "$el5" ] || [ -n "$el6" ] || [ -n "$el7" ] || [ -n "$el8" ] || [ -n "$ubu19" ] || [ -n "$ubu20" ] || [ -n "$ubu21" ] || [ -n "$fed36" ] || [ -n "$fed37" ] || [ -n "$fed38" ]
 	then
 		echo "Too old main Linux distribution release, try newer."
+		unset LC_ALL
 		exit 0
 	else
 		echo "" > /dev/null
@@ -1401,6 +1439,7 @@ else
 	echo "Your Linux distribution isn't supported by this script."
     echo "Mission aborted!"
     echo "Unsupported Linux distro!"
+	unset LC_ALL
     exit 0
 fi
 echo "This script will automatically install Nextcloud service."
@@ -1408,6 +1447,9 @@ echo "Few addditional packages will be installed:"
 echo "Apache, PHP, MariaDB, ddclient, Let's encrypt and more."
 echo ""
 echo -e "You may add some variables like -lang=, -mail=, -dm=, -nv= and -fdir="
+echo "There are also two independent variables: -backup, -restore="
+echo "thay should be used individually only."
+echo ""
 echo "Where lang is for language, supported are: Arabic (ar), Chinese (zh),"
 echo "French (fr), Hindi (hi), Polish (pl), Spanish (es) and Ukrainian (uk),"
 echo "(empty/undefinied use browser language)."
@@ -1421,6 +1463,10 @@ echo "If you want to use spaces between words in directory name,"
 echo -e 'then put path inside double quotes, eg. -fdir="/mnt/sdx/users data folder"'
 echo ""
 echo "./$scrpt.sh -lang=pl -mail=my@email.com -dm=mydomain.com -nv=24 -fdir=/mnt/sdc5/nextcloud-data"
+echo ""
+echo "-backup argument will force backup creation of Nextcloud (without users files),"
+echo "-restore=list will show backup file names list that can be used to restore Nextcloud,"
+echo "-restore=filename.tar.bz2 will use choosed file for Nextcloud restoration (without users files)."
 echo ""
 echo "You may now cancel this script with CRTL+C,"
 echo "or wait 50 seconds so it will install without"
@@ -1438,12 +1484,14 @@ then
     echo -e "Detected Kernel CPU arch. is \e[1;31mi386!\e[39;0m"
 	echo "Sorry - only x86_64 is supported!"
 	echo "Mission aborted!"
+	unset LC_ALL
 	exit 0
 else
     echo "No supported kernel architecture. Aborting!"
     echo "I did not detected x86_64 or i386 kernel architecture."
     echo "It looks like your configuration isn't supported."
     echo "Mission aborted!"
+	unset LC_ALL
     exit 0
 fi
 
@@ -1516,6 +1564,7 @@ else
 		echo "Installer will now exit, You may restart it, after directory is prepared."
 		echo "Mission aborted!"
 		rm -rf $insl
+		unset LC_ALL
 		exit 0
 	fi
 fi
