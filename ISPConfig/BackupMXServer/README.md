@@ -8,7 +8,7 @@ In this directory there are script files that will be used. Here is the instruct
 I'm using fresh install of Debian Linux v12, but for other distributions it will work similar (just use correct tools for apps installing and check files location).  
 The things that must be alredy preconfigured are: Server connected to Internet with external IP address, domain name configured for that IP, ssh access enabled for users. All commands are made by root account.  
   
-1 - use this command for updating and installing needed packages "apt update && apt -y upgrade && apt install -y net-tools cron certbot sudo openssl wget sed"   
+1 - Use this command for updating and installing needed packages "apt update && apt -y upgrade && apt install -y net-tools cron certbot sudo openssl wget sed"   
 2 - Let's create new account that will be used for transfering data, with command "useradd -s /usr/sbin/nologin -m postfixmaps && sudo -u postfixmaps mkdir /home/postfixmaps/maps && sudo -u postfixmaps mkdir /home/postfixmaps/.ssh"  
 3 - make sure that command "hostname -f" will show current domain name as server hostname. If domain is backupmx.mydomain.com then "hostname -f" should show it. It it's not, fix Your /etc/hostsname file.  
 4 - Install and preconfigure postfix MTA with command:   
@@ -35,7 +35,8 @@ The things that must be alredy preconfigured are: Server connected to Internet w
 3 - Check if that worked by connecting from main server to backup one with command "ssh 'postfixmaps@backupmx.mydomain.com'" It should ask "Are you sure you want to continue connecting" - just hit "y" and enter.  
     There should be information that "This service allows sftp connections only. Connection to backupmx.mydomain.com closed."  
 4 - Edit crontab with "crontab -e" and add this line "00 04 * * * /opt/postfixmaps/mail-maps-mx.sh > /dev/null".  
-5 - Download file "wget https://raw.githubusercontent.com/nicrame/Linux-Scripts/refs/heads/master/ISPConfig/BackupMXServer/mail-maps-mx.sh -P /opt/postfixmaps/ && chmod +x /opt/postfixmaps/mail-maps-mx.sh"  
+5 - Download files: "wget https://raw.githubusercontent.com/nicrame/Linux-Scripts/refs/heads/master/ISPConfig/BackupMXServer/mail-maps-mx.sh -P /opt/postfixmaps/ && chmod +x /opt/postfixmaps/mail-maps-mx.sh"  
+    "wget https://raw.githubusercontent.com/nicrame/Linux-Scripts/refs/heads/master/ISPConfig/BackupMXServer/mail-maps-mx.php -P /opt/postfixmaps/ && chmod +x /opt/postfixmaps/mail-maps-mx.sh"  
 6 - Edit downloaded file and change domain name in last lite, to the one You are using for Your backup server (from backupmx.mydomain.com to correct one).  
   
 !!! First run - checking is everything working correctly !!!  
