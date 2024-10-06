@@ -5,6 +5,7 @@ alias_maps =
 relay_domains = hash:/etc/postfix/relay_domains
 relay_recipient_maps = hash:/etc/postfix/relay_recipients
 queue_run_delay = 200s
+maximal_queue_lifetime = 30d
 
 smtpd_recipient_restrictions = permit_sasl_authenticated, permit_mynetworks,
   reject_non_fqdn_hostname,
