@@ -1,0 +1,58 @@
+
+mydestination = $myhostname, localhost
+smtpd_banner = $myhostname ESMTP Backup MX Server
+alias_maps =
+relay_domains = hash:/etc/postfix/relay_domains
+relay_recipient_maps = hash:/etc/postfix/relay_recipients
+queue_run_delay = 200s
+
+smtpd_recipient_restrictions = permit_sasl_authenticated, permit_mynetworks,
+  reject_non_fqdn_hostname,
+  reject_non_fqdn_sender,
+  reject_non_fqdn_recipient,
+  reject_unauth_destination,
+  reject_unauth_pipelining,
+  reject_invalid_hostname,
+  reject_unknown_recipient_domain,
+  check_policy_service unix:private/policyd-spf,
+  check_policy_service inet:127.0.0.1:10023,
+  reject_rbl_client spam.spamrats.com,
+  reject_rbl_client b.barracudacentral.org,
+  reject_rbl_client cbl.abuseat.org,
+  reject_rbl_client bl.spameatingmonkey.net,
+  reject_rbl_client all.s5h.net
+
+smtpd_helo_required = yes
+disable_vrfy_command = yes
+smtpd_data_restrictions =
+  reject_unauth_pipelining,
+  permit
+
+smtpd_tls_exclude_ciphers = aNULL, DES, 3DES, MD5, DES+MD5, RC4
+smtp_tls_exclude_ciphers = aNULL, DES, 3DES, MD5, DES+MD5, RC4
+smtpd_delay_reject = yes
+strict_rfc821_envelopes = yes
+
+smtpd_use_tls = yes
+smtpd_tls_security_level = may
+smtpd_tls_cert_file = /etc/postfix/smtpd.cert
+smtpd_tls_key_file = /etc/postfix/smtpd.key
+
+smtp_tls_security_level = may
+smtpd_tls_mandatory_protocols = !SSLv2, !SSLv3
+smtpd_tls_protocols = !SSLv2,!SSLv3
+smtp_tls_protocols = !SSLv2,!SSLv3
+smtpd_tls_exclude_ciphers = RC4, aNULL
+smtp_tls_exclude_ciphers = RC4, aNULL
+smtpd_tls_CAfile = /etc/letsencrypt/live/$mydomain/fullchain.pem
+smtp_tls_CAfile = $smtpd_tls_CAfile
+
+# Perfect forwatd secrecy Prime Field Groups EDH
+smtpd_tls_dh2048_param_file = ${config_directory}/dh2048.pem
+smtpd_tls_dh1024_param_file = ${config_directory}/dh1024.pem
+smtpd_tls_dh512_param_file = ${config_directory}/dh512.pem
+smtpd_tls_eecdh_grade = strong
+tls_eecdh_strong_curve = prime256v1
+tls_eecdh_ultra_curve = secp384r1
+smtpd_tls_loglevel = 1
+smtp_tls_loglevel = 1
