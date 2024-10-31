@@ -1499,7 +1499,7 @@ echo "Apache, PHP, MariaDB, ddclient, Let's encrypt and more."
 echo ""
 echo -e "You may add some variables like -lang=, -mail=, -dm=, -nv= and -fdir="
 echo "There are also two independent variables: -backup, -restore="
-echo "thay should be used individually only."
+echo "that should be used individually only."
 echo ""
 echo "Where lang is for language, supported are: Arabic (ar), Chinese (zh),"
 echo "French (fr), Hindi (hi), Polish (pl), Spanish (es) and Ukrainian (uk),"
@@ -2275,7 +2275,6 @@ elif [ "$nv" = "29" ]; then
 	echo "Downloading and unpacking Nextcloud v$nv." >> $insl 2>&1
 	wget -q https://download.nextcloud.com/server/releases/nextcloud-29.0.7.zip >> $insl 2>&1
 	mv nextcloud-29.0.7.zip latest.zip >> $insl 2>&1
-fi
 elif [ "$nv" = "30" ]; then
 	echo "Downloading and unpacking Nextcloud v$nv." >> $insl 2>&1
 	wget -q https://download.nextcloud.com/server/releases/nextcloud-30.0.0.zip >> $insl 2>&1
