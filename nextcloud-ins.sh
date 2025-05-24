@@ -77,6 +77,9 @@
 # 1. You use it at your own risk. Author is not responsible for any damage made with that script.
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
+# V 1.11.4 - 24.05.2025
+# - Nextcloud Hub 10 (v31) is now default/latest
+# - small tweaks
 # V 1.11.3 - 12.09.2024
 # - Nextcloud Hub 9 (v30) is now default/latest
 # - updated default versions to newest releases when using -nv parameter
@@ -194,6 +197,7 @@ then
 		ubu21=$( cat /etc/lsb-release | grep "Ubuntu 21" )
 		ubu22=$( cat /etc/lsb-release | grep "Ubuntu 22" )
 		ubu23=$( cat /etc/lsb-release | grep "Ubuntu 23" )
+		ubu24=$( cat /etc/lsb-release | grep "Ubuntu 24" )
 	else
 	debv=$( cat $debvf )
 	fi
@@ -208,12 +212,18 @@ then
 	el8=$( cat /etc/redhat-release | grep "release 8" )
 	el9=$( cat /etc/redhat-release | grep "release 9" )
 	el10=$( cat /etc/redhat-release | grep "release 10" )
+	el11=$( cat /etc/redhat-release | grep "release 11" )
 	if [ -e $fedvf ]
 	then
 		fed36=$( cat /etc/redhat-release | grep "release 36" )
 		fed37=$( cat /etc/redhat-release | grep "release 37" )
 		fed38=$( cat /etc/redhat-release | grep "release 38" )
 		fed39=$( cat /etc/redhat-release | grep "release 39" )
+		fed40=$( cat /etc/redhat-release | grep "release 40" )
+		fed41=$( cat /etc/redhat-release | grep "release 41" )
+		fed42=$( cat /etc/redhat-release | grep "release 42" )
+		fed43=$( cat /etc/redhat-release | grep "release 43" )
+		fed44=$( cat /etc/redhat-release | grep "release 44" )
 	fi
 fi
 addr=$( hostname -I )
@@ -485,6 +495,35 @@ function install_php83 {
 		dnf install -y -q php83 php83-php-apcu php83-php-opcache php83-php-mysql php83-php-bcmath php83-php-common php83-php-geos php83-php-gmp php83-php-pecl-imagick-im7 php83-php-pecl-lzf php83-php-pecl-mcrypt php83-php-pecl-recode php83-php-process php83-php-zstd php83-php-redis php83-php-dom php83-php-curl php83-php-exif php83-php-fileinfo php83-php-mbstring php83-php-xml php83-php-zip php83-php-iconv php83-php-intl php83-php-simplexml php83-php-xmlreader php83-php-ftp php83-php-ssh2 php83-php-sockets php83-php-gd php83-php-imap php83-php-soap php83-php-xmlrpc php83-php-apcu php83-php-cli php83-php-ast php83-php-brotli php83-php-enchant php83-php-ffi php83-php-lz4 php83-php-phalcon5 php83-php-phpiredis php83-php-smbclient php83-php-tidy php83-php-xz >> $insl 2>&1
 		dnf install -y -q php83-syspaths php83-mod_php >> $insl 2>&1
 		ln -s /var/opt/remi/php83/log/php-fpm /var/log/php83-fpm
+	fi
+}
+
+function install_php84 {
+	if [ -e $debvf ]
+	then
+		if [ -e $ubuvf ]
+		then
+			add-apt-repository -y ppa:ondrej/php  >> $insl 2>&1
+			DEBIAN_FRONTEND=noninteractive
+		else
+			curl -sSLo /usr/share/keyrings/deb.sury.org-php.gpg https://packages.sury.org/php/apt.gpg >> $insl 2>&1
+			sh -c 'echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.sury.org/php/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/php.list' >> $insl 2>&1
+		fi
+		apt-get update >> $insl 2>&1
+		apt-get install -y -o DPkg::Lock::Timeout=-1 php8.4 libapache2-mod-php8.4 libmagickcore-6.q16-6-extra php8.4-mysql php8.4-common php8.4-bz2 php8.4-redis php8.4-dom php8.4-curl php8.4-exif php8.4-fileinfo php8.4-bcmath php8.4-gmp php8.4-imagick php8.4-mbstring php8.4-xml php8.4-zip php8.4-iconv php8.4-intl php8.4-simplexml php8.4-xmlreader php8.4-ftp php8.4-ssh2 php8.4-sockets php8.4-gd php8.4-imap php8.4-soap php8.4-xmlrpc php8.4-apcu php8.4-dev php8.4-cli >> $insl 2>&1
+	fi
+	if [ -e $elvf ]
+	then
+		if [ -e $fedvf ]
+		then
+			dnf install -y -q https://rpms.remirepo.net/fedora/remi-release-42.rpm >> $insl 2>&1
+			dnf config-manager --set-enabled remi
+		else
+			dnf install -y -q https://rpms.remirepo.net/enterprise/remi-release-9.rpm >> $insl 2>&1
+		fi
+		dnf install -y -q php84 php84-php-apcu php84-php-opcache php84-php-mysql php84-php-bcmath php84-php-common php84-php-geos php84-php-gmp php84-php-pecl-imagick-im7 php84-php-pecl-lzf php84-php-pecl-mcrypt php84-php-pecl-recode php84-php-process php84-php-zstd php84-php-redis php84-php-dom php84-php-curl php84-php-exif php84-php-fileinfo php84-php-mbstring php84-php-xml php84-php-zip php84-php-iconv php84-php-intl php84-php-simplexml php84-php-xmlreader php84-php-ftp php84-php-ssh2 php84-php-sockets php84-php-gd php84-php-imap php84-php-soap php84-php-xmlrpc php84-php-apcu php84-php-cli php84-php-ast php84-php-brotli php84-php-enchant php84-php-ffi php84-php-lz4 php84-php-phalcon5 php84-php-phpiredis php84-php-smbclient php84-php-tidy php84-php-xz >> $insl 2>&1
+		dnf install -y -q php84-syspaths php84-mod_php >> $insl 2>&1
+		ln -s /var/opt/remi/php84/log/php-fpm /var/log/php84-fpm
 	fi
 }
 
@@ -772,6 +811,64 @@ function php83_tweaks {
 	restart_websrv
 }
 
+function php84_tweaks {
+	echo "!!!!!!! PHP 8.4 config files modify." >> $insl 2>&1
+	echo "PHP config files tweaking."
+	if [ -e $debvf ]
+	then
+		php84_in1=/etc/php/8.4/apache2
+		php84_in2=/etc/php/8.4/apache2/conf.d
+		php84_inc=/etc/php/8.4/cli/php.ini
+	fi
+	if [ -e $elvf ]
+	then
+		php84_in1=/etc/opt/remi/php84
+		php84_in2=/etc/opt/remi/php84/php.d
+	fi
+	if [ -e $debvf ]
+	then
+		echo 'apc.enable_cli=1' >> /etc/php/8.4/cli/conf.d/20-apcu.ini
+	fi
+	if [ -e $elvf ]
+	then
+		echo 'apc.enable_cli=1' >> $php84_in2/40-apcu.ini
+	fi
+	sed -i 's/\b128M\b/1024M/g' $php84_in1/php.ini
+	sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' $php84_in1/php.ini
+	sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' $php84_in1/php.ini
+	sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' $php84_in1/php.ini
+	sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' $php84_in1/php.ini
+	sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' $php84_in1/php.ini
+	sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' $php84_in1/php.ini
+	sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' $php84_in1/php.ini
+	sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' $php84_in1/php.ini
+	sed -i '/MySQLi]/amysqli.cache_size = 2000' $php84_in1/php.ini
+	if [ -e $debvf ]
+	then
+		sed -i 's/\b128M\b/1024M/g' $php84_inc
+		sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' $php84_inc
+		sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' $php84_inc
+		sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' $php84_inc
+		sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' $php84_inc
+		sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' $php84_inc
+		sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' $php84_inc
+		sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' $php84_inc
+		sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' $php84_inc
+		sed -i '/MySQLi]/amysqli.cache_size = 2000' $php84_inc
+	fi
+	echo 'opcache.enable_cli=1' >> $php84_in2/10-opcache.ini
+	echo 'opcache.interned_strings_buffer=64' >> $php84_in2/10-opcache.ini
+	echo 'opcache.max_accelerated_files=20000' >> $php84_in2/10-opcache.ini
+	echo 'opcache.memory_consumption=256' >> $php84_in2/10-opcache.ini
+	echo 'opcache.save_comments=1' >> $php84_in2/10-opcache.ini
+	echo 'opcache.enable=1' >> $php84_in2/10-opcache.ini
+	# echo 'opcache.revalidate_freq=1' >> $php84_in2/10-opcache.ini
+	# echo 'opcache.jit=disable' >> $php84_in2/10-opcache.ini
+	a2enmod php8.4 >> $insl 2>&1
+	a2dismod php8.3 >> $insl 2>&1
+	restart_websrv
+}
+
 # This are tweaks for currently latest verion used.
 function php_tweaks {
 	php83_tweaks
@@ -789,7 +886,7 @@ function save_upg_info {
 
 function disable_sleep {
 	echo "!!!!!!! Disabling sleep states." >> $insl 2>&1
-	echo "Disabling sleep states:"
+	echo "Disabling sleep states."
 	systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target >> $insl 2>&1
 }
 
@@ -821,6 +918,14 @@ function nv_verify {
 		nv_check_upd
 	fi
 	if [ "$nv" = "30" ]
+	then
+		nv_check_upd
+	fi
+	if [ "$nv" = "31" ]
+	then
+		nv_check_upd
+	fi
+	if [ "$nv" = "32" ]
 	then
 		nv_check_upd
 	fi
@@ -908,11 +1013,37 @@ function nv_update {
 	then
 		nv_upd_simpl
 	fi
+	if [ "$ncver" = "30" ]
+	then
+		nv_upd_simpl
+	fi
+	if [ "$ncver" = "30" ]
+	then
+		nv_upd_simpl
+	fi
+	if [ "$ncver" = "31" ]
+	then
+		nv_upd_simpl
+	fi
+	if [ "$ncver" = "31" ]
+	then
+		nv_upd_simpl
+	fi
+	if [ "$ncver" = "31" ]
+	then
+		nv_upd_simpl
+	fi
+	if [ "$ncver" = "31" ]
+	then
+		nv_upd_simpl
+	fi
 }
 
 # Office Package Installing
 # Currently disabled since no multiple domains support
 function collab_inst {
+	echo "!!!!!!! Collabora Office installing." >> $insl 2>&1
+	echo "Installing Collabora CODE and Nextcloud Office application." >> $insl 2>&1
 	wget https://collaboraoffice.com/downloads/gpg/collaboraonline-release-keyring.gpg --directory-prefix=/usr/share/keyrings/ >> $insl 2>&1
 	echo "Types: deb
 URIs: https://www.collaboraoffice.com/repos/CollaboraOnline/CODE-deb
@@ -921,35 +1052,115 @@ Signed-By: /usr/share/keyrings/collaboraonline-release-keyring.gpg" >> /etc/apt/
 	echo "deb http://deb.debian.org/debian bookworm contrib non-free" > /etc/apt/sources.list.d/contrib.list
 	apt-get update >> $insl 2>&1
 	apt-get install -y -o DPkg::Lock::Timeout=-1 ttf-mscorefonts-installer coolwsd code-brand collaboraoffice-dict-en collaboraofficebasis-pl collaboraoffice-dict-pl >> $insl 2>&1
-	systemctl enable coolwsd >> $insl 2>&1
-	coolconfig set ssl.enable true >> $insl 2>&1
+	
+	mkdir -p /opt/collaborassl/ >> $insl 2>&1
+	openssl genrsa -out /opt/collaborassl/root.key.pem 2048 >> $insl 2>&1
+	openssl req -x509 -new -nodes -key /opt/collaborassl/root.key.pem -days 9131 -out /opt/collaborassl/root.crt.pem -subj "/C=NX/ST=Internet/L=Unknown/O=Nextcloud/CN=Office Service" >> $insl 2>&1
+	
+	openssl genrsa -out "/opt/collaborassl/privkey.pem" 2048
+	openssl req -key "/opt/collaborassl/privkey.pem" -new -sha256 -out "/opt/collaborassl/privkey.csr.pem" -subj "/C=NX/ST=Internet/L=Unknown/O=Nextcloud/CN=Office Service" >> $insl 2>&1
+	openssl x509 -req -in /opt/collaborassl/privkey.csr.pem -CA /opt/collaborassl/root.crt.pem -CAkey /opt/collaborassl/root.key.pem -CAcreateserial -out /opt/collaborassl/cert.pem -days 9131 >> $insl 2>&1
+	chown cool:cool /opt/collaborassl/* >> $insl 2>&1
+	mv /opt/collaborassl/privkey.pem /etc/coolwsd/key.pem >> $insl 2>&1
+	mv /opt/collaborassl/cert.pem /etc/coolwsd/cert.pem >> $insl 2>&1
+	mv /opt/collaborassl/root.crt.pem /etc/coolwsd/ca-chain.cert.pem >> $insl 2>&1
+	
+	coolconfig set ssl.ssl_verififcation false >> $insl 2>&1
 	coolconfig set ssl.termination true >> $insl 2>&1
-	coolconfig set storage.wopi.host $(hostname -I) >> $insl 2>&1
-	# coolconfig set net.post_allow.host "192\.168\.[0-9]{1,3}\.[0-9]{1,3}"
-	# coolconfig set-admin-password
+	coolconfig set logging.disable_server_audit true >> $insl 2>&1
+	coolconfig set admin_console.username SuperAdmin >> $insl 2>&1
+	coolconfig set admin_console.password $mp2 >> $insl 2>&1
+	# coolconfig set admin_console.password testingconsole
+	# coolconfig set ssl.enable true >> $insl 2>&1
+	# coolconfig set storage.wopi.host $(hostname) >> $insl 2>&1
+	coolconfig set net.post_allow.host "192\.168\.[0-9]{1,3}\.[0-9]{1,3}" >> $insl 2>&1
 	coolconfig update-system-template >> $insl 2>&1
+	ufw allow 9980/tcp >> $insl 2>&1
+	systemctl enable coolwsd >> $insl 2>&1
 	systemctl restart coolwsd >> $insl 2>&1
+	echo "!!!!!!! Collabora Office checking." >> $insl 2>&1
+	curl -v https://127.0.0.1:9980/hosting/discovery >> $insl 2>&1
+	
+	# Debian (nie ma na razie wersji RH)
+#	a2enmod proxy
+#	a2enmod proxy_http
+#	a2enmod proxy_connect
+#	a2enmod proxy_wstunnel
+#	echo '  AllowEncodedSlashes NoDecode
+ # SSLProxyEngine On
+ # ProxyPreserveHost On
+ # SSLProxyVerify None
+ # SSLProxyCheckPeerCN Off
+ # SSLProxyCheckPeerName Off 
+#
+#  ProxyPass           /browser https://127.0.0.1:9980/browser retry=0
+#  ProxyPassReverse    /browser https://127.0.0.1:9980/browser
+
+#  ProxyPass           /hosting/discovery https://127.0.0.1:9980/hosting/discovery retry=0
+#  ProxyPassReverse    /hosting/discovery https://127.0.0.1:9980/hosting/discovery
+
+#  ProxyPass           /hosting/capabilities https://127.0.0.1:9980/hosting/capabilities retry=0
+#  ProxyPassReverse    /hosting/capabilities https://127.0.0.1:9980/hosting/capabilities
+
+#  ProxyPassMatch "/cool/(.*)/ws$" ws://127.0.0.1:9980/cool/$1/ws nocanon
+#  ProxyPass   /cool/adminws ws://127.0.0.1:9980/cool/adminws
+
+#  ProxyPass           /cool https://127.0.0.1:9980/cool
+#  ProxyPassReverse    /cool https://127.0.0.1:9980/cool
+
+#  ProxyPass           /lool https://127.0.0.1:9980/cool
+#  ProxyPassReverse    /lool https://127.0.0.1:9980/cool' >> /etc/apache2/conf-available/coolwsd-nc-ssl.conf
+	# sed -i "/SSLCertificateKeyFile/a \\  Include \"conf-available/coolwsd-nc-ssl.conf\"" /etc/apache2/sites-available/nextcloud.conf
+	systemctl restart apache2
 	sudo -u $websrv_usr php /var/www/nextcloud/occ app:install richdocuments >> $insl 2>&1
-	ufw allow 9980/tcp
+	sudo -u $websrv_usr php /var/www/nextcloud/occ config:app:set --value="yes" richdocuments disable_certificate_verification >> $insl 2>&1
+	sudo -u $websrv_usr php /var/www/nextcloud/occ config:app:set --value="https://$addr1:9980" richdocuments wopi_url >> $insl 2>&1
+	sudo -u $websrv_usr php /var/www/nextcloud/occ config:app:set --value="https://$addr1:9980" richdocuments public_wopi_url >> $insl 2>&1
 }
 
 function ooffice_inst {
 	echo "Docker installation processing." >> $insl 2>&1
 	for pkg in docker.io docker-doc docker-compose podman-docker containerd runc; do sudo apt-get remove $pkg >> $insl 2>&1; done
-	install -m 0755 -d /etc/apt/keyrings >> $insl 2>&1
+	install -m 0755 -d /etc/apt/keyrings
 	curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
 	chmod a+r /etc/apt/keyrings/docker.asc
 	echo \
   "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
   $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
 	tee /etc/apt/sources.list.d/docker.list >> $insl 2>&1
-	apt-get -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin >> $insl 2>&1
-  
+	apt-get update >> $insl 2>&1 && apt-get -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin >> $insl 2>&1
 	echo "Installing OO" >> $insl 2>&1
 	docker pull ghcr.io/thomisus/onlyoffice-documentserver-unlimited:latest
-	docker run -i -t -d -p 9880:80 ghcr.io/thomisus/onlyoffice-documentserver-unlimited
-	sudo -u $websrv_usr php /var/www/nextcloud/occ app:install richdocuments >> $insl 2>&1
-	ufw allow 9880/tcp
+	mkdir /root/onlyoffice
+	touch /root/onlyoffice/.env
+	echo "SSL_VERIFY_CLIENT=FALSE" >> /root/onlyoffice/.env
+	echo "SECURE_LINK_SECRET=RandomSecretKey" >> /root/onlyoffice/.env
+	echo "JWT_SECRET=RandomSecretKey" >> /root/onlyoffice/.env
+	echo "USE_UNAUTHORIZED_STORAGE=TRUE" >> /root/onlyoffice/.env
+	
+	touch /opt/open_ssl2.conf
+echo '[req]
+distinguished_name = req_distinguished_name
+prompt = no
+[req_distinguished_name]
+C = NX
+ST = Internet
+L = Unknown
+O = Nextcloud
+OU = NAS
+CN = Office Service' >> /opt/open_ssl2.conf
+	mkdir -p /app/onlyoffice/DocumentServer/data/certs
+	openssl genrsa -out /app/onlyoffice/DocumentServer/data/certs/tls.key 2048
+	openssl req -new -config /opt/open_ssl2.conf -key /app/onlyoffice/DocumentServer/data/certs/tls.key -out /app/onlyoffice/DocumentServer/data/certs/tls.csr
+	openssl x509 -req -days 4096 -in /app/onlyoffice/DocumentServer/data/certs/tls.csr -signkey /app/onlyoffice/DocumentServer/data/certs/tls.key -out /app/onlyoffice/DocumentServer/data/certs/tls.crt
+	openssl dhparam -out /app/onlyoffice/DocumentServer/data/certs/dhparam.pem 2048
+	ufw allow 9080/tcp
+	ufw allow 9443/tcp
+	# docker run -i -t -d -p 9443:443 --env-file /root/onlyoffice/.env -v /app/onlyoffice/DocumentServer/data:/var/www/onlyoffice/Data -v /app/onlyoffice/DocumentServer/lib:/var/lib/onlyoffice -v /app/onlyoffice/DocumentServer/rabbitmq:/var/lib/rabbitmq -v /app/onlyoffice/DocumentServer/redis:/var/lib/redis -v /app/onlyoffice/DocumentServer/db:/var/lib/postgresql -v /app/onlyoffice/DocumentServer/logs:/var/log/onlyoffice ghcr.io/thomisus/onlyoffice-documentserver-unlimited
+	docker run -i -t -d -p 9443:443 -p 9080:80 -e ssl_verify_client='false' -e use_unauthorized_storage='true' -e allow_private_ip_address='true' -e secure_link_secret='sekret' -v /app/onlyoffice/DocumentServer/data:/var/www/onlyoffice/Data -v /app/onlyoffice/DocumentServer/lib:/var/lib/onlyoffice -v /app/onlyoffice/DocumentServer/rabbitmq:/var/lib/rabbitmq -v /app/onlyoffice/DocumentServer/redis:/var/lib/redis -v /app/onlyoffice/DocumentServer/db:/var/lib/postgresql -v /app/onlyoffice/DocumentServer/logs:/var/log/onlyoffice ghcr.io/thomisus/onlyoffice-documentserver-unlimited
+	# wget https://github.com/ONLYOFFICE/Docker-DocumentServer/blob/master/docker-compose.yml
+	# 
+	sudo -u $websrv_usr php /var/www/nextcloud/occ app:install onlyoffice >> $insl 2>&1
 }
 
 # Backup
@@ -1425,6 +1636,21 @@ exit 0" >> /etc/rc.local
 		then
 			nv_upd_simpl
 		fi
+		sncver
+		if [ "$ncver" = "30" ]
+		then
+			nv_upd_simpl
+		fi
+		sncver
+		if [ "$ncver" = "30" ]
+		then
+			nv_upd_simpl
+		fi
+		sncver
+		if [ "$ncver" = "30" ]
+		then
+			nv_upd_simpl
+		fi
 		sudo -u $websrv_usr php /var/www/nextcloud/occ db:add-missing-indices >> $insl 2>&1
 		echo ""
 		echo ""
@@ -1842,6 +2068,10 @@ elif [ "$nv" = "29" ]; then
 	echo "Installing PHP version 8.3 for Nextcloud v29."
 	echo "!!!!!!! Installing PHP version 8.3 for Nextcloud v29" >> $insl 2>&1
 	install_php83
+elif [ "$nv" = "30" ]; then
+	echo "Installing PHP version 8.3 for Nextcloud v30."
+	echo "!!!!!!! Installing PHP version 8.3 for Nextcloud v30" >> $insl 2>&1
+	install_php83
 elif [ -z "$nv" ]; then
 	echo "Installing newest PHP version for Nextcloud."
 	echo "!!!!!!! Installing newest PHP version for Nextcloud" >> $insl 2>&1
@@ -1967,6 +2197,8 @@ elif [ "$nv" = "27" ]; then
 elif [ "$nv" = "28" ]; then
 	php82_tweaks
 elif [ "$nv" = "29" ]; then
+	php83_tweaks
+elif [ "$nv" = "30" ]; then
 	php83_tweaks
 elif [ -z "$nv" ]; then
 	php_tweaks
@@ -2269,16 +2501,20 @@ elif [ "$nv" = "27" ]; then
 	mv nextcloud-27.1.11.zip latest.zip >> $insl 2>&1
 elif [ "$nv" = "28" ]; then
 	echo "Downloading and unpacking Nextcloud v$nv." >> $insl 2>&1
-	wget -q https://download.nextcloud.com/server/releases/nextcloud-28.0.10.zip >> $insl 2>&1
-	mv nextcloud-28.0.0.zip latest.zip >> $insl 2>&1
+	wget -q https://download.nextcloud.com/server/releases/nextcloud-28.0.14.zip >> $insl 2>&1
+	mv nextcloud-28.0.14.zip latest.zip >> $insl 2>&1
 elif [ "$nv" = "29" ]; then
 	echo "Downloading and unpacking Nextcloud v$nv." >> $insl 2>&1
-	wget -q https://download.nextcloud.com/server/releases/nextcloud-29.0.7.zip >> $insl 2>&1
-	mv nextcloud-29.0.7.zip latest.zip >> $insl 2>&1
+	wget -q https://download.nextcloud.com/server/releases/nextcloud-29.0.16.zip >> $insl 2>&1
+	mv nextcloud-29.0.16.zip latest.zip >> $insl 2>&1
 elif [ "$nv" = "30" ]; then
 	echo "Downloading and unpacking Nextcloud v$nv." >> $insl 2>&1
-	wget -q https://download.nextcloud.com/server/releases/nextcloud-30.0.0.zip >> $insl 2>&1
-	mv nextcloud-30.0.0.zip latest.zip >> $insl 2>&1
+	wget -q https://download.nextcloud.com/server/releases/nextcloud-30.0.11.zip >> $insl 2>&1
+	mv nextcloud-30.0.11.zip latest.zip >> $insl 2>&1
+elif [ "$nv" = "31" ]; then
+	echo "Downloading and unpacking Nextcloud v$nv." >> $insl 2>&1
+	wget -q https://download.nextcloud.com/server/releases/nextcloud-31.0.5.zip >> $insl 2>&1
+	mv nextcloud-31.0.5.zip latest.zip >> $insl 2>&1
 fi
 
 if [ -e latest.zip ]
@@ -2547,6 +2783,8 @@ if [ -z "$mail" ]
 		fi
 fi
 
+# collab_inst
+
 # HPB Configuration
 # gwaddr=$( route -n | grep 'UG[ \t]' | awk '{print $2}' )
 # echo "Enabling HPB" >> $insl 2>&1
@@ -2580,7 +2818,7 @@ fi
 # Finished!!!
 echo ""
 echo "Job done! Now make last steps in Your web browser!"
-echo "Use # certbot if You want SSL"
+echo "Use # certbot if You want SSL certificate for domain name."
 echo ""
 if [ -z "$dm" ]
 then
