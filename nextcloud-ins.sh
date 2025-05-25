@@ -77,6 +77,8 @@
 # 1. You use it at your own risk. Author is not responsible for any damage made with that script.
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
+# V 1.11.5 - 25.05.2025
+# - another portion of small tweaks
 # V 1.11.4 - 24.05.2025
 # - Nextcloud Hub 10 (v31) is now default/latest
 # - small tweaks
@@ -381,7 +383,7 @@ function nv_upd_simpl {
 function update_os {
 	if [ -e $debvf ]
 	then
-		apt-get update -o DPkg::Lock::Timeout=-1 >> $insl 2>&1 && apt-get upgrade -y -o DPkg::Lock::Timeout=-1 >> $insl 2>&1 && apt-get autoremove -y >> $insl 2>&1
+		apt-get update -o DPkg::Lock::Timeout=-1 >> $insl 2>&1 && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y --force-yes -o Dpkg::Options::="--force-confold" -o DPkg::Lock::Timeout=-1 >> $insl 2>&1 && apt-get autoremove -y >> $insl 2>&1
 	fi
 	if [ -e $elvf ]
 	then
@@ -393,8 +395,7 @@ function install_soft {
 	echo "!!!!!!! Installing all needed standard packages" >> $insl 2>&1
 	if [ -e $debvf ]
 	then
-		DEBIAN_FRONTEND=noninteractive
-		apt-get install -y -o DPkg::Lock::Timeout=-1 git lbzip2 unzip zip lsb-release locales-all rsync wget curl sed screen gawk mc sudo net-tools ethtool vim nano ufw apt-transport-https ca-certificates software-properties-common miniupnpc jq libfontconfig1 libfuse2 socat tree ffmpeg imagemagick webp libreoffice ghostscript bindfs >> $insl 2>&1
+		DEBIAN_FRONTEND=noninteractive apt-get install -y -o DPkg::Lock::Timeout=-1 git lbzip2 unzip zip lsb-release locales-all rsync wget curl sed screen gawk mc sudo net-tools ethtool vim nano ufw apt-transport-https ca-certificates software-properties-common miniupnpc jq libfontconfig1 libfuse2 socat tree ffmpeg imagemagick webp libreoffice ghostscript bindfs >> $insl 2>&1
 		yes | sudo DEBIAN_FRONTEND=noninteractive apt-get -yqq -o DPkg::Lock::Timeout=-1 install ddclient  >> $insl 2>&1
 	fi
 	if [ -e $elvf ]
@@ -695,6 +696,8 @@ function php81_tweaks {
 	echo 'opcache.enable=1' >> $php81_in2/10-opcache.ini
 	# echo 'opcache.revalidate_freq=1' >> $php81_in2/10-opcache.ini
 	# echo 'opcache.jit=disable' >> $php81_in2/10-opcache.ini
+	a2enmod php8.1 >> $insl 2>&1
+	a2dismod php7.4 >> $insl 2>&1
 	restart_websrv
 }
 
@@ -750,6 +753,8 @@ function php82_tweaks {
 	echo 'opcache.enable=1' >> $php82_in2/10-opcache.ini
 	# echo 'opcache.revalidate_freq=1' >> $php82_in2/10-opcache.ini
 	# echo 'opcache.jit=disable' >> $php82_in2/10-opcache.ini
+	a2enmod php8.2 >> $insl 2>&1
+	a2dismod php8.1 >> $insl 2>&1
 	restart_websrv
 }
 
@@ -962,6 +967,8 @@ function nv_update {
 	sncver
 	if [ "$ncver" = "27" ]
 	then
+		install_php82
+		php82_tweaks
 		nv_upd_simpl
 	fi
 	sncver
@@ -977,6 +984,8 @@ function nv_update {
 	sncver
 	if [ "$ncver" = "28" ]
 	then
+		install_php82
+		php82_tweaks
 		nv_upd_simpl
 	fi
 	sncver
@@ -989,50 +998,66 @@ function nv_update {
 	then
 		nv_upd_simpl
 	fi
+	sncver
 	if [ "$ncver" = "29" ]
 	then
 		nv_upd_simpl
 	fi
+	sncver
 	if [ "$ncver" = "29" ]
 	then
 		nv_upd_simpl
 	fi
+	sncver
 	if [ "$ncver" = "29" ]
 	then
 		nv_upd_simpl
 	fi
+	sncver
 	if [ "$ncver" = "30" ]
 	then
 		nv_upd_simpl
 	fi
+	sncver
+	if [ "$ncver" = "30" ]
+	then
+		install_php83
+		php83_tweaks
+		nv_upd_simpl
+	fi
+	sncver
 	if [ "$ncver" = "30" ]
 	then
 		nv_upd_simpl
 	fi
+	sncver
 	if [ "$ncver" = "30" ]
 	then
 		nv_upd_simpl
 	fi
+	sncver
 	if [ "$ncver" = "30" ]
 	then
 		nv_upd_simpl
 	fi
-	if [ "$ncver" = "30" ]
+	sncver
+	if [ "$ncver" = "31" ]
 	then
+		install_php83
+		php83_tweaks
 		nv_upd_simpl
 	fi
+	sncver
 	if [ "$ncver" = "31" ]
 	then
 		nv_upd_simpl
 	fi
+	sncver
 	if [ "$ncver" = "31" ]
 	then
 		nv_upd_simpl
 	fi
-	if [ "$ncver" = "31" ]
-	then
-		nv_upd_simpl
-	fi
+	sncver
 	if [ "$ncver" = "31" ]
 	then
 		nv_upd_simpl
@@ -1368,7 +1393,6 @@ then
 			# Installing additional packages added with v1.7
 			echo "Installing additional packages added with v1.7 upgrade" >> $insl 2>&1
 			install_soft
-			install_php82
 			a2enmod http2 >> $insl 2>&1
 			add_http2
 			preview_tweaks
@@ -1403,7 +1427,6 @@ then
 			# Installing additional packages added with v1.7
 			echo "Installing additional packages added with v1.7 upgrade" >> $insl 2>&1
 			install_soft
-			install_php82
 			a2enmod http2 >> $insl 2>&1
 			preview_tweaks
 			add_http2
@@ -1430,8 +1453,6 @@ then
 			ncbackup
 			echo "Doing some updates if they are available."
 			update_os
-			install_php83
-			php83_tweaks
 			nv_update
 			sudo -u $websrv_usr php /var/www/nextcloud/occ db:add-missing-indices >> $insl 2>&1
 			sudo -u $websrv_usr php /var/www/nextcloud/occ maintenance:repair --include-expensive >> $rstl 2>&1
@@ -1454,8 +1475,6 @@ then
 			ncbackup
 			echo "Doing some updates if they are available."
 			update_os
-			install_php83
-			php83_tweaks
 			nv_update
 			sudo -u $websrv_usr php /var/www/nextcloud/occ db:add-missing-indices >> $insl 2>&1
 			sudo -u $websrv_usr php /var/www/nextcloud/occ maintenance:repair --include-expensive >> $rstl 2>&1
@@ -1583,6 +1602,7 @@ exit 0" >> /etc/rc.local
 		then
 			nv_upd_simpl
 		fi
+		sncver
 		if [ "$ncver" = "27" ]
 		then
 			echo "Installing PHP 8.2"
@@ -1639,6 +1659,9 @@ exit 0" >> /etc/rc.local
 		sncver
 		if [ "$ncver" = "30" ]
 		then
+			echo "Installing PHP 8.3"
+			install_php83
+			php83_tweaks
 			nv_upd_simpl
 		fi
 		sncver
@@ -1648,6 +1671,41 @@ exit 0" >> /etc/rc.local
 		fi
 		sncver
 		if [ "$ncver" = "30" ]
+		then
+			nv_upd_simpl
+		fi
+		sncver
+		if [ "$ncver" = "30" ]
+		then
+			nv_upd_simpl
+		fi
+		sncver
+		if [ "$ncver" = "31" ]
+		then
+			nv_upd_simpl
+		fi
+		sncver
+		if [ "$ncver" = "31" ]
+		then
+			nv_upd_simpl
+		fi
+		sncver
+		if [ "$ncver" = "31" ]
+		then
+			nv_upd_simpl
+		fi
+		sncver
+		if [ "$ncver" = "32" ]
+		then
+			nv_upd_simpl
+		fi
+		sncver
+		if [ "$ncver" = "32" ]
+		then
+			nv_upd_simpl
+		fi
+		sncver
+		if [ "$ncver" = "32" ]
 		then
 			nv_upd_simpl
 		fi
