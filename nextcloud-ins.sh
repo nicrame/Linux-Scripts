@@ -2,7 +2,7 @@
 
 # Nextcloud Install Script
 # Made for freshly installed, server Linux distributions using AMD64(x86_64) architecture: 
-# Debian (11,12), Enterprise Linux (9), Ubuntu Server (22), Fedora Server (39).
+# Debian (11 - 13), Enterprise Linux (9 - 10), Ubuntu Server (22 - 24), Fedora Server (39 - 42).
 #
 # It will update OS, preconfigure everything, install neeeded packages and Nextcloud.
 # There is also support for upgrading Nextcloud and OS packages - just download and run latest version of this script again.
@@ -52,7 +52,7 @@
 # The main reason is that such updates sometimes leave files that shouldn't stay, which brakes their update system at some points (i had many such problems in the past).
 # So, to update Your Nextcloud there are two options:
 # 1. You may start the script again, so it will upgrade OS with software packages and Nextcloud to the newest version (it will update between major releases too),
-# so for example if You have version 28.0.3, it will update it to 29.0.5(that was newest version when this text was edited).
+# so for example if You have version 28.0.3, it will update it to 31.0.4(that was newest version when this text was edited).
 # But if You selected version to install with "-nv" argument (eg. -nv=28) when script was used for the first time, then starting script again will not update anything,
 # and leave You with selected version, without updating minor release. 
 # So if You got 28.0.3 it will not update to 28.0.9 (because when this script is released, i do not know how many minor releases will be in the future).
@@ -77,6 +77,13 @@
 # 1. You use it at your own risk. Author is not responsible for any damage made with that script.
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
+# V 1.12 - 07.09.2025
+# - make PHP 8.4 the default version
+# - change the way PHP configuration is stored (new, different config file instead of changing installed by packages)
+# - Debian 13 support added
+# - EL 10 support added (uses Valkey instead of Redis, tested on Rocky and RHEL)
+# - Fedora 42 Server support added
+# - Ubuntu 24 LTS Server support added
 # V 1.11.5 - 25.05.2025
 # - another portion of small tweaks
 # V 1.11.4 - 24.05.2025
@@ -182,7 +189,7 @@
 
 export LC_ALL=C
 
-ver=1.11
+ver=1.12
 cpu=$( uname -m )
 user=$( whoami )
 debvf=/etc/debian_version
@@ -191,7 +198,7 @@ if [ -e $debvf ]
 then
 	if [ -e $ubuvf ]
 	then
-		ubuv=$( cat /etc/lsb-release | grep "Ubuntu 22" | awk -F '"' '{print $2}' )
+		ubuv=$( cat /etc/lsb-release | grep "Ubuntu " | awk -F '"' '{print $2}' )
 		unset debv
 		debv=$ubuv
 		ubu19=$( cat /etc/lsb-release | grep "Ubuntu 19" )
@@ -200,6 +207,10 @@ then
 		ubu22=$( cat /etc/lsb-release | grep "Ubuntu 22" )
 		ubu23=$( cat /etc/lsb-release | grep "Ubuntu 23" )
 		ubu24=$( cat /etc/lsb-release | grep "Ubuntu 24" )
+		ubu25=$( cat /etc/lsb-release | grep "Ubuntu 25" )
+		ubu26=$( cat /etc/lsb-release | grep "Ubuntu 26" )
+		ubu27=$( cat /etc/lsb-release | grep "Ubuntu 27" )
+		ubu28=$( cat /etc/lsb-release | grep "Ubuntu 28" )
 	else
 	debv=$( cat $debvf )
 	fi
@@ -209,12 +220,15 @@ fedvf=/etc/fedora-release
 if [ -e $elvf ]
 then
 	elv=$( cat $elvf )
+	rhel=$( cat /etc/redhat-release | grep "Red Hat Enterprise Linux" )
 	el6=$( cat /etc/redhat-release | grep "release 6" )
 	el7=$( cat /etc/redhat-release | grep "release 7" )
 	el8=$( cat /etc/redhat-release | grep "release 8" )
 	el9=$( cat /etc/redhat-release | grep "release 9" )
 	el10=$( cat /etc/redhat-release | grep "release 10" )
+	rhel10=$( cat /etc/redhat-release | grep "Red Hat Enterprise Linux release 10" )
 	el11=$( cat /etc/redhat-release | grep "release 11" )
+	rhel11=$( cat /etc/redhat-release | grep "Red Hat Enterprise Linux release 11" )
 	if [ -e $fedvf ]
 	then
 		fed36=$( cat /etc/redhat-release | grep "release 36" )
@@ -395,26 +409,38 @@ function install_soft {
 	echo "!!!!!!! Installing all needed standard packages" >> $insl 2>&1
 	if [ -e $debvf ]
 	then
-		DEBIAN_FRONTEND=noninteractive apt-get install -y -o DPkg::Lock::Timeout=-1 git lbzip2 unzip zip lsb-release locales-all rsync wget curl sed screen gawk mc sudo net-tools ethtool vim nano ufw apt-transport-https ca-certificates software-properties-common miniupnpc jq libfontconfig1 libfuse2 socat tree ffmpeg imagemagick webp libreoffice ghostscript bindfs >> $insl 2>&1
-		yes | sudo DEBIAN_FRONTEND=noninteractive apt-get -yqq -o DPkg::Lock::Timeout=-1 install ddclient  >> $insl 2>&1
+		DEBIAN_FRONTEND=noninteractive apt-get install -y -o DPkg::Lock::Timeout=-1 git lbzip2 unzip zip lsb-release locales-all rsync wget curl sed screen gawk mc sudo net-tools ethtool vim nano ufw apt-transport-https ca-certificates miniupnpc jq libfontconfig1 libfuse2 socat tree ffmpeg imagemagick webp libreoffice ghostscript bindfs >> $insl 2>&1
+		DEBIAN_FRONTEND=noninteractive apt-get install -y -o DPkg::Lock::Timeout=-1 software-properties-common >> $insl 2>&1
+		yes | sudo DEBIAN_FRONTEND=noninteractive apt-get -yqq -o DPkg::Lock::Timeout=-1 install ddclient >> $insl 2>&1
 	fi
 	if [ -e $elvf ]
 	then
-		# Disabling SELinux for testing purposes here. By default just let it run and configure things instead.
-		# setenforce 0 >> $insl 2>&1
-		# grubby --update-kernel ALL --args selinux=0 >> $insl 2>&1
-		# sed --in-place=.bak 's/^SELINUX\=enforcing/SELINUX\=permissive/g' /etc/selinux/config
-		
 		if [ -e $fedvf ]
 		then
 			dnf install -y -q https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm >> $insl 2>&1
 			dnf config-manager -y --enable fedora-cisco-openh264 >> $insl 2>&1
 		else
-			dnf -q config-manager --set-enabled crb && dnf install -y -q epel-release >> $insl 2>&1
+			if [ -n "rhel" ]
+			then
+				subscription-manager repos --enable codeready-builder-for-rhel-$(rpm -E %rhel)-$(arch)-rpms >> $insl 2>&1
+				dnf install -y -q https://dl.fedoraproject.org/pub/epel/epel-release-latest-$(rpm -E %rhel).noarch.rpm >> $insl 2>&1
+				/usr/bin/crb enable >> $insl 2>&1
+				dnf install -q --nogpgcheck https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-$(rpm -E %rhel).noarch.rpm -y >> $insl 2>&1
+				dnf install -q --nogpgcheck https://mirrors.rpmfusion.org/nonfree/el/rpmfusion-nonfree-release-$(rpm -E %rhel).noarch.rpm -y >> $insl 2>&1
+			else
+			dnf -q config-manager --set-enabled crb >> $insl 2>&1
+			dnf install -y -q epel-release >> $insl 2>&1
 			dnf install -q --nogpgcheck https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-$(rpm -E %rhel).noarch.rpm -y >> $insl 2>&1
 			dnf install -q --nogpgcheck https://mirrors.rpmfusion.org/nonfree/el/rpmfusion-nonfree-release-$(rpm -E %rhel).noarch.rpm -y >> $insl 2>&1
+			fi
 		fi
-		dnf install -y -q git lbzip2 unzip zip lsb-release rsync wget curl sed screen gawk mc sudo net-tools ethtool vim nano ca-certificates miniupnpc jq fontconfig-devel socat tree ffmpeg ImageMagick libwebp libreoffice ghostscript ddclient >> $insl 2>&1
+		dnf install -y -q git unzip bzip2 zip lsb-release rsync wget curl sed screen gawk mc sudo net-tools ethtool vim nano ca-certificates miniupnpc jq fontconfig-devel socat tree ffmpeg ImageMagick libwebp ghostscript >> $insl 2>&1
+		dnf install -y -q dnf-utils dnf-plugins-core >> $insl 2>&1
+		dnf update -y -q >> $insl 2>&1
+		dnf install -y -q libreoffice >> $insl 2>&1
+		dnf install -y -q ddclient >> $insl 2>&1
+		dnf install -y -q lbzip2 >> $insl 2>&1
+		dnf install -y -q openssl >> $insl 2>&1
 	fi
 }
 
@@ -424,16 +450,18 @@ function install_php81 {
 		curl -sSLo /usr/share/keyrings/deb.sury.org-php.gpg https://packages.sury.org/php/apt.gpg >> $insl 2>&1
 		sh -c 'echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.sury.org/php/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/php.list' >> $insl 2>&1
 		apt-get update >> $insl 2>&1
-		apt-get install -y -o DPkg::Lock::Timeout=-1 php8.1 libapache2-mod-php8.1 libmagickcore-6.q16-6-extra php8.1-mysql php8.1-common php8.1-redis php8.1-dom php8.1-curl php8.1-exif php8.1-fileinfo php8.1-bcmath php8.1-gmp php8.1-imagick php8.1-mbstring php8.1-xml php8.1-zip php8.1-iconv php8.1-intl php8.1-simplexml php8.1-xmlreader php8.1-ftp php8.1-ssh2 php8.1-sockets php8.1-gd php8.1-imap php8.1-soap php8.1-xmlrpc php8.1-apcu php8.1-dev php8.1-cli >> $insl 2>&1
+		apt-get install -y -o DPkg::Lock::Timeout=-1 php8.1 libapache2-mod-php8.1 php8.1-mysql php8.1-common php8.1-redis php8.1-dom php8.1-curl php8.1-exif php8.1-fileinfo php8.1-bcmath php8.1-gmp php8.1-imagick php8.1-mbstring php8.1-xml php8.1-zip php8.1-iconv php8.1-intl php8.1-simplexml php8.1-xmlreader php8.1-ftp php8.1-ssh2 php8.1-sockets php8.1-gd php8.1-imap php8.1-soap php8.1-xmlrpc php8.1-apcu php8.1-dev php8.1-cli >> $insl 2>&1
+		apt-get install -y -o DPkg::Lock::Timeout=-1 libmagickcore-6.q16-6-extra >> $insl 2>&1
+		apt-get install -y -o DPkg::Lock::Timeout=-1 libmagickcore-7.q16-10-extra >> $insl 2>&1
 	fi
 	if [ -e $elvf ]
 	then
 		if [ -e $fedvf ]
 		then
-			dnf install -y -q https://rpms.remirepo.net/fedora/remi-release-39.rpm >> $insl 2>&1
+			dnf install -y -q https://rpms.remirepo.net/fedora/remi-release-$(rpm -E %fedora).rpm >> $insl 2>&1
 			dnf config-manager --set-enabled remi
 		else
-			dnf install -y -q https://rpms.remirepo.net/enterprise/remi-release-9.rpm >> $insl 2>&1
+			dnf install -y -q https://rpms.remirepo.net/enterprise/remi-release-$(rpm -E %rhel).rpm >> $insl 2>&1
 		fi
 		dnf install -y -q php81 php81-php-apcu php81-php-opcache php81-php-mysql php81-php-bcmath php81-php-common php81-php-geos php81-php-gmp php81-php-pecl-imagick-im7 php81-php-pecl-lzf php81-php-pecl-mcrypt php81-php-pecl-recode php81-php-process php81-php-zstd php81-php-redis php81-php-dom php81-php-curl php81-php-exif php81-php-fileinfo php81-php-mbstring php81-php-xml php81-php-zip php81-php-iconv php81-php-intl php81-php-simplexml php81-php-xmlreader php81-php-ftp php81-php-ssh2 php81-php-sockets php81-php-gd php81-php-imap php81-php-soap php81-php-xmlrpc php81-php-apcu php81-php-cli php81-php-ast php81-php-brotli php81-php-enchant php81-php-ffi php81-php-lz4 php81-php-phalcon5 php81-php-phpiredis php81-php-smbclient php81-php-tidy php81-php-xz >> $insl 2>&1
 		dnf install -y -q php81-syspaths php81-mod_php >> $insl 2>&1
@@ -453,16 +481,18 @@ function install_php82 {
 			sh -c 'echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.sury.org/php/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/php.list' >> $insl 2>&1
 		fi
 		apt-get update >> $insl 2>&1
-		apt-get install -y -o DPkg::Lock::Timeout=-1 php8.2 libapache2-mod-php8.2 libmagickcore-6.q16-6-extra php8.2-mysql php8.2-common php8.2-bz2 php8.2-redis php8.2-dom php8.2-curl php8.2-exif php8.2-fileinfo php8.2-bcmath php8.2-gmp php8.2-imagick php8.2-mbstring php8.2-xml php8.2-zip php8.2-iconv php8.2-intl php8.2-simplexml php8.2-xmlreader php8.2-ftp php8.2-ssh2 php8.2-sockets php8.2-gd php8.2-imap php8.2-soap php8.2-xmlrpc php8.2-apcu php8.2-dev php8.2-cli >> $insl 2>&1
+		apt-get install -y -o DPkg::Lock::Timeout=-1 php8.2 libapache2-mod-php8.2 php8.2-mysql php8.2-common php8.2-bz2 php8.2-redis php8.2-dom php8.2-curl php8.2-exif php8.2-fileinfo php8.2-bcmath php8.2-gmp php8.2-imagick php8.2-mbstring php8.2-xml php8.2-zip php8.2-iconv php8.2-intl php8.2-simplexml php8.2-xmlreader php8.2-ftp php8.2-ssh2 php8.2-sockets php8.2-gd php8.2-imap php8.2-soap php8.2-xmlrpc php8.2-apcu php8.2-dev php8.2-cli >> $insl 2>&1
+		apt-get install -y -o DPkg::Lock::Timeout=-1 libmagickcore-6.q16-6-extra >> $insl 2>&1
+		apt-get install -y -o DPkg::Lock::Timeout=-1 libmagickcore-7.q16-10-extra >> $insl 2>&1
 	fi
 	if [ -e $elvf ]
 	then
 		if [ -e $fedvf ]
 		then
-			dnf install -y -q https://rpms.remirepo.net/fedora/remi-release-39.rpm >> $insl 2>&1
+			dnf install -y -q https://rpms.remirepo.net/fedora/remi-release-$(rpm -E %fedora).rpm >> $insl 2>&1
 			dnf config-manager --set-enabled remi
 		else
-			dnf install -y -q https://rpms.remirepo.net/enterprise/remi-release-9.rpm >> $insl 2>&1
+			dnf install -y -q https://rpms.remirepo.net/enterprise/remi-release-$(rpm -E %rhel).rpm >> $insl 2>&1
 		fi
 		dnf install -y -q php82 php82-php-apcu php82-php-opcache php82-php-mysql php82-php-bcmath php82-php-common php82-php-geos php82-php-gmp php82-php-pecl-imagick-im7 php82-php-pecl-lzf php82-php-pecl-mcrypt php82-php-pecl-recode php82-php-process php82-php-zstd php82-php-redis php82-php-dom php82-php-curl php82-php-exif php82-php-fileinfo php82-php-mbstring php82-php-xml php82-php-zip php82-php-iconv php82-php-intl php82-php-simplexml php82-php-xmlreader php82-php-ftp php82-php-ssh2 php82-php-sockets php82-php-gd php82-php-imap php82-php-soap php82-php-xmlrpc php82-php-apcu php82-php-cli php82-php-ast php82-php-brotli php82-php-enchant php82-php-ffi php82-php-lz4 php82-php-phalcon5 php82-php-phpiredis php82-php-smbclient php82-php-tidy php82-php-xz >> $insl 2>&1
 		dnf install -y -q php82-syspaths php82-mod_php >> $insl 2>&1
@@ -482,16 +512,18 @@ function install_php83 {
 			sh -c 'echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.sury.org/php/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/php.list' >> $insl 2>&1
 		fi
 		apt-get update >> $insl 2>&1
-		apt-get install -y -o DPkg::Lock::Timeout=-1 php8.3 libapache2-mod-php8.3 libmagickcore-6.q16-6-extra php8.3-mysql php8.3-common php8.3-bz2 php8.3-redis php8.3-dom php8.3-curl php8.3-exif php8.3-fileinfo php8.3-bcmath php8.3-gmp php8.3-imagick php8.3-mbstring php8.3-xml php8.3-zip php8.3-iconv php8.3-intl php8.3-simplexml php8.3-xmlreader php8.3-ftp php8.3-ssh2 php8.3-sockets php8.3-gd php8.3-imap php8.3-soap php8.3-xmlrpc php8.3-apcu php8.3-dev php8.3-cli >> $insl 2>&1
+		apt-get install -y -o DPkg::Lock::Timeout=-1 php8.3 libapache2-mod-php8.3 php8.3-mysql php8.3-common php8.3-bz2 php8.3-redis php8.3-dom php8.3-curl php8.3-exif php8.3-fileinfo php8.3-bcmath php8.3-gmp php8.3-imagick php8.3-mbstring php8.3-xml php8.3-zip php8.3-iconv php8.3-intl php8.3-simplexml php8.3-xmlreader php8.3-ftp php8.3-ssh2 php8.3-sockets php8.3-gd php8.3-imap php8.3-soap php8.3-xmlrpc php8.3-apcu php8.3-dev php8.3-cli >> $insl 2>&1
+		apt-get install -y -o DPkg::Lock::Timeout=-1 libmagickcore-6.q16-6-extra >> $insl 2>&1
+		apt-get install -y -o DPkg::Lock::Timeout=-1 libmagickcore-7.q16-10-extra >> $insl 2>&1
 	fi
 	if [ -e $elvf ]
 	then
 		if [ -e $fedvf ]
 		then
-			dnf install -y -q https://rpms.remirepo.net/fedora/remi-release-39.rpm >> $insl 2>&1
+			dnf install -y -q https://rpms.remirepo.net/fedora/remi-release-$(rpm -E %fedora).rpm >> $insl 2>&1
 			dnf config-manager --set-enabled remi
 		else
-			dnf install -y -q https://rpms.remirepo.net/enterprise/remi-release-9.rpm >> $insl 2>&1
+			dnf install -y -q https://rpms.remirepo.net/enterprise/remi-release-$(rpm -E %rhel).rpm >> $insl 2>&1
 		fi
 		dnf install -y -q php83 php83-php-apcu php83-php-opcache php83-php-mysql php83-php-bcmath php83-php-common php83-php-geos php83-php-gmp php83-php-pecl-imagick-im7 php83-php-pecl-lzf php83-php-pecl-mcrypt php83-php-pecl-recode php83-php-process php83-php-zstd php83-php-redis php83-php-dom php83-php-curl php83-php-exif php83-php-fileinfo php83-php-mbstring php83-php-xml php83-php-zip php83-php-iconv php83-php-intl php83-php-simplexml php83-php-xmlreader php83-php-ftp php83-php-ssh2 php83-php-sockets php83-php-gd php83-php-imap php83-php-soap php83-php-xmlrpc php83-php-apcu php83-php-cli php83-php-ast php83-php-brotli php83-php-enchant php83-php-ffi php83-php-lz4 php83-php-phalcon5 php83-php-phpiredis php83-php-smbclient php83-php-tidy php83-php-xz >> $insl 2>&1
 		dnf install -y -q php83-syspaths php83-mod_php >> $insl 2>&1
@@ -511,16 +543,18 @@ function install_php84 {
 			sh -c 'echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.sury.org/php/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/php.list' >> $insl 2>&1
 		fi
 		apt-get update >> $insl 2>&1
-		apt-get install -y -o DPkg::Lock::Timeout=-1 php8.4 libapache2-mod-php8.4 libmagickcore-6.q16-6-extra php8.4-mysql php8.4-common php8.4-bz2 php8.4-redis php8.4-dom php8.4-curl php8.4-exif php8.4-fileinfo php8.4-bcmath php8.4-gmp php8.4-imagick php8.4-mbstring php8.4-xml php8.4-zip php8.4-iconv php8.4-intl php8.4-simplexml php8.4-xmlreader php8.4-ftp php8.4-ssh2 php8.4-sockets php8.4-gd php8.4-imap php8.4-soap php8.4-xmlrpc php8.4-apcu php8.4-dev php8.4-cli >> $insl 2>&1
+		apt-get install -y -o DPkg::Lock::Timeout=-1 php8.4 libapache2-mod-php8.4 php8.4-mysql php8.4-common php8.4-bz2 php8.4-redis php8.4-dom php8.4-curl php8.4-exif php8.4-fileinfo php8.4-bcmath php8.4-gmp php8.4-imagick php8.4-mbstring php8.4-xml php8.4-zip php8.4-iconv php8.4-intl php8.4-simplexml php8.4-xmlreader php8.4-ftp php8.4-ssh2 php8.4-sockets php8.4-gd php8.4-imap php8.4-soap php8.4-xmlrpc php8.4-apcu php8.4-dev php8.4-cli >> $insl 2>&1
+		apt-get install -y -o DPkg::Lock::Timeout=-1 libmagickcore-6.q16-6-extra >> $insl 2>&1
+		apt-get install -y -o DPkg::Lock::Timeout=-1 libmagickcore-7.q16-10-extra >> $insl 2>&1
 	fi
 	if [ -e $elvf ]
 	then
 		if [ -e $fedvf ]
 		then
-			dnf install -y -q https://rpms.remirepo.net/fedora/remi-release-42.rpm >> $insl 2>&1
+			dnf install -y -q https://rpms.remirepo.net/fedora/remi-release-$(rpm -E %fedora).rpm >> $insl 2>&1
 			dnf config-manager --set-enabled remi
 		else
-			dnf install -y -q https://rpms.remirepo.net/enterprise/remi-release-9.rpm >> $insl 2>&1
+			dnf install -y -q https://rpms.remirepo.net/enterprise/remi-release-$(rpm -E %rhel).rpm >> $insl 2>&1
 		fi
 		dnf install -y -q php84 php84-php-apcu php84-php-opcache php84-php-mysql php84-php-bcmath php84-php-common php84-php-geos php84-php-gmp php84-php-pecl-imagick-im7 php84-php-pecl-lzf php84-php-pecl-mcrypt php84-php-pecl-recode php84-php-process php84-php-zstd php84-php-redis php84-php-dom php84-php-curl php84-php-exif php84-php-fileinfo php84-php-mbstring php84-php-xml php84-php-zip php84-php-iconv php84-php-intl php84-php-simplexml php84-php-xmlreader php84-php-ftp php84-php-ssh2 php84-php-sockets php84-php-gd php84-php-imap php84-php-soap php84-php-xmlrpc php84-php-apcu php84-php-cli php84-php-ast php84-php-brotli php84-php-enchant php84-php-ffi php84-php-lz4 php84-php-phalcon5 php84-php-phpiredis php84-php-smbclient php84-php-tidy php84-php-xz >> $insl 2>&1
 		dnf install -y -q php84-syspaths php84-mod_php >> $insl 2>&1
@@ -530,7 +564,7 @@ function install_php84 {
 
 # This is function for installing currently used latest version of PHP.
 function install_php {
-	install_php83
+	install_php84
 }
 
 # Check and add http2 support to Apache.
@@ -580,12 +614,46 @@ function preview_tweaks {
 	sudo -u $websrv_usr php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 26 --value="OC\\Preview\\Image" >> $insl 2>&1
 	if [ -e $debvf ]
 	then
-		sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*PS.*\/>\)/\1read|write\3/1' /etc/ImageMagick-6/policy.xml
-		sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*PS2.*\/>\)/\1read|write\3/1' /etc/ImageMagick-6/policy.xml
-		sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*PS3.*\/>\)/\1read|write\3/1' /etc/ImageMagick-6/policy.xml
-		sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*EPS.*\/>\)/\1read|write\3/1' /etc/ImageMagick-6/policy.xml
-		sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*PDF.*\/>\)/\1read|write\3/1' /etc/ImageMagick-6/policy.xml
+		if [ -e /etc/ImageMagick-6/policy.xml ]
+		then
+			sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*PS.*\/>\)/\1read|write\3/1' /etc/ImageMagick-6/policy.xml
+			sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*PS2.*\/>\)/\1read|write\3/1' /etc/ImageMagick-6/policy.xml
+			sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*PS3.*\/>\)/\1read|write\3/1' /etc/ImageMagick-6/policy.xml
+			sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*EPS.*\/>\)/\1read|write\3/1' /etc/ImageMagick-6/policy.xml
+			sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*PDF.*\/>\)/\1read|write\3/1' /etc/ImageMagick-6/policy.xml
+		fi
+		if [ -e /etc/ImageMagick-7/policy.xml ]
+		then
+			sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*PS.*\/>\)/\1read|write\3/1' /etc/ImageMagick-7/policy.xml
+			sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*PS2.*\/>\)/\1read|write\3/1' /etc/ImageMagick-7/policy.xml
+			sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*PS3.*\/>\)/\1read|write\3/1' /etc/ImageMagick-7/policy.xml
+			sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*EPS.*\/>\)/\1read|write\3/1' /etc/ImageMagick-7/policy.xml
+			sed -i 's/\(^ *<policy.*rights="\)\([^"]*\)\(".*PDF.*\/>\)/\1read|write\3/1' /etc/ImageMagick-7/policy.xml
+		fi
 	fi
+}
+
+function gen_phpini {
+	echo ";Configuration for Nextcloud
+;Made by Nextcloud Installer Script - https://www.marcinwilk.eu/projects/linux-scripts/nextcloud-debian-install/
+apc.enable_cli=1
+opcache.enable_cli=1
+opcache.interned_strings_buffer=64
+opcache.max_accelerated_files=20000
+opcache.memory_consumption=256
+opcache.save_comments=1
+opcache.enable=1
+mysqli.cache_size = 2000
+
+memory_limit = 1024M
+upload_max_filesize = 16G
+post_max_size = 16G
+max_file_uploads = 200
+max_input_vars = 3000
+max_input_time = 3600
+max_execution_time = 3600
+default_socket_timeout = 3600
+output_buffering = Off" >> $php_ini
 }
 
 function php74_tweaks {
@@ -593,54 +661,17 @@ function php74_tweaks {
 	echo "PHP config files tweaking."
 	if [ -e $debvf ]
 	then
-		php74_in1=/etc/php/7.4/apache2
-		php74_in2=/etc/php/7.4/apache2/conf.d
+		touch /etc/php/7.4/mods-available/nextcloud-cfg.ini
+		php_ini=/etc/php/7.4/mods-available/nextcloud-cfg.ini
+		ln -s /etc/php/7.4/mods-available/nextcloud-cfg.ini /etc/php/7.4/apache2/conf.d/90-nextcloud-cfg.ini
+		ln -s /etc/php/7.4/mods-available/nextcloud-cfg.ini /etc/php/7.4/cli/conf.d/90-nextcloud-cfg.ini
 	fi
 	if [ -e $elvf ]
 	then
-		php74_in1=/etc/opt/remi/php74
-		php74_in2=/etc/opt/remi/php74/php.d
-		ln -s /var/opt/remi/php74/log/php-fpm /var/log/php-fpm
+		touch /etc/opt/remi/php74/php.d/90-nextcloud-cfg.ini
+		php_ini=/etc/opt/remi/php74/php.d/90-nextcloud-cfg.ini
 	fi
-	if [ -e $debvf ]
-	then
-		echo 'apc.enable_cli=1' >> /etc/php/7.4/cli/conf.d/20-apcu.ini
-	fi
-	if [ -e $debvf ]
-	then
-		echo 'apc.enable_cli=1' >> $php74_in2/40-apcu.ini
-	fi
-	sed -i 's/\b128M\b/1024M/g' $php74_in1/php.ini
-	sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' $php74_in1/php.ini
-	sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' $php74_in1/php.ini
-	sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' $php74_in1/php.ini
-	sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' $php74_in1/php.ini
-	sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' $php74_in1/php.ini
-	sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' $php74_in1/php.ini
-	sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' $php74_in1/php.ini
-	sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' $php74_in1/php.ini
-	sed -i '/MySQLi]/amysqli.cache_size = 2000' $php74_in1/php.ini
-	if [ -e $debvf ]
-	then
-		sed -i 's/\b128M\b/1024M/g' /etc/php/7.4/cli/php.ini
-		sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/7.4/cli/php.ini
-		sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/7.4/cli/php.ini
-		sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/7.4/cli/php.ini
-		sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/7.4/cli/php.ini
-		sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/7.4/cli/php.ini
-		sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/7.4/cli/php.ini
-		sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/7.4/cli/php.ini
-		sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/7.4/cli/php.ini
-		sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/7.4/cli/php.ini
-	fi
-	echo 'opcache.enable_cli=1' >> $php74_in2/10-opcache.ini
-	echo 'opcache.interned_strings_buffer=64' >> $php74_in2/10-opcache.ini
-	echo 'opcache.max_accelerated_files=20000' >> $php74_in2/10-opcache.ini
-	echo 'opcache.memory_consumption=256' >> $php74_in2/10-opcache.ini
-	echo 'opcache.save_comments=1' >> $php74_in2/10-opcache.ini
-	echo 'opcache.enable=1' >> $php74_in2/10-opcache.ini
-	# echo 'opcache.revalidate_freq=1' >> $php74_in2/10-opcache.ini
-	# echo 'opcache.jit=disable' >> $php74_in2/10-opcache.ini
+	gen_phpini
 	restart_websrv
 }
 
@@ -649,53 +680,17 @@ function php81_tweaks {
 	echo "PHP config files tweaking."
 	if [ -e $debvf ]
 	then
-		php81_in1=/etc/php/8.1/apache2
-		php81_in2=/etc/php/8.1/apache2/conf.d
+		touch /etc/php/8.1/mods-available/nextcloud-cfg.ini
+		php_ini=/etc/php/8.1/mods-available/nextcloud-cfg.ini
+		ln -s /etc/php/8.1/mods-available/nextcloud-cfg.ini /etc/php/8.1/apache2/conf.d/90-nextcloud-cfg.ini
+		ln -s /etc/php/8.1/mods-available/nextcloud-cfg.ini /etc/php/8.1/cli/conf.d/90-nextcloud-cfg.ini
 	fi
 	if [ -e $elvf ]
 	then
-		php81_in1=/etc/opt/remi/php81
-		php81_in2=/etc/opt/remi/php81/php.d
+		touch /etc/opt/remi/php81/php.d/90-nextcloud-cfg.ini
+		php_ini=/etc/opt/remi/php81/php.d/90-nextcloud-cfg.ini
 	fi
-	if [ -e $debvf ]
-	then
-		echo 'apc.enable_cli=1' >> /etc/php/8.1/cli/conf.d/20-apcu.ini
-	fi
-	if [ -e $debvf ]
-	then
-		echo 'apc.enable_cli=1' >> $php81_in2/40-apcu.ini
-	fi
-	sed -i 's/\b128M\b/1024M/g' $php81_in1/php.ini
-	sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' $php81_in1/php.ini
-	sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' $php81_in1/php.ini
-	sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' $php81_in1/php.ini
-	sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' $php81_in1/php.ini
-	sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' $php81_in1/php.ini
-	sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' $php81_in1/php.ini
-	sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' $php81_in1/php.ini
-	sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' $php81_in1/php.ini
-	sed -i '/MySQLi]/amysqli.cache_size = 2000' $php81_in1/php.ini
-	if [ -e $debvf ]
-	then
-		sed -i 's/\b128M\b/1024M/g' /etc/php/8.1/cli/php.ini
-		sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.1/cli/php.ini
-		sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.1/cli/php.ini
-		sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.1/cli/php.ini
-		sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.1/cli/php.ini
-		sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.1/cli/php.ini
-		sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.1/cli/php.ini
-		sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.1/cli/php.ini
-		sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.1/cli/php.ini
-		sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.1/cli/php.ini
-	fi
-	echo 'opcache.enable_cli=1' >> $php81_in2/10-opcache.ini
-	echo 'opcache.interned_strings_buffer=64' >> $php81_in2/10-opcache.ini
-	echo 'opcache.max_accelerated_files=20000' >> $php81_in2/10-opcache.ini
-	echo 'opcache.memory_consumption=256' >> $php81_in2/10-opcache.ini
-	echo 'opcache.save_comments=1' >> $php81_in2/10-opcache.ini
-	echo 'opcache.enable=1' >> $php81_in2/10-opcache.ini
-	# echo 'opcache.revalidate_freq=1' >> $php81_in2/10-opcache.ini
-	# echo 'opcache.jit=disable' >> $php81_in2/10-opcache.ini
+	gen_phpini
 	a2enmod php8.1 >> $insl 2>&1
 	a2dismod php7.4 >> $insl 2>&1
 	restart_websrv
@@ -706,53 +701,17 @@ function php82_tweaks {
 	echo "PHP config files tweaking."
 	if [ -e $debvf ]
 	then
-		php82_in1=/etc/php/8.2/apache2
-		php82_in2=/etc/php/8.2/apache2/conf.d
+		touch /etc/php/8.2/mods-available/nextcloud-cfg.ini
+		php_ini=/etc/php/8.2/mods-available/nextcloud-cfg.ini
+		ln -s /etc/php/8.2/mods-available/nextcloud-cfg.ini /etc/php/8.2/apache2/conf.d/90-nextcloud-cfg.ini
+		ln -s /etc/php/8.2/mods-available/nextcloud-cfg.ini /etc/php/8.2/cli/conf.d/90-nextcloud-cfg.ini
 	fi
 	if [ -e $elvf ]
 	then
-		php82_in1=/etc/opt/remi/php82
-		php82_in2=/etc/opt/remi/php82/php.d
+		touch /etc/opt/remi/php82/php.d/90-nextcloud-cfg.ini
+		php_ini=/etc/opt/remi/php82/php.d/90-nextcloud-cfg.ini
 	fi
-	if [ -e $debvf ]
-	then
-		echo 'apc.enable_cli=1' >> /etc/php/8.2/cli/conf.d/20-apcu.ini
-	fi
-	if [ -e $elvf ]
-	then
-		echo 'apc.enable_cli=1' >> $php82_in2/40-apcu.ini
-	fi
-	sed -i 's/\b128M\b/1024M/g' $php82_in1/php.ini
-	sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' $php82_in1/php.ini
-	sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' $php82_in1/php.ini
-	sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' $php82_in1/php.ini
-	sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' $php82_in1/php.ini
-	sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' $php82_in1/php.ini
-	sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' $php82_in1/php.ini
-	sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' $php82_in1/php.ini
-	sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' $php82_in1/php.ini
-	sed -i '/MySQLi]/amysqli.cache_size = 2000' $php82_in1/php.ini
-	if [ -e $debvf ]
-	then
-		sed -i 's/\b128M\b/1024M/g' /etc/php/8.2/cli/php.ini
-		sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' /etc/php/8.2/cli/php.ini
-		sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' /etc/php/8.2/cli/php.ini
-		sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' /etc/php/8.2/cli/php.ini
-		sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' /etc/php/8.2/cli/php.ini
-		sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' /etc/php/8.2/cli/php.ini
-		sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' /etc/php/8.2/cli/php.ini
-		sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' /etc/php/8.2/cli/php.ini
-		sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' /etc/php/8.2/cli/php.ini
-		sed -i '/MySQLi]/amysqli.cache_size = 2000' /etc/php/8.2/cli/php.ini
-	fi
-	echo 'opcache.enable_cli=1' >> $php82_in2/10-opcache.ini
-	echo 'opcache.interned_strings_buffer=64' >> $php82_in2/10-opcache.ini
-	echo 'opcache.max_accelerated_files=20000' >> $php82_in2/10-opcache.ini
-	echo 'opcache.memory_consumption=256' >> $php82_in2/10-opcache.ini
-	echo 'opcache.save_comments=1' >> $php82_in2/10-opcache.ini
-	echo 'opcache.enable=1' >> $php82_in2/10-opcache.ini
-	# echo 'opcache.revalidate_freq=1' >> $php82_in2/10-opcache.ini
-	# echo 'opcache.jit=disable' >> $php82_in2/10-opcache.ini
+	gen_phpini
 	a2enmod php8.2 >> $insl 2>&1
 	a2dismod php8.1 >> $insl 2>&1
 	restart_websrv
@@ -763,54 +722,17 @@ function php83_tweaks {
 	echo "PHP config files tweaking."
 	if [ -e $debvf ]
 	then
-		php83_in1=/etc/php/8.3/apache2
-		php83_in2=/etc/php/8.3/apache2/conf.d
-		php83_inc=/etc/php/8.3/cli/php.ini
+		touch /etc/php/8.3/mods-available/nextcloud-cfg.ini
+		php_ini=/etc/php/8.3/mods-available/nextcloud-cfg.ini
+		ln -s /etc/php/8.3/mods-available/nextcloud-cfg.ini /etc/php/8.3/apache2/conf.d/90-nextcloud-cfg.ini
+		ln -s /etc/php/8.3/mods-available/nextcloud-cfg.ini /etc/php/8.3/cli/conf.d/90-nextcloud-cfg.ini
 	fi
 	if [ -e $elvf ]
 	then
-		php83_in1=/etc/opt/remi/php83
-		php83_in2=/etc/opt/remi/php83/php.d
+		touch /etc/opt/remi/php83/php.d/90-nextcloud-cfg.ini
+		php_ini=/etc/opt/remi/php83/php.d/90-nextcloud-cfg.ini
 	fi
-	if [ -e $debvf ]
-	then
-		echo 'apc.enable_cli=1' >> /etc/php/8.3/cli/conf.d/20-apcu.ini
-	fi
-	if [ -e $elvf ]
-	then
-		echo 'apc.enable_cli=1' >> $php83_in2/40-apcu.ini
-	fi
-	sed -i 's/\b128M\b/1024M/g' $php83_in1/php.ini
-	sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' $php83_in1/php.ini
-	sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' $php83_in1/php.ini
-	sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' $php83_in1/php.ini
-	sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' $php83_in1/php.ini
-	sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' $php83_in1/php.ini
-	sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' $php83_in1/php.ini
-	sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' $php83_in1/php.ini
-	sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' $php83_in1/php.ini
-	sed -i '/MySQLi]/amysqli.cache_size = 2000' $php83_in1/php.ini
-	if [ -e $debvf ]
-	then
-		sed -i 's/\b128M\b/1024M/g' $php83_inc
-		sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' $php83_inc
-		sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' $php83_inc
-		sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' $php83_inc
-		sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' $php83_inc
-		sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' $php83_inc
-		sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' $php83_inc
-		sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' $php83_inc
-		sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' $php83_inc
-		sed -i '/MySQLi]/amysqli.cache_size = 2000' $php83_inc
-	fi
-	echo 'opcache.enable_cli=1' >> $php83_in2/10-opcache.ini
-	echo 'opcache.interned_strings_buffer=64' >> $php83_in2/10-opcache.ini
-	echo 'opcache.max_accelerated_files=20000' >> $php83_in2/10-opcache.ini
-	echo 'opcache.memory_consumption=256' >> $php83_in2/10-opcache.ini
-	echo 'opcache.save_comments=1' >> $php83_in2/10-opcache.ini
-	echo 'opcache.enable=1' >> $php83_in2/10-opcache.ini
-	# echo 'opcache.revalidate_freq=1' >> $php83_in2/10-opcache.ini
-	# echo 'opcache.jit=disable' >> $php83_in2/10-opcache.ini
+	gen_phpini
 	a2enmod php8.3 >> $insl 2>&1
 	a2dismod php8.2 >> $insl 2>&1
 	restart_websrv
@@ -821,54 +743,17 @@ function php84_tweaks {
 	echo "PHP config files tweaking."
 	if [ -e $debvf ]
 	then
-		php84_in1=/etc/php/8.4/apache2
-		php84_in2=/etc/php/8.4/apache2/conf.d
-		php84_inc=/etc/php/8.4/cli/php.ini
+		touch /etc/php/8.4/mods-available/nextcloud-cfg.ini
+		php_ini=/etc/php/8.4/mods-available/nextcloud-cfg.ini
+		ln -s /etc/php/8.4/mods-available/nextcloud-cfg.ini /etc/php/8.4/apache2/conf.d/90-nextcloud-cfg.ini
+		ln -s /etc/php/8.4/mods-available/nextcloud-cfg.ini /etc/php/8.4/cli/conf.d/90-nextcloud-cfg.ini
 	fi
 	if [ -e $elvf ]
 	then
-		php84_in1=/etc/opt/remi/php84
-		php84_in2=/etc/opt/remi/php84/php.d
+		touch /etc/opt/remi/php84/php.d/90-nextcloud-cfg.ini
+		php_ini=/etc/opt/remi/php84/php.d/90-nextcloud-cfg.ini
 	fi
-	if [ -e $debvf ]
-	then
-		echo 'apc.enable_cli=1' >> /etc/php/8.4/cli/conf.d/20-apcu.ini
-	fi
-	if [ -e $elvf ]
-	then
-		echo 'apc.enable_cli=1' >> $php84_in2/40-apcu.ini
-	fi
-	sed -i 's/\b128M\b/1024M/g' $php84_in1/php.ini
-	sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' $php84_in1/php.ini
-	sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' $php84_in1/php.ini
-	sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' $php84_in1/php.ini
-	sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' $php84_in1/php.ini
-	sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' $php84_in1/php.ini
-	sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' $php84_in1/php.ini
-	sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' $php84_in1/php.ini
-	sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' $php84_in1/php.ini
-	sed -i '/MySQLi]/amysqli.cache_size = 2000' $php84_in1/php.ini
-	if [ -e $debvf ]
-	then
-		sed -i 's/\b128M\b/1024M/g' $php84_inc
-		sed -i 's/\bmax_execution_time = 30\b/max_execution_time = 3600/g' $php84_inc
-		sed -i 's/\boutput_buffering = 4096\b/output_buffering = Off/g' $php84_inc
-		sed -i 's/\bmax_input_vars = 1000\b/max_input_vars = 3000/g' $php84_inc
-		sed -i 's/\bmax_input_time = 60\b/max_input_time = 3600/g' $php84_inc
-		sed -i 's/\bpost_max_size = 8M\b/post_max_size = 16G/g' $php84_inc
-		sed -i 's/\bupload_max_filesize = 2M\b/upload_max_filesize = 16G/g' $php84_inc
-		sed -i 's/\bmax_file_uploads = 20\b/max_file_uploads = 200/g' $php84_inc
-		sed -i 's/\bdefault_socket_timeout = 20\b/default_socket_timeout = 3600/g' $php84_inc
-		sed -i '/MySQLi]/amysqli.cache_size = 2000' $php84_inc
-	fi
-	echo 'opcache.enable_cli=1' >> $php84_in2/10-opcache.ini
-	echo 'opcache.interned_strings_buffer=64' >> $php84_in2/10-opcache.ini
-	echo 'opcache.max_accelerated_files=20000' >> $php84_in2/10-opcache.ini
-	echo 'opcache.memory_consumption=256' >> $php84_in2/10-opcache.ini
-	echo 'opcache.save_comments=1' >> $php84_in2/10-opcache.ini
-	echo 'opcache.enable=1' >> $php84_in2/10-opcache.ini
-	# echo 'opcache.revalidate_freq=1' >> $php84_in2/10-opcache.ini
-	# echo 'opcache.jit=disable' >> $php84_in2/10-opcache.ini
+	gen_phpini
 	a2enmod php8.4 >> $insl 2>&1
 	a2dismod php8.3 >> $insl 2>&1
 	restart_websrv
@@ -876,7 +761,7 @@ function php84_tweaks {
 
 # This are tweaks for currently latest verion used.
 function php_tweaks {
-	php83_tweaks
+	php84_tweaks
 }
 
 function save_version_info {
@@ -1043,7 +928,7 @@ function nv_update {
 	sncver
 	if [ "$ncver" = "31" ]
 	then
-		install_php83
+		install_php84
 		php83_tweaks
 		nv_upd_simpl
 	fi
@@ -1904,13 +1789,6 @@ else
 	fi
 fi
 
-# Generating passwords for database and SuperAdmin user.
-echo "!!!!!!! Generating passwords for database and SuperAdmin user" >> $insl 2>&1
-openssl rand -base64 30 > /root/dbpass
-openssl rand -base64 30 > /root/superadminpass
-mp=$( cat /root/dbpass )
-mp2=$( cat /root/superadminpass )
-
 echo "Updating OS."
 echo "!!!!!!! Updating OS" >> $insl 2>&1
 update_os
@@ -2024,6 +1902,14 @@ fi
 echo "Installing software packages. It may take some time - be patient."
 echo "!!!!!!! Installing software." >> $insl 2>&1
 install_soft
+
+# Generating passwords for database and SuperAdmin user.
+echo "!!!!!!! Generating passwords for database and SuperAdmin user" >> $insl 2>&1
+openssl rand -base64 30 > /root/dbpass
+openssl rand -base64 30 > /root/superadminpass
+mp=$( cat /root/dbpass )
+mp2=$( cat /root/superadminpass )
+
 if [ -e $debvf ]
 then
 	deb12=$( sudo cat /etc/debian_version | awk -F '.' '{print $1}' )
@@ -2048,7 +1934,7 @@ fi
 if [ -e $elvf ]
 then
 	timedatectl set-ntp on
-	dnf install -y -q chrony
+	dnf install -y -q chrony >> $insl 2>&1
 	systemctl enable chronyd >> $insl 2>&1
 	systemctl start chronyd >> $insl 2>&1
 	systemctl restart systemd-timedated >> $insl 2>&1
@@ -2092,16 +1978,18 @@ if [ "$nv" = "24" ]; then
 			sh -c 'echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.sury.org/php/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/php.list' >> $insl 2>&1
 		fi
 		apt-get update >> $insl 2>&1
-		apt-get install -y -o DPkg::Lock::Timeout=-1 php7.4 libapache2-mod-php7.4 libmagickcore-6.q16-6-extra php7.4-mysql php7.4-common php7.4-redis php7.4-dom php7.4-curl php7.4-exif php7.4-fileinfo php7.4-bcmath php7.4-gmp php7.4-imagick php7.4-mbstring php7.4-xml php7.4-zip php7.4-iconv php7.4-intl php7.4-simplexml php7.4-xmlreader php7.4-ftp php7.4-ssh2 php7.4-sockets php7.4-gd php7.4-imap php7.4-soap php7.4-xmlrpc php7.4-apcu php7.4-dev php7.4-cli >> $insl 2>&1
+		apt-get install -y -o DPkg::Lock::Timeout=-1 php7.4 libapache2-mod-php7.4 php7.4-mysql php7.4-common php7.4-redis php7.4-dom php7.4-curl php7.4-exif php7.4-fileinfo php7.4-bcmath php7.4-gmp php7.4-imagick php7.4-mbstring php7.4-xml php7.4-zip php7.4-iconv php7.4-intl php7.4-simplexml php7.4-xmlreader php7.4-ftp php7.4-ssh2 php7.4-sockets php7.4-gd php7.4-imap php7.4-soap php7.4-xmlrpc php7.4-apcu php7.4-dev php7.4-cli >> $insl 2>&1
+		apt-get install -y -o DPkg::Lock::Timeout=-1 libmagickcore-6.q16-6-extra >> $insl 2>&1
+		apt-get install -y -o DPkg::Lock::Timeout=-1 libmagickcore-7.q16-10-extra >> $insl 2>&1
 	fi
 	if [ -e $elvf ]
 	then
 		if [ -e $fedvf ]
 		then
-			dnf install -y -q https://rpms.remirepo.net/fedora/remi-release-39.rpm >> $insl 2>&1
-			dnf config-manager --set-enabled remi
+			dnf install -y -q https://rpms.remirepo.net/fedora/remi-release-$(rpm -E %fedora).rpm >> $insl 2>&1
+			dnf config-manager --set-enabled remi >> $insl 2>&1
 		else
-			dnf install -y -q https://rpms.remirepo.net/enterprise/remi-release-9.rpm >> $insl 2>&1
+			dnf install -y -q https://rpms.remirepo.net/enterprise/remi-release-$(rpm -E %rhel).rpm >> $insl 2>&1
 		fi
 		dnf install -y -q php74 php74-php-apcu php74-php-opcache php74-php-mysql php74-php-bcmath php74-php-common php74-php-geos php74-php-gmp php74-php-pecl-imagick-im7 php74-php-pecl-lzf php74-php-pecl-mcrypt php74-php-pecl-recode php74-php-process php74-php-zstd php74-php-redis php74-php-dom php74-php-curl php74-php-exif php74-php-fileinfo php74-php-mbstring php74-php-xml php74-php-zip php74-php-iconv php74-php-intl php74-php-simplexml php74-php-xmlreader php74-php-ftp php74-php-ssh2 php74-php-sockets php74-php-gd php74-php-imap php74-php-soap php74-php-xmlrpc php74-php-apcu php74-php-cli php74-php-ast php74-php-brotli php74-php-enchant php74-php-ffi php74-php-lz4 php74-php-phalcon5 php74-php-phpiredis php74-php-smbclient php74-php-tidy php74-php-xz >> $insl 2>&1
 		dnf install -y -q php74-syspaths php74-mod_php >> $insl 2>&1
@@ -2223,24 +2111,67 @@ then
 	echo "vm.overcommit_memory = 1" >> /etc/sysctl.conf
 	echo madvise > /sys/kernel/mm/transparent_hugepage/enabled
 	setsebool -P daemons_enable_cluster_mode 1
-	dnf install -y -q redis >> $insl 2>&1
-	mkdir /var/run/redis
-	chown redis:redis /var/run/redis
-	chmod 777 /var/run/redis
-	sed -i '/# unixsocketperm 700/aunixsocketperm 777' /etc/redis/redis.conf
-	sed -i '/# unixsocketperm 700/aunixsocket /var/run/redis/redis.sock' /etc/redis/redis.conf
-	sed -i '/# supervised auto/asupervised systemd' /etc/redis/redis.conf
-	# Setting up Redis SELinux permissions.
-	setsebool -P redis_enable_notify 1 >> $insl 2>&1
-	setsebool -P daemons_dontaudit_scheduling 1 >> $insl 2>&1
-	setsebool -P fips_mode 1 >> $insl 2>&1
-	setsebool -P nscd_use_shm 1 >> $insl 2>&1
+	if [ -n "$el10" ] || [ -n "$fed42" ]
+	then
+		dnf install -y -q valkey >> $insl 2>&1
+		dnf install -y -q selinux-policy-devel setools-console >> $insl 2>&1
+		mkdir /var/run/valkey
+		chown valkey:valkey /var/run/valkey
+		chmod 777 /var/run/valkey
+		sed -i '/# unixsocketperm 700/aunixsocketperm 777' /etc/valkey/valkey.conf
+		# sed -i '/# unixsocketperm 700/aunixsocket /var/run/valkey/valkey.sock' /etc/valkey/valkey.conf
+		sed -i '/# supervised auto/asupervised systemd' /etc/valkey/valkey.conf
+		# Setting up Redis SELinux permissions.
+		setsebool -P redis_enable_notify 1 >> $insl 2>&1
+		# setsebool -P valkey_enable_notify 1 >> $insl 2>&1
+		setsebool -P daemons_dontaudit_scheduling 1 >> $insl 2>&1
+		setsebool -P fips_mode 1 >> $insl 2>&1
+		setsebool -P nscd_use_shm 1 >> $insl 2>&1
+		setsebool -P httpd_can_network_connect=1 >> $insl 2>&1
+		
+		echo "module php_valkey_access 1.0; 
+		
+require { 
+	type var_run_t; 
+	type httpd_t; 
+	type unconfined_service_t; 
+	class sock_file write; 
+	class unix_stream_socket connectto; 
+	class sem { associate read unix_read unix_write write }; 
+} 
+
+#============= httpd_t ============== 
+allow httpd_t unconfined_service_t:sem { associate read unix_read unix_write write }; 
+allow httpd_t unconfined_service_t:unix_stream_socket connectto; 
+allow httpd_t var_run_t:sock_file write;" >> php_valkey_access.te
+
+		make -f /usr/share/selinux/devel/Makefile php_valkey_access.pp >> $insl 2>&1
+		semodule -i php_valkey_access.pp >> $insl 2>&1
 	
-	systemctl start redis.service >> $insl 2>&1
-	echo "!!!!!!! Retrying start Redis service, for unknown reason secondary start is working under Rocky Linux 9." >> $insl 2>&1 
-	systemctl start redis.service >> $insl 2>&1
-	systemctl start redis.service >> $insl 2>&1
-	systemctl enable redis >> $insl 2>&1
+		systemctl restart valkey.service >> $insl 2>&1
+		systemctl start valkey.service >> $insl 2>&1
+		systemctl enable valkey >> $insl 2>&1
+	else
+		dnf install -y -q redis >> $insl 2>&1
+		mkdir /var/run/redis
+		chown redis:redis /var/run/redis
+		chmod 777 /var/run/redis
+		sed -i '/# unixsocketperm 700/aunixsocketperm 777' /etc/redis/redis.conf
+		sed -i '/# unixsocketperm 700/aunixsocket /var/run/redis/redis.sock' /etc/redis/redis.conf
+		sed -i '/# supervised auto/asupervised systemd' /etc/redis/redis.conf
+		# Setting up Redis SELinux permissions.
+		setsebool -P redis_enable_notify 1 >> $insl 2>&1
+		setsebool -P daemons_dontaudit_scheduling 1 >> $insl 2>&1
+		setsebool -P fips_mode 1 >> $insl 2>&1
+		setsebool -P nscd_use_shm 1 >> $insl 2>&1
+		setsebool -P httpd_can_network_connect=1 >> $insl 2>&1
+	
+		systemctl start redis.service >> $insl 2>&1
+		echo "!!!!!!! Retrying start Redis service, for unknown reason secondary start is working under Rocky Linux 9." >> $insl 2>&1 
+		systemctl start redis.service >> $insl 2>&1
+		systemctl start redis.service >> $insl 2>&1
+		systemctl enable redis >> $insl 2>&1
+	fi
 fi
 
 echo "!!!!!!! Configuring PHP options" >> $insl 2>&1
@@ -2258,6 +2189,8 @@ elif [ "$nv" = "29" ]; then
 	php83_tweaks
 elif [ "$nv" = "30" ]; then
 	php83_tweaks
+elif [ "$nv" = "31" ]; then
+	php84_tweaks
 elif [ -z "$nv" ]; then
 	php_tweaks
 fi
@@ -2659,7 +2592,12 @@ then
 fi
 
 # Enabling APCu and Redis in config file - default cache engine now.
-sed -i "/installed' => true,/a\ \ 'memcache.local' => '\\\OC\\\Memcache\\\APCu',\n\ \ 'filelocking.enabled' => true,\n \ 'memcache.locking' => '\\\OC\\\Memcache\\\Redis',\n \ 'memcache.distributed' => '\\\OC\\\Memcache\\\Redis',\n \ 'redis' =>\n \ array (\n \  \ 'host' => '/var/run/redis/redis.sock',\n \  \ 'port' => 0,\n \  \ 'dbindex' => 0,\n \  \ 'timeout' => 600.0,\n \ )," /var/www/nextcloud/config/config.php
+if [ -n "$el10" ] || [ -n "$fed42" ]
+	then
+	sed -i "/installed' => true,/a\ \ 'memcache.local' => '\\\OC\\\Memcache\\\APCu',\n\ \ 'filelocking.enabled' => true,\n \ 'memcache.locking' => '\\\OC\\\Memcache\\\Redis',\n \ 'memcache.distributed' => '\\\OC\\\Memcache\\\Redis',\n \ 'redis' =>\n \ array (\n \  \ 'host' => '/var/run/valkey/valkey.sock',\n \  \ 'port' => 0,\n \  \ 'dbindex' => 0,\n \  \ 'timeout' => 600.0,\n \ )," /var/www/nextcloud/config/config.php
+	else
+	sed -i "/installed' => true,/a\ \ 'memcache.local' => '\\\OC\\\Memcache\\\APCu',\n\ \ 'filelocking.enabled' => true,\n \ 'memcache.locking' => '\\\OC\\\Memcache\\\Redis',\n \ 'memcache.distributed' => '\\\OC\\\Memcache\\\Redis',\n \ 'redis' =>\n \ array (\n \  \ 'host' => '/var/run/redis/redis.sock',\n \  \ 'port' => 0,\n \  \ 'dbindex' => 0,\n \  \ 'timeout' => 600.0,\n \ )," /var/www/nextcloud/config/config.php
+fi
 
 echo "Tweaking Nextcloud configuration, adding IP's, installing NC apps etc."
 # Disabling info about creating free account on shared pages/links when logged out (because it is missleading for private nextcloud instances).
@@ -2669,7 +2607,7 @@ sed -i "/installed' => true,/a\ \ 'simpleSignUpLink.shown' => false," /var/www/n
 maintenance_window_setup
 
 # Command below should do nothing, but once in the past i needed that, so let it stay here...
-sudo -u $websrv_usr php /var/www/nextcloud/occ db:add-missing-indices >> $insl 2>&1
+# sudo -u $websrv_usr php /var/www/nextcloud/occ db:add-missing-indices >> $insl 2>&1
 
 # Enabling plugins. Adding more trusted domains.
 # Preparing list of local IP addresses to add.
