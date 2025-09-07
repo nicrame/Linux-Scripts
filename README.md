@@ -27,7 +27,7 @@ centos-lamp.sh - EL LAMP Script
 It will make LAMP enviroment on clean EL8 (RockyLinux, CentOS, RHEL) system by downloading and configuring software and OS.  
 More info: https://www.marcinwilk.eu/projects/linux-scripts/el-8-lamp/
 
-nextcloud-ins.sh - Nextcloud install script (for Debian 11,12 and Rocky Linux 9 (other EL9 distros should work) at x86_64 CPU architecture)   
+nextcloud-ins.sh - Nextcloud install script (for Debian, EL, Fedora and Ubuntu distros) at x86_64 CPU architecture)   
 It will update OS, install software packages, and preconfigure everything automagically to run Nextcloud easly. Just run it on fresh Linux install, and it will be ready in minutes.
 More info: https://www.marcinwilk.eu/projects/linux-scripts/nextcloud-debian-install/
 
