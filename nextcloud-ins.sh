@@ -77,6 +77,8 @@
 # 1. You use it at your own risk. Author is not responsible for any damage made with that script.
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
+# V 1.12.2 - 09.09.2025
+# - fixes for better upgrade process from older NC versions
 # V 1.12.1 - 09.09.2025
 # - small tewaks and fixes
 # V 1.12 - 07.09.2025
@@ -461,20 +463,42 @@ function ins_php {
 		apt-get install -y -o DPkg::Lock::Timeout=-1 php$dpv libapache2-mod-php$dpv php$dpv-mysql php$dpv-common php$dpv-redis php$dpv-dom php$dpv-curl php$dpv-exif php$dpv-fileinfo php$dpv-bcmath php$dpv-gmp php$dpv-imagick php$dpv-mbstring php$dpv-xml php$dpv-zip php$dpv-iconv php$dpv-intl php$dpv-simplexml php$dpv-xmlreader php$dpv-ftp php$dpv-ssh2 php$dpv-sockets php$dpv-gd php$dpv-imap php$dpv-soap php$dpv-xmlrpc php$dpv-apcu php$dpv-dev php$dpv-cli >> $insl 2>&1
 		apt-get install -y -o DPkg::Lock::Timeout=-1 libmagickcore-6.q16-6-extra >> $insl 2>&1
 		apt-get install -y -o DPkg::Lock::Timeout=-1 libmagickcore-7.q16-10-extra >> $insl 2>&1
-		apt-get install -y -o DPkg::Lock::Timeout=-1 php8.2-bz2 >> $insl 2>&1
+		apt-get install -y -o DPkg::Lock::Timeout=-1 php$dpv-bz2 >> $insl 2>&1
 	fi
 	if [ -e $elvf ]
 	then
+		if [ "$epv" = "81" ]
+		then
+			dnf remove -y -q php74-syspaths php74-mod_php >> $insl 2>&1
+		fi
+		if [ "$epv" = "82" ]
+		then
+			dnf remove -y -q php74-syspaths php74-mod_php >> $insl 2>&1
+			dnf remove -y -q php81-syspaths php81-mod_php >> $insl 2>&1
+		fi
+		if [ "$epv" = "83" ]
+		then
+			dnf remove -y -q php74-syspaths php74-mod_php >> $insl 2>&1
+			dnf remove -y -q php81-syspaths php81-mod_php >> $insl 2>&1
+			dnf remove -y -q php82-syspaths php82-mod_php >> $insl 2>&1
+		fi
+		if [ "$epv" = "84" ]
+		then
+			dnf remove -y -q php74-syspaths php74-mod_php >> $insl 2>&1
+			dnf remove -y -q php81-syspaths php81-mod_php >> $insl 2>&1
+			dnf remove -y -q php82-syspaths php82-mod_php >> $insl 2>&1
+			dnf remove -y -q php82-syspaths php83-mod_php >> $insl 2>&1
+		fi
 		if [ -e $fedvf ]
 		then
 			dnf install -y -q https://rpms.remirepo.net/fedora/remi-release-$(rpm -E %fedora).rpm >> $insl 2>&1
-			dnf config-manager --set-enabled remi
+			dnf config-manager --set-enabled remi >> $insl 2>&1
 		else
 			dnf install -y -q https://rpms.remirepo.net/enterprise/remi-release-$(rpm -E %rhel).rpm >> $insl 2>&1
 		fi
 		dnf install -y -q php$epv php$epv-php-apcu php$epv-php-opcache php$epv-php-mysql php$epv-php-bcmath php$epv-php-common php$epv-php-geos php$epv-php-gmp php$epv-php-pecl-imagick-im7 php$epv-php-pecl-lzf php$epv-php-pecl-mcrypt php$epv-php-pecl-recode php$epv-php-process php$epv-php-zstd php$epv-php-redis php$epv-php-dom php$epv-php-curl php$epv-php-exif php$epv-php-fileinfo php$epv-php-mbstring php$epv-php-xml php$epv-php-zip php$epv-php-iconv php$epv-php-intl php$epv-php-simplexml php$epv-php-xmlreader php$epv-php-ftp php$epv-php-ssh2 php$epv-php-sockets php$epv-php-gd php$epv-php-imap php$epv-php-soap php$epv-php-xmlrpc php$epv-php-apcu php$epv-php-cli php$epv-php-ast php$epv-php-brotli php$epv-php-enchant php$epv-php-ffi php$epv-php-lz4 php$epv-php-phalcon5 php$epv-php-phpiredis php$epv-php-smbclient php$epv-php-tidy php$epv-php-xz >> $insl 2>&1
 		dnf install -y -q php$epv-syspaths php$epv-mod_php >> $insl 2>&1
-		ln -s /var/opt/remi/php$epv/log/php-fpm /var/log/php$epv-fpm
+		ln -s /var/opt/remi/php$epv/log/php-fpm /var/log/php$epv-fpm >> $insl 2>&1
 	fi
 	unset dpv
 	unset epv
@@ -608,13 +632,12 @@ output_buffering = Off" >> $php_ini
 
 function pvi {
 	echo "!!!!!!! PHP $dpvi config create." >> $insl 2>&1
-	echo "PHP config files tweaking."
 	if [ -e $debvf ]
 	then
 		touch /etc/php/$dpvi/mods-available/nextcloud-cfg.ini
 		php_ini=/etc/php/$dpvi/mods-available/nextcloud-cfg.ini
-		ln -s /etc/php/$dpvi/mods-available/nextcloud-cfg.ini /etc/php/$dpvi/apache2/conf.d/90-nextcloud-cfg.ini
-		ln -s /etc/php/$dpvi/mods-available/nextcloud-cfg.ini /etc/php/$dpvi/cli/conf.d/90-nextcloud-cfg.ini
+		ln -s /etc/php/$dpvi/mods-available/nextcloud-cfg.ini /etc/php/$dpvi/apache2/conf.d/90-nextcloud-cfg.ini >> $insl 2>&1
+		ln -s /etc/php/$dpvi/mods-available/nextcloud-cfg.ini /etc/php/$dpvi/cli/conf.d/90-nextcloud-cfg.ini >> $insl 2>&1
 	fi
 	if [ -e $elvf ]
 	then
@@ -636,8 +659,8 @@ function php81_tweaks {
 	epvi=81
 	pvi
 	gen_phpini
-	a2enmod php8.1 >> $insl 2>&1
 	a2dismod php7.4 >> $insl 2>&1
+	a2enmod php8.1 >> $insl 2>&1
 	restart_websrv
 }
 
@@ -646,8 +669,9 @@ function php82_tweaks {
 	epvi=82
 	pvi
 	gen_phpini
-	a2enmod php8.2 >> $insl 2>&1
+	a2dismod php7.4 >> $insl 2>&1
 	a2dismod php8.1 >> $insl 2>&1
+	a2enmod php8.2 >> $insl 2>&1
 	restart_websrv
 }
 
@@ -656,8 +680,10 @@ function php83_tweaks {
 	epvi=83
 	pvi
 	gen_phpini
-	a2enmod php8.3 >> $insl 2>&1
+	a2dismod php7.4 >> $insl 2>&1
+	a2dismod php8.1 >> $insl 2>&1
 	a2dismod php8.2 >> $insl 2>&1
+	a2enmod php8.3 >> $insl 2>&1
 	restart_websrv
 }
 
@@ -666,8 +692,11 @@ function php84_tweaks {
 	epvi=84
 	pvi
 	gen_phpini
-	a2enmod php8.4 >> $insl 2>&1
+	a2dismod php7.4 >> $insl 2>&1
+	a2dismod php8.1 >> $insl 2>&1
+	a2dismod php8.2 >> $insl 2>&1
 	a2dismod php8.3 >> $insl 2>&1
+	a2enmod php8.4 >> $insl 2>&1
 	restart_websrv
 }
 
@@ -747,6 +776,38 @@ function ncverf {
 # Check for every version and update it one by one.
 function nv_update {
 	sncver
+	if [ "$ncver" = "24" ]
+	then
+		nv_upd_simpl
+	fi
+	sncver
+	if [ "$ncver" = "24" ]
+	then
+		nv_upd_simpl
+	fi
+	sncver
+	if [ "$ncver" = "24" ]
+	then
+		nv_upd_simpl
+	fi
+	sncver
+	if [ "$ncver" = "25" ]
+	then
+		nv_upd_simpl
+	fi
+	sncver
+	if [ "$ncver" = "25" ]
+	then
+		install_php81
+		php81_tweaks
+		nv_upd_simpl
+	fi
+	sncver
+	if [ "$ncver" = "25" ]
+	then
+		nv_upd_simpl
+	fi
+	sncver
 	if [ "$ncver" = "26" ]
 	then
 		nv_upd_simpl
@@ -798,6 +859,8 @@ function nv_update {
 	sncver
 	if [ "$ncver" = "29" ]
 	then
+		install_php83
+		php83_tweaks
 		nv_upd_simpl
 	fi
 	sncver
@@ -857,6 +920,8 @@ function nv_update {
 	sncver
 	if [ "$ncver" = "31" ]
 	then
+		install_php84
+		php84_tweaks
 		nv_upd_simpl
 	fi
 }
@@ -1128,6 +1193,7 @@ function upd_p1 {
 	ncbackup
 	echo "Continue with upgrade process, please wait..."
 	update_os
+	echo "It can take a lot of time, be patient!"
 	nv_update
 }
 
@@ -2289,8 +2355,8 @@ elif [ "$nv" = "29" ]; then
 	mv nextcloud-29.0.16.zip latest.zip >> $insl 2>&1
 elif [ "$nv" = "30" ]; then
 	echo "Downloading and unpacking Nextcloud v$nv." >> $insl 2>&1
-	wget -q https://download.nextcloud.com/server/releases/nextcloud-30.0.11.zip >> $insl 2>&1
-	mv nextcloud-30.0.11.zip latest.zip >> $insl 2>&1
+	wget -q https://download.nextcloud.com/server/releases/nextcloud-30.0.14.zip >> $insl 2>&1
+	mv nextcloud-30.0.14.zip latest.zip >> $insl 2>&1
 elif [ "$nv" = "31" ]; then
 	echo "Downloading and unpacking Nextcloud v$nv." >> $insl 2>&1
 	wget -q https://download.nextcloud.com/server/releases/nextcloud-31.0.8.zip >> $insl 2>&1
@@ -2631,6 +2697,7 @@ echo "--------------------------------------------------------------------------
 echo "Install finished." >> $insl 2>&1
 date >> $insl 2>&1
 echo "---------------------------------------------------------------------------" >> $insl 2>&1
+rm -rf /root/php_valkey_access.fc php_valkey_access.if php_valkey_access.pp php_valkey_access.te
 rm -rf /root/dbpass
 rm -rf /root/superadminpass
 rm -rf /root/ips.local
