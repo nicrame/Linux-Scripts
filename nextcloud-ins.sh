@@ -77,6 +77,8 @@
 # 1. You use it at your own risk. Author is not responsible for any damage made with that script.
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
+# V 1.12.1 - 09.09.2025
+# - small tewaks and fixes
 # V 1.12 - 07.09.2025
 # - make PHP 8.4 the default version
 # - change the way PHP configuration is stored (new, different config file instead of changing installed by packages)
@@ -406,7 +408,7 @@ function update_os {
 }
 
 function install_soft {
-	echo "!!!!!!! Installing all needed standard packages" >> $insl 2>&1
+	echo "!!!!!!! Installing all needed standard packages." >> $insl 2>&1
 	if [ -e $debvf ]
 	then
 		DEBIAN_FRONTEND=noninteractive apt-get install -y -o DPkg::Lock::Timeout=-1 git lbzip2 unzip zip lsb-release locales-all rsync wget curl sed screen gawk mc sudo net-tools ethtool vim nano ufw apt-transport-https ca-certificates miniupnpc jq libfontconfig1 libfuse2 socat tree ffmpeg imagemagick webp libreoffice ghostscript bindfs >> $insl 2>&1
@@ -444,15 +446,22 @@ function install_soft {
 	fi
 }
 
-function install_php81 {
+function ins_php {
 	if [ -e $debvf ]
 	then
-		curl -sSLo /usr/share/keyrings/deb.sury.org-php.gpg https://packages.sury.org/php/apt.gpg >> $insl 2>&1
-		sh -c 'echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.sury.org/php/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/php.list' >> $insl 2>&1
+		if [ -e $ubuvf ]
+		then
+			add-apt-repository -y ppa:ondrej/php >> $insl 2>&1
+			DEBIAN_FRONTEND=noninteractive
+		else
+			curl -sSLo /usr/share/keyrings/deb.sury.org-php.gpg https://packages.sury.org/php/apt.gpg >> $insl 2>&1
+			sh -c 'echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.sury.org/php/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/php.list' >> $insl 2>&1
+		fi
 		apt-get update >> $insl 2>&1
-		apt-get install -y -o DPkg::Lock::Timeout=-1 php8.1 libapache2-mod-php8.1 php8.1-mysql php8.1-common php8.1-redis php8.1-dom php8.1-curl php8.1-exif php8.1-fileinfo php8.1-bcmath php8.1-gmp php8.1-imagick php8.1-mbstring php8.1-xml php8.1-zip php8.1-iconv php8.1-intl php8.1-simplexml php8.1-xmlreader php8.1-ftp php8.1-ssh2 php8.1-sockets php8.1-gd php8.1-imap php8.1-soap php8.1-xmlrpc php8.1-apcu php8.1-dev php8.1-cli >> $insl 2>&1
+		apt-get install -y -o DPkg::Lock::Timeout=-1 php$dpv libapache2-mod-php$dpv php$dpv-mysql php$dpv-common php$dpv-redis php$dpv-dom php$dpv-curl php$dpv-exif php$dpv-fileinfo php$dpv-bcmath php$dpv-gmp php$dpv-imagick php$dpv-mbstring php$dpv-xml php$dpv-zip php$dpv-iconv php$dpv-intl php$dpv-simplexml php$dpv-xmlreader php$dpv-ftp php$dpv-ssh2 php$dpv-sockets php$dpv-gd php$dpv-imap php$dpv-soap php$dpv-xmlrpc php$dpv-apcu php$dpv-dev php$dpv-cli >> $insl 2>&1
 		apt-get install -y -o DPkg::Lock::Timeout=-1 libmagickcore-6.q16-6-extra >> $insl 2>&1
 		apt-get install -y -o DPkg::Lock::Timeout=-1 libmagickcore-7.q16-10-extra >> $insl 2>&1
+		apt-get install -y -o DPkg::Lock::Timeout=-1 php8.2-bz2 >> $insl 2>&1
 	fi
 	if [ -e $elvf ]
 	then
@@ -463,103 +472,42 @@ function install_php81 {
 		else
 			dnf install -y -q https://rpms.remirepo.net/enterprise/remi-release-$(rpm -E %rhel).rpm >> $insl 2>&1
 		fi
-		dnf install -y -q php81 php81-php-apcu php81-php-opcache php81-php-mysql php81-php-bcmath php81-php-common php81-php-geos php81-php-gmp php81-php-pecl-imagick-im7 php81-php-pecl-lzf php81-php-pecl-mcrypt php81-php-pecl-recode php81-php-process php81-php-zstd php81-php-redis php81-php-dom php81-php-curl php81-php-exif php81-php-fileinfo php81-php-mbstring php81-php-xml php81-php-zip php81-php-iconv php81-php-intl php81-php-simplexml php81-php-xmlreader php81-php-ftp php81-php-ssh2 php81-php-sockets php81-php-gd php81-php-imap php81-php-soap php81-php-xmlrpc php81-php-apcu php81-php-cli php81-php-ast php81-php-brotli php81-php-enchant php81-php-ffi php81-php-lz4 php81-php-phalcon5 php81-php-phpiredis php81-php-smbclient php81-php-tidy php81-php-xz >> $insl 2>&1
-		dnf install -y -q php81-syspaths php81-mod_php >> $insl 2>&1
-		ln -s /var/opt/remi/php81/log/php-fpm /var/log/php81-fpm
+		dnf install -y -q php$epv php$epv-php-apcu php$epv-php-opcache php$epv-php-mysql php$epv-php-bcmath php$epv-php-common php$epv-php-geos php$epv-php-gmp php$epv-php-pecl-imagick-im7 php$epv-php-pecl-lzf php$epv-php-pecl-mcrypt php$epv-php-pecl-recode php$epv-php-process php$epv-php-zstd php$epv-php-redis php$epv-php-dom php$epv-php-curl php$epv-php-exif php$epv-php-fileinfo php$epv-php-mbstring php$epv-php-xml php$epv-php-zip php$epv-php-iconv php$epv-php-intl php$epv-php-simplexml php$epv-php-xmlreader php$epv-php-ftp php$epv-php-ssh2 php$epv-php-sockets php$epv-php-gd php$epv-php-imap php$epv-php-soap php$epv-php-xmlrpc php$epv-php-apcu php$epv-php-cli php$epv-php-ast php$epv-php-brotli php$epv-php-enchant php$epv-php-ffi php$epv-php-lz4 php$epv-php-phalcon5 php$epv-php-phpiredis php$epv-php-smbclient php$epv-php-tidy php$epv-php-xz >> $insl 2>&1
+		dnf install -y -q php$epv-syspaths php$epv-mod_php >> $insl 2>&1
+		ln -s /var/opt/remi/php$epv/log/php-fpm /var/log/php$epv-fpm
 	fi
+	unset dpv
+	unset epv
+}
+
+function install_php74 {
+	dpv=7.4
+	epv=74
+	ins_php
+}
+
+function install_php81 {
+	dpv=8.1
+	epv=81
+	ins_php
 }
 
 function install_php82 {
-	if [ -e $debvf ]
-	then
-		if [ -e $ubuvf ]
-		then
-			add-apt-repository -y ppa:ondrej/php  >> $insl 2>&1
-			DEBIAN_FRONTEND=noninteractive
-		else
-			curl -sSLo /usr/share/keyrings/deb.sury.org-php.gpg https://packages.sury.org/php/apt.gpg >> $insl 2>&1
-			sh -c 'echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.sury.org/php/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/php.list' >> $insl 2>&1
-		fi
-		apt-get update >> $insl 2>&1
-		apt-get install -y -o DPkg::Lock::Timeout=-1 php8.2 libapache2-mod-php8.2 php8.2-mysql php8.2-common php8.2-bz2 php8.2-redis php8.2-dom php8.2-curl php8.2-exif php8.2-fileinfo php8.2-bcmath php8.2-gmp php8.2-imagick php8.2-mbstring php8.2-xml php8.2-zip php8.2-iconv php8.2-intl php8.2-simplexml php8.2-xmlreader php8.2-ftp php8.2-ssh2 php8.2-sockets php8.2-gd php8.2-imap php8.2-soap php8.2-xmlrpc php8.2-apcu php8.2-dev php8.2-cli >> $insl 2>&1
-		apt-get install -y -o DPkg::Lock::Timeout=-1 libmagickcore-6.q16-6-extra >> $insl 2>&1
-		apt-get install -y -o DPkg::Lock::Timeout=-1 libmagickcore-7.q16-10-extra >> $insl 2>&1
-	fi
-	if [ -e $elvf ]
-	then
-		if [ -e $fedvf ]
-		then
-			dnf install -y -q https://rpms.remirepo.net/fedora/remi-release-$(rpm -E %fedora).rpm >> $insl 2>&1
-			dnf config-manager --set-enabled remi
-		else
-			dnf install -y -q https://rpms.remirepo.net/enterprise/remi-release-$(rpm -E %rhel).rpm >> $insl 2>&1
-		fi
-		dnf install -y -q php82 php82-php-apcu php82-php-opcache php82-php-mysql php82-php-bcmath php82-php-common php82-php-geos php82-php-gmp php82-php-pecl-imagick-im7 php82-php-pecl-lzf php82-php-pecl-mcrypt php82-php-pecl-recode php82-php-process php82-php-zstd php82-php-redis php82-php-dom php82-php-curl php82-php-exif php82-php-fileinfo php82-php-mbstring php82-php-xml php82-php-zip php82-php-iconv php82-php-intl php82-php-simplexml php82-php-xmlreader php82-php-ftp php82-php-ssh2 php82-php-sockets php82-php-gd php82-php-imap php82-php-soap php82-php-xmlrpc php82-php-apcu php82-php-cli php82-php-ast php82-php-brotli php82-php-enchant php82-php-ffi php82-php-lz4 php82-php-phalcon5 php82-php-phpiredis php82-php-smbclient php82-php-tidy php82-php-xz >> $insl 2>&1
-		dnf install -y -q php82-syspaths php82-mod_php >> $insl 2>&1
-		ln -s /var/opt/remi/php82/log/php-fpm /var/log/php82-fpm
-	fi
+	dpv=8.2
+	epv=82
+	ins_php
 }
 
 function install_php83 {
-	if [ -e $debvf ]
-	then
-		if [ -e $ubuvf ]
-		then
-			add-apt-repository -y ppa:ondrej/php  >> $insl 2>&1
-			DEBIAN_FRONTEND=noninteractive
-		else
-			curl -sSLo /usr/share/keyrings/deb.sury.org-php.gpg https://packages.sury.org/php/apt.gpg >> $insl 2>&1
-			sh -c 'echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.sury.org/php/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/php.list' >> $insl 2>&1
-		fi
-		apt-get update >> $insl 2>&1
-		apt-get install -y -o DPkg::Lock::Timeout=-1 php8.3 libapache2-mod-php8.3 php8.3-mysql php8.3-common php8.3-bz2 php8.3-redis php8.3-dom php8.3-curl php8.3-exif php8.3-fileinfo php8.3-bcmath php8.3-gmp php8.3-imagick php8.3-mbstring php8.3-xml php8.3-zip php8.3-iconv php8.3-intl php8.3-simplexml php8.3-xmlreader php8.3-ftp php8.3-ssh2 php8.3-sockets php8.3-gd php8.3-imap php8.3-soap php8.3-xmlrpc php8.3-apcu php8.3-dev php8.3-cli >> $insl 2>&1
-		apt-get install -y -o DPkg::Lock::Timeout=-1 libmagickcore-6.q16-6-extra >> $insl 2>&1
-		apt-get install -y -o DPkg::Lock::Timeout=-1 libmagickcore-7.q16-10-extra >> $insl 2>&1
-	fi
-	if [ -e $elvf ]
-	then
-		if [ -e $fedvf ]
-		then
-			dnf install -y -q https://rpms.remirepo.net/fedora/remi-release-$(rpm -E %fedora).rpm >> $insl 2>&1
-			dnf config-manager --set-enabled remi
-		else
-			dnf install -y -q https://rpms.remirepo.net/enterprise/remi-release-$(rpm -E %rhel).rpm >> $insl 2>&1
-		fi
-		dnf install -y -q php83 php83-php-apcu php83-php-opcache php83-php-mysql php83-php-bcmath php83-php-common php83-php-geos php83-php-gmp php83-php-pecl-imagick-im7 php83-php-pecl-lzf php83-php-pecl-mcrypt php83-php-pecl-recode php83-php-process php83-php-zstd php83-php-redis php83-php-dom php83-php-curl php83-php-exif php83-php-fileinfo php83-php-mbstring php83-php-xml php83-php-zip php83-php-iconv php83-php-intl php83-php-simplexml php83-php-xmlreader php83-php-ftp php83-php-ssh2 php83-php-sockets php83-php-gd php83-php-imap php83-php-soap php83-php-xmlrpc php83-php-apcu php83-php-cli php83-php-ast php83-php-brotli php83-php-enchant php83-php-ffi php83-php-lz4 php83-php-phalcon5 php83-php-phpiredis php83-php-smbclient php83-php-tidy php83-php-xz >> $insl 2>&1
-		dnf install -y -q php83-syspaths php83-mod_php >> $insl 2>&1
-		ln -s /var/opt/remi/php83/log/php-fpm /var/log/php83-fpm
-	fi
+	dpv=8.3
+	epv=83
+	ins_php
 }
 
 function install_php84 {
-	if [ -e $debvf ]
-	then
-		if [ -e $ubuvf ]
-		then
-			add-apt-repository -y ppa:ondrej/php  >> $insl 2>&1
-			DEBIAN_FRONTEND=noninteractive
-		else
-			curl -sSLo /usr/share/keyrings/deb.sury.org-php.gpg https://packages.sury.org/php/apt.gpg >> $insl 2>&1
-			sh -c 'echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.sury.org/php/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/php.list' >> $insl 2>&1
-		fi
-		apt-get update >> $insl 2>&1
-		apt-get install -y -o DPkg::Lock::Timeout=-1 php8.4 libapache2-mod-php8.4 php8.4-mysql php8.4-common php8.4-bz2 php8.4-redis php8.4-dom php8.4-curl php8.4-exif php8.4-fileinfo php8.4-bcmath php8.4-gmp php8.4-imagick php8.4-mbstring php8.4-xml php8.4-zip php8.4-iconv php8.4-intl php8.4-simplexml php8.4-xmlreader php8.4-ftp php8.4-ssh2 php8.4-sockets php8.4-gd php8.4-imap php8.4-soap php8.4-xmlrpc php8.4-apcu php8.4-dev php8.4-cli >> $insl 2>&1
-		apt-get install -y -o DPkg::Lock::Timeout=-1 libmagickcore-6.q16-6-extra >> $insl 2>&1
-		apt-get install -y -o DPkg::Lock::Timeout=-1 libmagickcore-7.q16-10-extra >> $insl 2>&1
-	fi
-	if [ -e $elvf ]
-	then
-		if [ -e $fedvf ]
-		then
-			dnf install -y -q https://rpms.remirepo.net/fedora/remi-release-$(rpm -E %fedora).rpm >> $insl 2>&1
-			dnf config-manager --set-enabled remi
-		else
-			dnf install -y -q https://rpms.remirepo.net/enterprise/remi-release-$(rpm -E %rhel).rpm >> $insl 2>&1
-		fi
-		dnf install -y -q php84 php84-php-apcu php84-php-opcache php84-php-mysql php84-php-bcmath php84-php-common php84-php-geos php84-php-gmp php84-php-pecl-imagick-im7 php84-php-pecl-lzf php84-php-pecl-mcrypt php84-php-pecl-recode php84-php-process php84-php-zstd php84-php-redis php84-php-dom php84-php-curl php84-php-exif php84-php-fileinfo php84-php-mbstring php84-php-xml php84-php-zip php84-php-iconv php84-php-intl php84-php-simplexml php84-php-xmlreader php84-php-ftp php84-php-ssh2 php84-php-sockets php84-php-gd php84-php-imap php84-php-soap php84-php-xmlrpc php84-php-apcu php84-php-cli php84-php-ast php84-php-brotli php84-php-enchant php84-php-ffi php84-php-lz4 php84-php-phalcon5 php84-php-phpiredis php84-php-smbclient php84-php-tidy php84-php-xz >> $insl 2>&1
-		dnf install -y -q php84-syspaths php84-mod_php >> $insl 2>&1
-		ln -s /var/opt/remi/php84/log/php-fpm /var/log/php84-fpm
-	fi
+	dpv=8.4
+	epv=84
+	ins_php
 }
 
 # This is function for installing currently used latest version of PHP.
@@ -575,7 +523,7 @@ function add_http2 {
 		then
 			echo "!!!!!!! HTTP2 already inside vhost config." >> $insl 2>&1
 		else
-			echo "!!!!!!! HTTP2 adding to vhost" >> $insl 2>&1
+			echo "!!!!!!! HTTP2 adding to vhost." >> $insl 2>&1
 			sed -i "/LimitRequestBody 0/a\ \ H2WindowSize 5242880" /etc/apache2/sites-available/nextcloud.conf
 			sed -i "/LimitRequestBody 0/a\ \ ProtocolsHonorOrder Off" /etc/apache2/sites-available/nextcloud.conf
 			sed -i "/LimitRequestBody 0/a\ \ Protocols h2 h2c http/1.1" /etc/apache2/sites-available/nextcloud.conf
@@ -584,7 +532,7 @@ function add_http2 {
 }
 
 function preview_tweaks {
-	echo "!!!!!!! Preview thumbnails tweaking in NC" >> $insl 2>&1
+	echo "!!!!!!! Preview thumbnails tweaking in NC." >> $insl 2>&1
 	sudo -u $websrv_usr php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 0 --value="OC\\Preview\\PNG" >> $insl 2>&1
 	sudo -u $websrv_usr php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 1 --value="OC\\Preview\\JPEG" >> $insl 2>&1
 	sudo -u $websrv_usr php /var/www/nextcloud/occ config:system:set enabledPreviewProviders 2 --value="OC\\Preview\\GIF" >> $insl 2>&1
@@ -654,42 +602,39 @@ max_input_time = 3600
 max_execution_time = 3600
 default_socket_timeout = 3600
 output_buffering = Off" >> $php_ini
+	unset dpvi
+	unset epvi
 }
 
-function php74_tweaks {
-	echo "!!!!!!! PHP 7.4 config files modify." >> $insl 2>&1
+function pvi {
+	echo "!!!!!!! PHP $dpvi config create." >> $insl 2>&1
 	echo "PHP config files tweaking."
 	if [ -e $debvf ]
 	then
-		touch /etc/php/7.4/mods-available/nextcloud-cfg.ini
-		php_ini=/etc/php/7.4/mods-available/nextcloud-cfg.ini
-		ln -s /etc/php/7.4/mods-available/nextcloud-cfg.ini /etc/php/7.4/apache2/conf.d/90-nextcloud-cfg.ini
-		ln -s /etc/php/7.4/mods-available/nextcloud-cfg.ini /etc/php/7.4/cli/conf.d/90-nextcloud-cfg.ini
+		touch /etc/php/$dpvi/mods-available/nextcloud-cfg.ini
+		php_ini=/etc/php/$dpvi/mods-available/nextcloud-cfg.ini
+		ln -s /etc/php/$dpvi/mods-available/nextcloud-cfg.ini /etc/php/$dpvi/apache2/conf.d/90-nextcloud-cfg.ini
+		ln -s /etc/php/$dpvi/mods-available/nextcloud-cfg.ini /etc/php/$dpvi/cli/conf.d/90-nextcloud-cfg.ini
 	fi
 	if [ -e $elvf ]
 	then
-		touch /etc/opt/remi/php74/php.d/90-nextcloud-cfg.ini
-		php_ini=/etc/opt/remi/php74/php.d/90-nextcloud-cfg.ini
+		touch /etc/opt/remi/php$epvi/php.d/90-nextcloud-cfg.ini
+		php_ini=/etc/opt/remi/php$epvi/php.d/90-nextcloud-cfg.ini
 	fi
+}
+
+function php74_tweaks {
+	dpvi=7.4
+	epvi=74
+	pvi
 	gen_phpini
 	restart_websrv
 }
 
 function php81_tweaks {
-	echo "!!!!!!! PHP 8.1 config files modify." >> $insl 2>&1
-	echo "PHP config files tweaking."
-	if [ -e $debvf ]
-	then
-		touch /etc/php/8.1/mods-available/nextcloud-cfg.ini
-		php_ini=/etc/php/8.1/mods-available/nextcloud-cfg.ini
-		ln -s /etc/php/8.1/mods-available/nextcloud-cfg.ini /etc/php/8.1/apache2/conf.d/90-nextcloud-cfg.ini
-		ln -s /etc/php/8.1/mods-available/nextcloud-cfg.ini /etc/php/8.1/cli/conf.d/90-nextcloud-cfg.ini
-	fi
-	if [ -e $elvf ]
-	then
-		touch /etc/opt/remi/php81/php.d/90-nextcloud-cfg.ini
-		php_ini=/etc/opt/remi/php81/php.d/90-nextcloud-cfg.ini
-	fi
+	dpvi=8.1
+	epvi=81
+	pvi
 	gen_phpini
 	a2enmod php8.1 >> $insl 2>&1
 	a2dismod php7.4 >> $insl 2>&1
@@ -697,20 +642,9 @@ function php81_tweaks {
 }
 
 function php82_tweaks {
-	echo "!!!!!!! PHP 8.2 config files modify." >> $insl 2>&1
-	echo "PHP config files tweaking."
-	if [ -e $debvf ]
-	then
-		touch /etc/php/8.2/mods-available/nextcloud-cfg.ini
-		php_ini=/etc/php/8.2/mods-available/nextcloud-cfg.ini
-		ln -s /etc/php/8.2/mods-available/nextcloud-cfg.ini /etc/php/8.2/apache2/conf.d/90-nextcloud-cfg.ini
-		ln -s /etc/php/8.2/mods-available/nextcloud-cfg.ini /etc/php/8.2/cli/conf.d/90-nextcloud-cfg.ini
-	fi
-	if [ -e $elvf ]
-	then
-		touch /etc/opt/remi/php82/php.d/90-nextcloud-cfg.ini
-		php_ini=/etc/opt/remi/php82/php.d/90-nextcloud-cfg.ini
-	fi
+	dpvi=8.2
+	epvi=82
+	pvi
 	gen_phpini
 	a2enmod php8.2 >> $insl 2>&1
 	a2dismod php8.1 >> $insl 2>&1
@@ -718,20 +652,9 @@ function php82_tweaks {
 }
 
 function php83_tweaks {
-	echo "!!!!!!! PHP 8.3 config files modify." >> $insl 2>&1
-	echo "PHP config files tweaking."
-	if [ -e $debvf ]
-	then
-		touch /etc/php/8.3/mods-available/nextcloud-cfg.ini
-		php_ini=/etc/php/8.3/mods-available/nextcloud-cfg.ini
-		ln -s /etc/php/8.3/mods-available/nextcloud-cfg.ini /etc/php/8.3/apache2/conf.d/90-nextcloud-cfg.ini
-		ln -s /etc/php/8.3/mods-available/nextcloud-cfg.ini /etc/php/8.3/cli/conf.d/90-nextcloud-cfg.ini
-	fi
-	if [ -e $elvf ]
-	then
-		touch /etc/opt/remi/php83/php.d/90-nextcloud-cfg.ini
-		php_ini=/etc/opt/remi/php83/php.d/90-nextcloud-cfg.ini
-	fi
+	dpvi=8.3
+	epvi=83
+	pvi
 	gen_phpini
 	a2enmod php8.3 >> $insl 2>&1
 	a2dismod php8.2 >> $insl 2>&1
@@ -739,20 +662,9 @@ function php83_tweaks {
 }
 
 function php84_tweaks {
-	echo "!!!!!!! PHP 8.4 config files modify." >> $insl 2>&1
-	echo "PHP config files tweaking."
-	if [ -e $debvf ]
-	then
-		touch /etc/php/8.4/mods-available/nextcloud-cfg.ini
-		php_ini=/etc/php/8.4/mods-available/nextcloud-cfg.ini
-		ln -s /etc/php/8.4/mods-available/nextcloud-cfg.ini /etc/php/8.4/apache2/conf.d/90-nextcloud-cfg.ini
-		ln -s /etc/php/8.4/mods-available/nextcloud-cfg.ini /etc/php/8.4/cli/conf.d/90-nextcloud-cfg.ini
-	fi
-	if [ -e $elvf ]
-	then
-		touch /etc/opt/remi/php84/php.d/90-nextcloud-cfg.ini
-		php_ini=/etc/opt/remi/php84/php.d/90-nextcloud-cfg.ini
-	fi
+	dpvi=8.4
+	epvi=84
+	pvi
 	gen_phpini
 	a2enmod php8.4 >> $insl 2>&1
 	a2dismod php8.3 >> $insl 2>&1
@@ -929,7 +841,7 @@ function nv_update {
 	if [ "$ncver" = "31" ]
 	then
 		install_php84
-		php83_tweaks
+		php84_tweaks
 		nv_upd_simpl
 	fi
 	sncver
@@ -1207,6 +1119,31 @@ else
 fi
 }
 
+function upd_p1 {	
+	echo "Detected installer already used, checking versions." >> $insl 2>&1
+	echo "$pverr1" >> $insl 2>&1
+	echo "$pverr2" >> $insl 2>&1
+	echo "Doing some updates if they are available."
+	nv_verify
+	ncbackup
+	echo "Continue with upgrade process, please wait..."
+	update_os
+	nv_update
+}
+
+function upd_p5 {
+	sudo -u $websrv_usr php /var/www/nextcloud/occ db:add-missing-indices >> $insl 2>&1
+	sudo -u $websrv_usr php /var/www/nextcloud/occ maintenance:repair --include-expensive >> $rstl 2>&1
+	maintenance_window_setup
+	restart_websrv
+	echo "Upgrade process finished."
+	echo "Job done!"
+	save_upg_info
+	mv $cdir/$scrpt.sh $scrpt-$(date +"%FT%H%M").sh
+	unset LC_ALL
+	exit 0
+}
+
 echo -e "\e[38;5;214mNextcloud Install Script\e[39;0m
 Version $ver for x86_64, for popular server Linux distributions.
 by marcin@marcinwilk.eu - www.marcinwilk.eu"
@@ -1265,49 +1202,22 @@ then
 		fdir=$(echo $pverr2 | awk -F'[ =]' '/fdir/ {print $12}')
 		if [ "$pver" = "1.5" ]
 		then
-			echo "Detected previous version installer." >> $insl 2>&1
-			echo "$pverr1" >> $insl 2>&1
-			echo "$pverr2" >> $insl 2>&1
-			echo "Version 1.5 installer has been used previously."
-			echo "Doing some updates if they are available."
-			nv_verify
-			ncbackup
-			echo "Continue with upgrade process, please wait..."
-			update_os
-			nv_update
+			upd_p1
 			# Installing additional packages added with v1.7
 			echo "Installing additional packages added with v1.7 upgrade" >> $insl 2>&1
 			install_soft
 			a2enmod http2 >> $insl 2>&1
-			add_http2
 			preview_tweaks
-			sudo -u $websrv_usr php /var/www/nextcloud/occ db:add-missing-indices >> $insl 2>&1
+			add_http2
 			sudo -u $websrv_usr php /var/www/nextcloud/occ db:convert-filecache-bigint --no-interaction >> $insl 2>&1
-			sudo -u $websrv_usr php /var/www/nextcloud/occ maintenance:repair --include-expensive >> $rstl 2>&1
-			maintenance_window_setup
+			disable_sleep
 			rm -rf /opt/latest.zip
 			rm -rf /var/www/nextcloud/config/autoconfig.php
-			save_upg_info
-			disable_sleep
-			restart_websrv
-			echo "Upgrade process finished."
-			echo "Job done!"
-			mv $cdir/$scrpt.sh $scrpt-$(date +"%FT%H%M").sh
-			unset LC_ALL
-			exit 0
+			upd_p5
 		fi
 		if [ "$pver" = "1.6" ]
 		then
-			echo "Detected previous version installer." >> $insl 2>&1
-			echo "$pverr1" >> $insl 2>&1
-			echo "$pverr2" >> $insl 2>&1
-			echo "Version 1.6 installer has been used previously."
-			echo "Doing some updates if they are available."
-			nv_verify
-			ncbackup
-			echo "Continue with upgrade process, please wait..."
-			update_os
-			nv_update
+			upd_p1
 			sudo -u $websrv_usr php /var/www/nextcloud/occ db:add-missing-indices >> $insl 2>&1
 			# Installing additional packages added with v1.7
 			echo "Installing additional packages added with v1.7 upgrade" >> $insl 2>&1
@@ -1317,60 +1227,13 @@ then
 			add_http2
 			rm -rf /opt/latest.zip
 			rm -rf /var/www/nextcloud/config/autoconfig.php
-			sudo -u $websrv_usr php /var/www/nextcloud/occ maintenance:repair --include-expensive >> $rstl 2>&1
-			maintenance_window_setup
-			save_upg_info
 			disable_sleep
-			restart_websrv
-			echo "Upgrade process finished."
-			echo "Job done!"
-			mv $cdir/$scrpt.sh $scrpt-$(date +"%FT%H%M").sh
-			unset LC_ALL
-			exit 0
+			upd_p5
 		fi
-		if [ "$pver" = "1.7" ] || [ "$pver" = "1.8" ] || [ "$pver" = "1.9" ]
+		if [ "$pver" = "1.7" ] || [ "$pver" = "1.8" ] || [ "$pver" = "1.9" ] || [ "$pver" = "1.10" ] || [ "$pver" = "1.11" ] || [ "$pver" = "1.12" ]
 		then
-			echo "Detected similar version already used." >> $insl 2>&1
-			echo "$pverr1" >> $insl 2>&1
-			echo "$pverr2" >> $insl 2>&1
-			echo "Similar version already used (it means not many works ahead)."
-			nv_verify
-			ncbackup
-			echo "Doing some updates if they are available."
-			update_os
-			nv_update
-			sudo -u $websrv_usr php /var/www/nextcloud/occ db:add-missing-indices >> $insl 2>&1
-			sudo -u $websrv_usr php /var/www/nextcloud/occ maintenance:repair --include-expensive >> $rstl 2>&1
-			maintenance_window_setup
-			restart_websrv
-			echo "Upgrade process finished."
-			echo "Job done!"
-			save_upg_info
-			mv $cdir/$scrpt.sh $scrpt-$(date +"%FT%H%M").sh
-			unset LC_ALL
-			exit 0
-		fi
-		if [ "$pver" = "1.10" ] || [ "$pver" = "1.11" ]
-		then
-			echo "Detected similar version already used." >> $insl 2>&1
-			echo "$pverr1" >> $insl 2>&1
-			echo "$pverr2" >> $insl 2>&1
-			echo "Similar version already used (it means not many works ahead)."
-			nv_verify
-			ncbackup
-			echo "Doing some updates if they are available."
-			update_os
-			nv_update
-			sudo -u $websrv_usr php /var/www/nextcloud/occ db:add-missing-indices >> $insl 2>&1
-			sudo -u $websrv_usr php /var/www/nextcloud/occ maintenance:repair --include-expensive >> $rstl 2>&1
-			maintenance_window_setup
-			restart_websrv
-			echo "Upgrade process finished."
-			echo "Job done!"
-			save_upg_info
-			mv $cdir/$scrpt.sh $scrpt-$(date +"%FT%H%M").sh
-			unset LC_ALL
-			exit 0
+			upd_p1
+			upd_p5
 		fi
 	else
 		echo "Detected installer version 1.4 or older already used."
@@ -1567,6 +1430,9 @@ exit 0" >> /etc/rc.local
 		sncver
 		if [ "$ncver" = "31" ]
 		then
+			echo "Installing PHP 8.4"
+			install_php84
+			php84_tweaks
 			nv_upd_simpl
 		fi
 		sncver
@@ -1621,24 +1487,22 @@ exit 0" >> /etc/rc.local
 		sudo -u $websrv_usr php /var/www/nextcloud/occ app:enable twofactor_webauthn >> $insl 2>&1
 		sudo -u $websrv_usr php /var/www/nextcloud/occ config:app:set files max_chunk_size --value="20971520" >> $insl 2>&1
 		touch $ver_file
-		echo "Removing PHP 8.1"
+		echo "Removing old PHP versions."
+		apt-get remove -y -o DPkg::Lock::Timeout=-1 php7.4 php7.4-* >> $insl 2>&1
 		apt-get remove -y -o DPkg::Lock::Timeout=-1 php8.1 php8.1-* >> $insl 2>&1
+		apt-get remove -y -o DPkg::Lock::Timeout=-1 php8.2 php8.2-* >> $insl 2>&1
+		apt-get remove -y -o DPkg::Lock::Timeout=-1 php8.3 php8.3-* >> $insl 2>&1
 		a2enmod http2 >> $insl 2>&1
-		a2enmod php8.3 >> $insl 2>&1
+		a2enmod php8.4 >> $insl 2>&1
 		add_http2
 		preview_tweaks
 		rm -rf /opt/latest.zip
 		rm -rf /var/www/nextcloud/config/autoconfig.php
 		systemctl restart mariadb >> $insl 2>&1
 		systemctl restart redis-server >> $insl 2>&1
-		restart_websrv
+		systemctl restart valkey >> $insl 2>&1
 		disable_sleep
-		save_upg_info
-		echo "Upgrade process finished."
-		echo "Job done!"
-		mv $cdir/$scrpt.sh $scrpt-$(date +"%FT%H%M").sh
-		unset LC_ALL
-		exit 0
+		upd_p5
 	fi
 else
 	echo ""
@@ -1904,7 +1768,7 @@ echo "!!!!!!! Installing software." >> $insl 2>&1
 install_soft
 
 # Generating passwords for database and SuperAdmin user.
-echo "!!!!!!! Generating passwords for database and SuperAdmin user" >> $insl 2>&1
+echo "!!!!!!! Generating passwords for database and SuperAdmin user." >> $insl 2>&1
 openssl rand -base64 30 > /root/dbpass
 openssl rand -base64 30 > /root/superadminpass
 mp=$( cat /root/dbpass )
@@ -1943,7 +1807,7 @@ fi
 
 disable_sleep
 echo "Installing web server with PHP."
-echo "!!!!!!! Installing web server with PHP" >> $insl 2>&1
+echo "!!!!!!! Installing web server with PHP." >> $insl 2>&1
 update_os
 if [ -e $debvf ]
 then
@@ -1967,60 +1831,43 @@ fi
 
 if [ "$nv" = "24" ]; then
 	echo "Installing PHP version 7.x for Nextcloud v24."
-	echo "!!!!!!! Installing PHP version 7.x for Nextcloud v24" >> $insl 2>&1
-	if [ -e $debvf ]
-	then
-		if [ -e $ubuvf ]
-		then
-			add-apt-repository -y ppa:ondrej/php >> $insl 2>&1
-		else
-			curl -sSLo /usr/share/keyrings/deb.sury.org-php.gpg https://packages.sury.org/php/apt.gpg >> $insl 2>&1
-			sh -c 'echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.sury.org/php/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/php.list' >> $insl 2>&1
-		fi
-		apt-get update >> $insl 2>&1
-		apt-get install -y -o DPkg::Lock::Timeout=-1 php7.4 libapache2-mod-php7.4 php7.4-mysql php7.4-common php7.4-redis php7.4-dom php7.4-curl php7.4-exif php7.4-fileinfo php7.4-bcmath php7.4-gmp php7.4-imagick php7.4-mbstring php7.4-xml php7.4-zip php7.4-iconv php7.4-intl php7.4-simplexml php7.4-xmlreader php7.4-ftp php7.4-ssh2 php7.4-sockets php7.4-gd php7.4-imap php7.4-soap php7.4-xmlrpc php7.4-apcu php7.4-dev php7.4-cli >> $insl 2>&1
-		apt-get install -y -o DPkg::Lock::Timeout=-1 libmagickcore-6.q16-6-extra >> $insl 2>&1
-		apt-get install -y -o DPkg::Lock::Timeout=-1 libmagickcore-7.q16-10-extra >> $insl 2>&1
-	fi
-	if [ -e $elvf ]
-	then
-		if [ -e $fedvf ]
-		then
-			dnf install -y -q https://rpms.remirepo.net/fedora/remi-release-$(rpm -E %fedora).rpm >> $insl 2>&1
-			dnf config-manager --set-enabled remi >> $insl 2>&1
-		else
-			dnf install -y -q https://rpms.remirepo.net/enterprise/remi-release-$(rpm -E %rhel).rpm >> $insl 2>&1
-		fi
-		dnf install -y -q php74 php74-php-apcu php74-php-opcache php74-php-mysql php74-php-bcmath php74-php-common php74-php-geos php74-php-gmp php74-php-pecl-imagick-im7 php74-php-pecl-lzf php74-php-pecl-mcrypt php74-php-pecl-recode php74-php-process php74-php-zstd php74-php-redis php74-php-dom php74-php-curl php74-php-exif php74-php-fileinfo php74-php-mbstring php74-php-xml php74-php-zip php74-php-iconv php74-php-intl php74-php-simplexml php74-php-xmlreader php74-php-ftp php74-php-ssh2 php74-php-sockets php74-php-gd php74-php-imap php74-php-soap php74-php-xmlrpc php74-php-apcu php74-php-cli php74-php-ast php74-php-brotli php74-php-enchant php74-php-ffi php74-php-lz4 php74-php-phalcon5 php74-php-phpiredis php74-php-smbclient php74-php-tidy php74-php-xz >> $insl 2>&1
-		dnf install -y -q php74-syspaths php74-mod_php >> $insl 2>&1
-	fi
+	echo "!!!!!!! Installing PHP version 7.x for Nextcloud v24." >> $insl 2>&1
+	install_php74
 elif [ "$nv" = "25" ]; then
 	echo "Installing PHP version 8.1 for Nextcloud v25."
-	echo "!!!!!!! Installing PHP version 8.1 for Nextcloud v25" >> $insl 2>&1
+	echo "!!!!!!! Installing PHP version 8.1 for Nextcloud v25." >> $insl 2>&1
 	install_php81
 elif [ "$nv" = "26" ]; then
 	echo "Installing PHP version 8.1 for Nextcloud v26."
-	echo "!!!!!!! Installing PHP version 8.1 for Nextcloud v26" >> $insl 2>&1
+	echo "!!!!!!! Installing PHP version 8.1 for Nextcloud v26." >> $insl 2>&1
 	install_php81
 elif [ "$nv" = "27" ]; then
 	echo "Installing PHP version 8.2 for Nextcloud v27."
-	echo "!!!!!!! Installing PHP version 8.2 for Nextcloud v27" >> $insl 2>&1
+	echo "!!!!!!! Installing PHP version 8.2 for Nextcloud v27." >> $insl 2>&1
 	install_php82
 elif [ "$nv" = "28" ]; then
 	echo "Installing PHP version 8.2 for Nextcloud v28."
-	echo "!!!!!!! Installing PHP version 8.2 for Nextcloud v28" >> $insl 2>&1
+	echo "!!!!!!! Installing PHP version 8.2 for Nextcloud v28." >> $insl 2>&1
 	install_php82
 elif [ "$nv" = "29" ]; then
 	echo "Installing PHP version 8.3 for Nextcloud v29."
-	echo "!!!!!!! Installing PHP version 8.3 for Nextcloud v29" >> $insl 2>&1
+	echo "!!!!!!! Installing PHP version 8.3 for Nextcloud v29." >> $insl 2>&1
 	install_php83
 elif [ "$nv" = "30" ]; then
 	echo "Installing PHP version 8.3 for Nextcloud v30."
-	echo "!!!!!!! Installing PHP version 8.3 for Nextcloud v30" >> $insl 2>&1
+	echo "!!!!!!! Installing PHP version 8.3 for Nextcloud v30." >> $insl 2>&1
 	install_php83
+elif [ "$nv" = "31" ]; then
+	echo "Installing PHP version 8.4 for Nextcloud v31."
+	echo "!!!!!!! Installing PHP version 8.4 for Nextcloud v31." >> $insl 2>&1
+	install_php84
+elif [ "$nv" = "32" ]; then
+	echo "Installing PHP version 8.4 for Nextcloud v32."
+	echo "!!!!!!! Installing PHP version 8.4 for Nextcloud v32." >> $insl 2>&1
+	install_php84
 elif [ -z "$nv" ]; then
 	echo "Installing newest PHP version for Nextcloud."
-	echo "!!!!!!! Installing newest PHP version for Nextcloud" >> $insl 2>&1
+	echo "!!!!!!! Installing newest PHP version for Nextcloud." >> $insl 2>&1
 	install_php
 fi
 
@@ -2036,8 +1883,8 @@ then
 	restart_websrv
 fi
 
-echo "Setting up firewall"
-echo "!!!!!!! Setting up firewall" >> $insl 2>&1
+echo "Setting up firewall."
+echo "!!!!!!! Setting up firewall." >> $insl 2>&1
 if [ -e $debvf ]
 then
 	ufw default allow  >> $insl 2>&1
@@ -2191,6 +2038,8 @@ elif [ "$nv" = "30" ]; then
 	php83_tweaks
 elif [ "$nv" = "31" ]; then
 	php84_tweaks
+elif [ "$nv" = "32" ]; then
+	php84_tweaks
 elif [ -z "$nv" ]; then
 	php_tweaks
 fi
@@ -2225,8 +2074,7 @@ then
 fi
 mv /opt/nextcloud.key /etc/ssl/private/nextcloud.key >> $insl 2>&1
 # Creating VHost for Apache.
-if [ -e $debvf ]
-then
+function gen_apchini {
 	echo '<VirtualHost *:80>
   ServerAdmin webmaster@localhost
   # ServerName localhost
@@ -2250,9 +2098,6 @@ then
   # ProxyPass /push/ws ws://127.0.0.1:7867/ws
   # ProxyPass /push/ http://127.0.0.1:7867/
   # ProxyPassReverse /push/ http://127.0.0.1:7867/
-  
-  ErrorLog ${APACHE_LOG_DIR}/error.log
-  CustomLog ${APACHE_LOG_DIR}/access.log combined
 </VirtualHost>
 <VirtualHost *:443>
   ServerAdmin webmaster@localhost
@@ -2278,87 +2123,43 @@ then
   # ProxyPass /push/ http://127.0.0.1:7867/
   # ProxyPassReverse /push/ http://127.0.0.1:7867/
   
-  ErrorLog ${APACHE_LOG_DIR}/error.log
-  CustomLog ${APACHE_LOG_DIR}/access.log combined
   SSLEngine on
   SSLCertificateFile      /etc/ssl/certs/nextcloud.crt
   SSLCertificateKeyFile /etc/ssl/private/nextcloud.key
 </VirtualHost>
-' > /etc/apache2/sites-available/nextcloud.conf
+' > $apch_ini
+}
 
-a2enmod ssl >> $insl 2>&1
-a2enmod rewrite >> $insl 2>&1
-a2enmod headers >> $insl 2>&1
-a2enmod env >> $insl 2>&1
-a2enmod dir >> $insl 2>&1
-a2enmod mime >> $insl 2>&1
-a2enmod proxy >> $insl 2>&1
-a2enmod http2 >> $insl 2>&1
+if [ -e $debvf ]
+then
+	apch_ini=/etc/apache2/sites-available/nextcloud.conf
+	gen_apchini
+	sed -i '/<\/VirtualHost>/i \  ErrorLog ${APACHE_LOG_DIR}/error.log' $apch_ini
+	sed -i '/<\/VirtualHost>/i \  CustomLog ${APACHE_LOG_DIR}/access.log combined' $apch_ini
+	a2enmod ssl >> $insl 2>&1
+	a2enmod rewrite >> $insl 2>&1
+	a2enmod headers >> $insl 2>&1
+	a2enmod env >> $insl 2>&1
+	a2enmod dir >> $insl 2>&1
+	a2enmod mime >> $insl 2>&1
+	a2enmod proxy >> $insl 2>&1
+	a2enmod http2 >> $insl 2>&1
 # a2enmod proxy_http >> $insl 2>&1
 # a2enmod proxy_wstunnel >> $insl 2>&1
-a2ensite nextcloud.conf >> $insl 2>&1
+	a2ensite nextcloud.conf >> $insl 2>&1
+	unset apch_ini
 fi
 
 if [ -e $elvf ]
 then
-	echo '<VirtualHost *:80>
-  ServerAdmin webmaster@localhost
-  # ServerName localhost
-  DocumentRoot /var/www/nextcloud
-  Protocols h2 h2c http/1.1
-  ProtocolsHonorOrder Off
-  H2WindowSize 5242880
-  
-  <Directory /var/www/nextcloud/>
-    Require all granted
-    AllowOverride All
-    Options FollowSymLinks MultiViews
-
-    <IfModule mod_dav.c>
-      Dav off
-    </IfModule>
-  </Directory>
-  
-  LimitRequestBody 0
-  
-  # ProxyPass /push/ws ws://127.0.0.1:7867/ws
-  # ProxyPass /push/ http://127.0.0.1:7867/
-  # ProxyPassReverse /push/ http://127.0.0.1:7867/
-</VirtualHost>
-<VirtualHost *:443>
-  ServerAdmin webmaster@localhost
-  # ServerName localhost
-  DocumentRoot /var/www/nextcloud
-  Protocols h2 h2c http/1.1
-  ProtocolsHonorOrder Off
-  H2WindowSize 5242880
-  
-  <Directory /var/www/nextcloud/>
-    Require all granted
-    AllowOverride All
-    Options FollowSymLinks MultiViews
-
-    <IfModule mod_dav.c>
-      Dav off
-    </IfModule>
-  </Directory>
-  
-  LimitRequestBody 0
-  
-  # ProxyPass /push/ws ws://127.0.0.1:7867/ws
-  # ProxyPass /push/ http://127.0.0.1:7867/
-  # ProxyPassReverse /push/ http://127.0.0.1:7867/
-  
-  SSLEngine on
-  SSLCertificateFile      /etc/ssl/certs/nextcloud.crt
-  SSLCertificateKeyFile /etc/ssl/private/nextcloud.key
-</VirtualHost>
-' > /etc/httpd/conf.d/nextcloud.conf
-sed -i.bak 's/^DocumentRoot "\/var\/www\/html"/DocumentRoot "\/var\/www\/nextcloud"/g' /etc/httpd/conf/httpd.conf
+	apch_ini=/etc/httpd/conf.d/nextcloud.conf
+	gen_apchini
+	sed -i.bak 's/^DocumentRoot "\/var\/www\/html"/DocumentRoot "\/var\/www\/nextcloud"/g' /etc/httpd/conf/httpd.conf
+	unset apch_ini
 fi
 
 echo "Installing MariaDB database server."
-echo "!!!!!!! Installing MariaDB database server" >> $insl 2>&1
+echo "!!!!!!! Installing MariaDB database server." >> $insl 2>&1
 if [ -e $debvf ]
 then
 	apt-get install -y -o DPkg::Lock::Timeout=-1 mariadb-server >> $insl 2>&1
@@ -2369,9 +2170,7 @@ then
 	dnf install -y -q mariadb-server mariadb >> $insl 2>&1
 fi
 # Adding MariaDB options.
-if [ -e $debvf ]
-then
-	touch /etc/mysql/mariadb.conf.d/70-nextcloud.cnf
+function gen_sqlini {
 	echo '[server]
 skip-name-resolve
 innodb_flush_log_at_trx_commit = 2
@@ -2390,31 +2189,21 @@ long_query_time = 1
 [mysqld]
 innodb_buffer_pool_size=1G
 innodb_io_capacity=4000
-' >> /etc/mysql/mariadb.conf.d/70-nextcloud.cnf
+' >> $sql_ini
+}
+
+if [ -e $debvf ]
+then
+	sql_ini=/etc/mysql/mariadb.conf.d/70-nextcloud.cnf
+	gen_sqlini
+	unset sql_ini
 fi
 
 if [ -e $elvf ]
 then
-	touch /etc/my.cnf.d/nextcloud.cnf
-	echo '[server]
-skip-name-resolve
-innodb_flush_log_at_trx_commit = 2
-innodb_log_buffer_size = 32M
-innodb_max_dirty_pages_pct = 90
-query_cache_type = 1
-query_cache_limit = 2M
-query_cache_min_res_unit = 2k
-query_cache_size = 64M
-tmp_table_size= 64M
-max_heap_table_size= 64M
-slow-query-log = 1
-slow-query-log-file = /var/log/mariadb/slow.log
-long_query_time = 1
-
-[mysqld]
-innodb_buffer_pool_size=1G
-innodb_io_capacity=4000
-' >> /etc/my.cnf.d/nextcloud.cnf
+	sql_ini=/etc/my.cnf.d/nextcloud.cnf
+	gen_sqlini
+	unset sql_ini
 fi
 systemctl enable mariadb >> $insl 2>&1
 systemctl restart mariadb >> $insl 2>&1
@@ -2453,12 +2242,12 @@ then
 fi
 
 # Downloading and installing Nextcloud.
-echo "!!!!!!! Downloading and installing Nextcloud" >> $insl 2>&1
+echo "!!!!!!! Downloading and installing Nextcloud." >> $insl 2>&1
 mkdir /var/www/nextcloud
 mkdir /var/www/nextcloud/data
 
 # Configuring/mounting data directory to specified location
-echo "!!!!!!! Configuring/mounting data directory to specified location" >> $insl 2>&1
+echo "!!!!!!! Configuring/mounting data directory to specified location." >> $insl 2>&1
 if [ -z "$fdir" ]
 then
 	echo "User files directory not configured." >> $insl 2>&1
@@ -2504,8 +2293,8 @@ elif [ "$nv" = "30" ]; then
 	mv nextcloud-30.0.11.zip latest.zip >> $insl 2>&1
 elif [ "$nv" = "31" ]; then
 	echo "Downloading and unpacking Nextcloud v$nv." >> $insl 2>&1
-	wget -q https://download.nextcloud.com/server/releases/nextcloud-31.0.5.zip >> $insl 2>&1
-	mv nextcloud-31.0.5.zip latest.zip >> $insl 2>&1
+	wget -q https://download.nextcloud.com/server/releases/nextcloud-31.0.8.zip >> $insl 2>&1
+	mv nextcloud-31.0.8.zip latest.zip >> $insl 2>&1
 fi
 
 if [ -e latest.zip ]
@@ -2778,8 +2567,6 @@ if [ -z "$mail" ]
 			sed -i 's/\bwebmaster@localhost\b/'"$mail"'/g' /etc/httpd/conf.d/nextcloud.conf
 		fi
 fi
-
-# collab_inst
 
 # HPB Configuration
 # gwaddr=$( route -n | grep 'UG[ \t]' | awk '{print $2}' )
