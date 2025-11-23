@@ -297,10 +297,13 @@ shchk() {
     parent_cmd=$(ps -p "$ppid" -o args=)
 
     case "$parent_cmd" in
-        -bash*|-sh*|-zsh*|-ksh*|-su* )
+        -bash*|-sh*|-zsh*|-ksh* )
             return 0
             ;;
-        *)
+        su\ -* )
+			return 0
+			;;
+		*)
             return 1
             ;;
     esac
