@@ -17,9 +17,11 @@
 # Some other software is also installed for better preview/thumbnails generation by Nextcloud like LibreOffice, Krita, ImageMagick etc.
 # Also new service for Nextcloud "cron" is generated that starts every 5 minutes so Nextcloud can do some work while users are not connected.
 #
-# To use it just use this command:
+# To use it just use this command (as root):
 # sudo sh -c "wget -q https://github.com/nicrame/Linux-Scripts/raw/master/nextcloud-ins.sh && chmod +x nextcloud-ins.sh && ./nextcloud-ins.sh"
 # 
+# On newer Debian, if there is "command not found" error, install sudo first (as root) with "apt-get install sudo -y".
+#
 # You may also add specific variables (lang, mail, dns) that will be used, by adding them to command above, e.g:
 # sudo sh -c "wget -q https://github.com/nicrame/Linux-Scripts/raw/master/nextcloud-ins.sh && chmod +x nextcloud-ins.sh && ./nextcloud-ins.sh -lang=pl -mail=my@email.com -dm=domain.com -nv=24 -fdir=/mnt/sdc5/nextcloud-data"
 # -lang (for language) variable will install additional packages specific for choosed language and setup Nextcloud default language.
@@ -37,8 +39,10 @@
 # when it's started for upgrade process (which is default scenario when script is started another time after first use).
 # You may use -restore=list to check the list of previously created backups, or -restore=filename.tar.bz2 to select one of those files, and use them to restore Nextcloud.
 # IMPORTSNT: When -restore argument is used with any kind of parameters, then any other is ignored. It means You can't use -restore variable with others.
-# - backup argument starts backup process without doing any other tasks. It will just create backup of current Nextcloud install with database, excluding users files.
+# -backup argument starts backup process without doing any other tasks. It will just create backup of current Nextcloud install with database, excluding users files.
 # Similar to -restore, -backup argument must be used by itself (any other one used with it will be ignored).
+# -purge is used as standalone argument - it will remove all software installed by this script, and it's configuration. Also it will remove Nextcloud, with all files, and database.
+# It is used only when first run didn't work correctly somehow - so this will do something like "revert" changes, so it is possible to start again.
 #
 # After install You may use Your web browser to access Nextcloud using local IP address,
 # or domain name, if You have configured it before (DNS settings and router configuration should be done earlier by You). 
@@ -77,6 +81,11 @@
 # 1. You use it at your own risk. Author is not responsible for any damage made with that script.
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
+# V 1.12.3 - 23.11.2025
+# - Nextcloud Hub 25 (v32) support
+# - little documentation changes
+# - check if script is started in full login shell
+# - new -purge option added that will remove software installed by this script with NC and whole database, so it's possible to start install process again with fresh data
 # V 1.12.2 - 09.09.2025
 # - fixes for better upgrade process from older NC versions
 # V 1.12.1 - 09.09.2025
@@ -198,6 +207,14 @@ cpu=$( uname -m )
 user=$( whoami )
 debvf=/etc/debian_version
 ubuvf=/etc/dpkg/origins/ubuntu
+
+if [[ $EUID -ne 0 ]]; then
+    echo -e "You must be \e[38;5;214mroot\e[39;0m. Mission aborted!"
+    echo -e "You are trying to start this script as: \e[1;31m$user\e[39;0m"
+	unset LC_ALL
+    exit 0
+fi
+
 if [ -e $debvf ]
 then
 	if [ -e $ubuvf ]
@@ -270,6 +287,33 @@ nbckd=/var/local/nextcloud-installer-backups
 nbckf=nextcloud.tar
 scrpt=nextcloud-ins
 backup=false
+purge=false
+
+shchk() {
+    local ppid parent_cmd
+
+    ppid=$(ps -p $$ -o ppid=)
+	ppid=$(echo "$ppid" | xargs)
+    parent_cmd=$(ps -p "$ppid" -o args=)
+
+    case "$parent_cmd" in
+        -bash*|-sh*|-zsh*|-ksh*|-su* )
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+if shchk; then
+    echo "Script started with full root profile loaded." >> /dev/null
+else
+    echo -e "You must start the script in full login shell. Mission aborted!"
+    echo -e "Use whole command to start it with \e[1;31msh -c \e[39;0m at the beginning."
+	unset LC_ALL
+    exit 0
+fi
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -280,14 +324,16 @@ while [ "$#" -gt 0 ]; do
 		-fdir=*) fdir="${1#*=}" ;;
 		-restore=*) restore="${1#*=}" ;;
 		-backup) backup=true ;;
+		-purge) purge=true ;;
         *) 
 		echo "Unknown parameter: $1" >&2; 
 		echo "Remember to add one, or more variables after equals sign:"; 
 		echo -e "Eg. \e[1;32m-\e[39;0mmail\e[1;32m=\e[39;0mmail@example.com \e[1;32m-\e[39;0mlang\e[1;32m=\e[39;0mpl \e[1;32m-\e[39;0mdm\e[1;32m=\e[39;0mdomain.com \e[1;32m-\e[39;0mnv\e[1;32m=\e[39;0m24 \e[1;32m-\e[39;0mfdir\e[1;32m=\e[39;0m/mnt/sdc5/nextcloud-data"; 
-		echo "or in case of backup and restore argument (used individually):";
+		echo "or in case of backup, restore and purge argument (used individually):";
 		echo -e "\e[1;32m-\e[39;0mbackup";
 		echo -e "\e[1;32m-\e[39;0mrestore\e[1;32m=\e[39;0mlist";
 		echo -e "\e[1;32m-\e[39;0mrestore\e[1;32m=\e[39;0mfilename-from-list.tar.bz2";
+		echo -e "\e[1;32m-\e[39;0m\e[1;31mpurge\e[39;0m";
 		exit 1 
 		;;
     esac
@@ -414,6 +460,7 @@ function install_soft {
 	if [ -e $debvf ]
 	then
 		DEBIAN_FRONTEND=noninteractive apt-get install -y -o DPkg::Lock::Timeout=-1 git lbzip2 unzip zip lsb-release locales-all rsync wget curl sed screen gawk mc sudo net-tools ethtool vim nano ufw apt-transport-https ca-certificates miniupnpc jq libfontconfig1 libfuse2 socat tree ffmpeg imagemagick webp libreoffice ghostscript bindfs >> $insl 2>&1
+		# Package below do not appear in Debian 13 anymore
 		DEBIAN_FRONTEND=noninteractive apt-get install -y -o DPkg::Lock::Timeout=-1 software-properties-common >> $insl 2>&1
 		yes | sudo DEBIAN_FRONTEND=noninteractive apt-get -yqq -o DPkg::Lock::Timeout=-1 install ddclient >> $insl 2>&1
 	fi
@@ -918,10 +965,25 @@ function nv_update {
 		nv_upd_simpl
 	fi
 	sncver
-	if [ "$ncver" = "31" ]
+	if [ "$ncver" = "32" ]
 	then
 		install_php84
 		php84_tweaks
+		nv_upd_simpl
+	fi
+	sncver
+	if [ "$ncver" = "32" ]
+	then
+		nv_upd_simpl
+	fi
+	sncver
+	if [ "$ncver" = "32" ]
+	then
+		nv_upd_simpl
+	fi
+	sncver
+	if [ "$ncver" = "32" ]
+	then
 		nv_upd_simpl
 	fi
 }
@@ -1083,7 +1145,11 @@ echo "Compressing backup." >> $insl 2>&1
 echo "Compressing backup." 
 lbzip2 -k -z -9 $nbckd/$nbckf
 rm -rf $nbckd/$nbckf
-mv $nbckd/nextcloud.tar.bz2 $nbckd/$(date +%Y-%m-%d-at-%H:%M:%S)-nc-v$ncverf.tar.bz2
+if $purge; then
+    mv $nbckd/nextcloud.tar.bz2 $nbckd/$(date +%Y-%m-%d-at-%H:%M:%S)-PURGED-nc-v$ncverf.tar.bz2
+else
+    mv $nbckd/nextcloud.tar.bz2 $nbckd/$(date +%Y-%m-%d-at-%H:%M:%S)-nc-v$ncverf.tar.bz2
+fi
 rm -rf /var/www/nextcloud/nextcloud.sql >> $insl 2>&1
 echo "Backup creation finished." >> $insl 2>&1
 echo "Backup creation finished."
@@ -1184,6 +1250,87 @@ else
 fi
 }
 
+function ncpurge {
+	echo "---------------------------------------------------------------------------" >> $rstl 2>&1
+	echo "Nextcloud installer $ver (www.marcinwilk.eu) started. PURGE MODE." >> $rstl 2>&1
+	date >> $rstl 2>&1
+	echo "---------------------------------------------------------------------------" >> $rstl 2>&1
+	echo -e "\e[1;31mDANGER !!!\e[39;0m \e[1;32mPURGE MODE ACTIVE\e[39;0m  \e[1;31mDANGER !!!\e[39;0m";
+	echo "It will create initial backup of only Nextcloud files installed by this script."
+	echo -e "\e[1;31mEXCLUDING USER DATA FILES!!!\e[39;0m";
+	echo -e "Then every Nextcloud file, software packages and configuration files,"
+	echo -e "used by it, including whole database will be \e[1;31mDELETED!!!\e[39;0m"
+	echo ""
+	echo "If You made any own changes to Apache, PHP or database, alle that will be lost!"
+	echo ""
+	echo "Main purpose of this option, is to allow installing Nextcloud again using this script,"
+	echo "in cleane enviroment, if errors appeared when it was used for the first time."
+	echo ""
+	echo "If You are still want to do that, wait 30 seconds so the process will begin."
+	echo "But if You have dubts, cancel this script with CTRL+C now!"
+	echo -e "\e[1;31mDANGER !!!\e[39;0m \e[1;32mPURGE MODE ACTIVE\e[39;0m  \e[1;31mDANGER !!!\e[39;0m";
+	sleep 45
+	echo ""
+	ncbackup
+	echo "Removing software. Please wait..."
+	systemctl stop nextcloudcron.timer >> $rstl 2>&1
+	systemctl disable nextcloudcron.timer >> $rstl 2>&1
+	rm -rf /etc/systemd/system/nextcloudcron.service >> $rstl 2>&1
+	rm -rf /etc/systemd/system/nextcloudcron.timer >> $rstl 2>&1
+	systemctl stop mariadb >> $rstl 2>&1
+	systemctl stop redis-server >> $rstl 2>&1
+	systemctl stop redis >> $rstl 2>&1
+	systemctl stop valkey >> $rstl 2>&1
+	systemctl stop apache2 >> $rstl 2>&1
+	systemctl stop httpd >> $rstl 2>&1
+	ufw disable >> $rstl 2>&1
+	systemctl disable ufw >> $rstl 2>&1
+	if [ -e $debvf ]
+	then
+		DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y -o DPkg::Lock::Timeout=-1 php* >> $rstl 2>&1
+		DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y -o DPkg::Lock::Timeout=-1 libapache2-mod-php* >> $rstl 2>&1
+		DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y -o DPkg::Lock::Timeout=-1 libmagickcore-6.q16-6-extra >> $rstl 2>&1
+		DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y -o DPkg::Lock::Timeout=-1 libmagickcore-7.q16-10-extra >> $rstl 2>&1
+		DEBIAN_FRONTEND=noninteractive apt-get autoremove -y >> $rstl 2>&1
+		DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y -o DPkg::Lock::Timeout=-1 apache2 >> $rstl 2>&1
+		DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y -o DPkg::Lock::Timeout=-1 apache2-utils >> $rstl 2>&1
+		DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y -o DPkg::Lock::Timeout=-1 python3-certbot-apache >> $rstl 2>&1
+		DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y -o DPkg::Lock::Timeout=-1 mariadb-server >> $rstl 2>&1
+		DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y -o DPkg::Lock::Timeout=-1 redis-server >> $rstl 2>&1
+		DEBIAN_FRONTEND=noninteractive apt-get remove --purge -y -o DPkg::Lock::Timeout=-1 ufw >> $rstl 2>&1
+		DEBIAN_FRONTEND=noninteractive apt-get autoremove -y >> $rstl 2>&1
+	fi
+	if [ -e $elvf ]
+	then
+		dnf remove -y php* >> $rstl 2>&1
+		dnf remove -y libapache2-mod-php* >> $rstl 2>&1
+		dnf remove -y httpd httpd-tools >> $rstl 2>&1
+		dnf remove -y mod_ssl >> $rstl 2>&1
+		dnf remove -y python3-certbot-apache >> $rstl 2>&1 
+		dnf remove -y mariadb-server mariadb >> $rstl 2>&1
+		dnf remove -y valkey >> $rstl 2>&1
+	fi
+	rm -rf /var/log/nextcloud-installer.log
+	rm -rf /var/local/nextcloud-installer.ver
+	rm -rf /var/log/php*
+	rm -rf /var/opt/remi
+	rm -rf /var/opt/remi
+	rm -rf /etc/mysql
+	rm -rf /etc/my.cnf.d
+	rm -rf /var/lib/mysql
+	rm -rf /var/lib/mariadb
+	rm -rf /etc/apache2
+	rm -rf /etc/php/
+	rm -rf /var/www/nextcloud
+	rm -rf /etc/httpd
+	rm -rf /etc/opt/remi
+	rm -rf /var/www/nextcloud
+	rm -rf /etc/certbot
+	rm -rf /etc/letsencrypt
+	rm -rf /etc/redis
+	echo "Job done. For best results, reboot operating system."
+}
+
 function upd_p1 {	
 	echo "Detected installer already used, checking versions." >> $insl 2>&1
 	echo "$pverr1" >> $insl 2>&1
@@ -1215,14 +1362,6 @@ Version $ver for x86_64, for popular server Linux distributions.
 by marcin@marcinwilk.eu - www.marcinwilk.eu"
 echo "---------------------------------------------------------------------------"
 
-if [ $user != root ]
-then
-    echo -e "You must be \e[38;5;214mroot\e[39;0m. Mission aborted!"
-    echo -e "You are trying to start this script as: \e[1;31m$user\e[39;0m"
-	unset LC_ALL
-    exit 0
-fi
-
 if [ -z "$restore" ]
 then
 	echo "" > /dev/null
@@ -1241,6 +1380,17 @@ if $backup; then
 else
     echo "" > /dev/null
 fi
+
+if $purge; then
+    echo -e "Purge argument was used! \e[1;32mPreparing destruction!\e[39;0m"
+	echo ""
+	ncpurge
+	unset LC_ALL
+	exit 0
+else
+    echo "" > /dev/null
+fi
+
 
 if [ -e $insl ] || [ -e $ver_file ]
 then
@@ -1310,7 +1460,7 @@ then
 			echo "Highly possible that script was canceled during work."
 			echo "Clearing now..."
 			rm -rf $insl
-			echo "Run script again, so it will start from beggining without error."
+			echo "Run script again, so it will start from beginning without error."
 			unset LC_ALL
 			exit 0
 		fi
@@ -1842,8 +1992,8 @@ mp2=$( cat /root/superadminpass )
 
 if [ -e $debvf ]
 then
-	deb12=$( sudo cat /etc/debian_version | awk -F '.' '{print $1}' )
-	if [ "$deb12" = "12" ]
+	debvu=$( sudo cat /etc/debian_version | awk -F '.' '{print $1}' )
+	if [ "$debvu" = "12" ] || [ "$debvu" = "13" ] || [ "$debvu" = "14" ]
 	then
 		apt-get install -y -o DPkg::Lock::Timeout=-1 systemd-timesyncd >> $insl 2>&1
 		systemctl enable systemd-timesyncd >> $insl 2>&1
@@ -2015,7 +2165,7 @@ exit 0
 	apt-get install -y -o DPkg::Lock::Timeout=-1 redis-server >> $insl 2>&1
 	sed -i '/# unixsocketperm 700/aunixsocketperm 777' /etc/redis/redis.conf
 	sed -i '/# unixsocketperm 700/aunixsocket /var/run/redis/redis.sock' /etc/redis/redis.conf
-	usermod -a -G redis $websrv_usr
+	usermod -a -G redis $websrv_usr >> $insl 2>&1
 	systemctl restart redis >> $insl 2>&1
 fi
 if [ -e $elvf ]
@@ -2105,6 +2255,12 @@ elif [ "$nv" = "30" ]; then
 elif [ "$nv" = "31" ]; then
 	php84_tweaks
 elif [ "$nv" = "32" ]; then
+	php84_tweaks
+elif [ "$nv" = "33" ]; then
+	php84_tweaks
+elif [ "$nv" = "34" ]; then
+	php84_tweaks
+elif [ "$nv" = "35" ]; then
 	php84_tweaks
 elif [ -z "$nv" ]; then
 	php_tweaks
@@ -2355,12 +2511,16 @@ elif [ "$nv" = "29" ]; then
 	mv nextcloud-29.0.16.zip latest.zip >> $insl 2>&1
 elif [ "$nv" = "30" ]; then
 	echo "Downloading and unpacking Nextcloud v$nv." >> $insl 2>&1
-	wget -q https://download.nextcloud.com/server/releases/nextcloud-30.0.14.zip >> $insl 2>&1
-	mv nextcloud-30.0.14.zip latest.zip >> $insl 2>&1
+	wget -q https://download.nextcloud.com/server/releases/nextcloud-30.0.17.zip >> $insl 2>&1
+	mv nextcloud-30.0.17.zip latest.zip >> $insl 2>&1
 elif [ "$nv" = "31" ]; then
 	echo "Downloading and unpacking Nextcloud v$nv." >> $insl 2>&1
-	wget -q https://download.nextcloud.com/server/releases/nextcloud-31.0.8.zip >> $insl 2>&1
-	mv nextcloud-31.0.8.zip latest.zip >> $insl 2>&1
+	wget -q https://download.nextcloud.com/server/releases/nextcloud-31.0.11.zip >> $insl 2>&1
+	mv nextcloud-31.0.11.zip latest.zip >> $insl 2>&1
+elif [ "$nv" = "32" ]; then
+	echo "Downloading and unpacking Nextcloud v$nv." >> $insl 2>&1
+	wget -q https://download.nextcloud.com/server/releases/nextcloud-32.0.2.zip >> $insl 2>&1
+	mv nextcloud-32.0.2.zip latest.zip >> $insl 2>&1
 fi
 
 if [ -e latest.zip ]
@@ -2462,7 +2622,8 @@ sed -i "/installed' => true,/a\ \ 'simpleSignUpLink.shown' => false," /var/www/n
 maintenance_window_setup
 
 # Command below should do nothing, but once in the past i needed that, so let it stay here...
-# sudo -u $websrv_usr php /var/www/nextcloud/occ db:add-missing-indices >> $insl 2>&1
+# 22.11.2025 - enabled again, NC 32.0.2 need this after clean install, hell yeah!
+sudo -u $websrv_usr php /var/www/nextcloud/occ db:add-missing-indices >> $insl 2>&1
 
 # Enabling plugins. Adding more trusted domains.
 # Preparing list of local IP addresses to add.
@@ -2714,6 +2875,7 @@ rm -rf $cdir/ips.local
 rm -rf $cdir/superadminpass
 rm -rf $cdir/dbpass
 rm -rf /var/www/nextcloud/config/autoconfig.php
+rm -rf /var/www/nextcloud/data/nextcloud.log
 if [ -e $debvf ]
 then
 	apt-get autoremove -y >> $insl 2>&1
@@ -2723,6 +2885,7 @@ touch $ver_file
 echo "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)" >> $ver_file
 echo "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv fdir=$fdir" >> $ver_file
 mv $cdir/$scrpt.sh $scrpt-$(date +"%FT%H%M").sh
+echo "Script name changed to $scrpt-$(date +"%FT%H%M").sh"
 echo "!!!!!!! Install finished!" >> $insl 2>&1
 unset LC_ALL
 exit 0
