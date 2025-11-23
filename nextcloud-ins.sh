@@ -290,23 +290,23 @@ backup=false
 purge=false
 
 shchk() {
-    local ppid parent_cmd
+	local ppid parent_cmd
 
-    ppid=$(ps -p $$ -o ppid=)
+	ppid=$(ps -p $$ -o ppid=)
 	ppid=$(echo "$ppid" | xargs)
-    parent_cmd=$(ps -p "$ppid" -o args=)
+	parent_cmd=$(ps -p "$ppid" -o args=)
 
-    case "$parent_cmd" in
-        -bash*|-sh*|-zsh*|-ksh* )
-            return 0
-            ;;
-        su\ -* )
+	case "$parent_cmd" in
+		-bash*|-sh*|-zsh*|-ksh*|sudo* )
+			return 0
+			;;
+		su\ -* )
 			return 0
 			;;
 		*)
-            return 1
-            ;;
-    esac
+			return 1
+			;;
+	esac
 }
 
 if shchk; then
