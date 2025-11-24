@@ -36,11 +36,11 @@
 # -restore argument is used for recovering older Nextcloud files/database. Since v 1.11 this script generate backup of Nextcloud files (excluding users data) and database,
 # when it's started for upgrade process (which is default scenario when script is started another time after first use).
 # You may use -restore=list to check the list of previously created backups, or -restore=filename.tar.bz2 to select one of those files, and use them to restore Nextcloud.
-# IMPORTSNT: When -restore argument is used with any kind of parameters, then any other is ignored. It means You can't use -restore variable with others.
+# IMPORTANT: When -restore argument is used with any kind of parameters, then any other is ignored. It means You can't use -restore variable with others.
 # -backup argument starts backup process without doing any other tasks. It will just create backup of current Nextcloud install with database, excluding users files.
 # Similar to -restore, -backup argument must be used by itself (any other one used with it will be ignored).
-# -purge is used as standalone argument - it will remove all software installed by this script, and it's configuration. Also it will remove Nextcloud, with all files, and database.
-# It is used only when first run didn't work correctly somehow - so this will do something like "revert" changes, so it is possible to start again.
+# -purge is used as standalone argument - it will remove all software installed by this script, and it's configuration. Also it will remove Nextcloud, with all files (also user data files), and database.
+# It should be used only when first run didn't work correctly somehow - so this will do something like "revert" changes, so it is possible to start again.
 #
 # After install You may use Your web browser to access Nextcloud using local IP address,
 # or domain name, if You have configured it before (DNS settings and router configuration should be done earlier by You). 
