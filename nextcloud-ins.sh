@@ -13,17 +13,15 @@
 # - by local IP address with and without SSL (it use self signed SSL certificate for https protocol),
 # - or using domain name (local and over Internet), if domain is already configured correctly (it will use free Let's Encrypt service for certificate signing). 
 # Software packages that are installed are Apache (web server), MariaDB (database server), PHP (programming language with interpreter), 
-# NTP (time synchronization service), and Redis (cache server) installed and used.
+# NTP (time synchronization service), and Redis/Valkey (cache server).
 # Some other software is also installed for better preview/thumbnails generation by Nextcloud like LibreOffice, Krita, ImageMagick etc.
 # Also new service for Nextcloud "cron" is generated that starts every 5 minutes so Nextcloud can do some work while users are not connected.
 #
 # To use it just use this command (as root):
-# sudo sh -c "wget -q https://github.com/nicrame/Linux-Scripts/raw/master/nextcloud-ins.sh && chmod +x nextcloud-ins.sh && ./nextcloud-ins.sh"
+# "wget -q https://github.com/nicrame/Linux-Scripts/raw/master/nextcloud-ins.sh && chmod +x nextcloud-ins.sh && ./nextcloud-ins.sh"
 # 
-# On newer Debian, if there is "command not found" error, install sudo first (as root) with "apt-get install sudo -y".
-#
 # You may also add specific variables (lang, mail, dns) that will be used, by adding them to command above, e.g:
-# sudo sh -c "wget -q https://github.com/nicrame/Linux-Scripts/raw/master/nextcloud-ins.sh && chmod +x nextcloud-ins.sh && ./nextcloud-ins.sh -lang=pl -mail=my@email.com -dm=domain.com -nv=24 -fdir=/mnt/sdc5/nextcloud-data"
+# "wget -q https://github.com/nicrame/Linux-Scripts/raw/master/nextcloud-ins.sh  && chmod +x nextcloud-ins.sh && ./nextcloud-ins.sh -lang=pl -mail=my@email.com -dm=domain.com -nv=24 -fdir=/mnt/sdc5/nextcloud-data"
 # -lang (for language) variable will install additional packages specific for choosed language and setup Nextcloud default language.
 # Currently supported languages are: none (default value is none/empty that will use web browser language), Arabic (ar), Chinese (zh), French (fr), Hindi (hi), Polish (pl), Spanish (es) and Ukrainian (uk),
 # -mail variable is for information about Your email address, that will be presented to let's encrypt, so you'll be informed if domain name SSL certificate couldn't be refreshed (default value is empty),
@@ -81,6 +79,10 @@
 # 1. You use it at your own risk. Author is not responsible for any damage made with that script.
 # 2. Any changes of scripts must be shared with author with authorization to implement them and share.
 #
+# V 1.12.4 - 24.11.2025
+# - backup argument checks if Nextcloud was already installed
+# - tweaks regarding the way script is started and running
+# - check for firewalld and if it is installed in Debian, then do not add UFW, just it's own rules
 # V 1.12.3 - 23.11.2025
 # - Nextcloud Hub 25 (v32) support
 # - little documentation changes
@@ -263,9 +265,47 @@ then
 		fed44=$( cat /etc/redhat-release | grep "release 44" )
 	fi
 fi
+
+TTY=$(tty 2>/dev/null || echo "notty")
+TTY_SAN=$(echo "$TTY" | tr '/ ' '__')
+FNAME=$(basename "$0")
+MARKER="/tmp/.${FNAME}_rl_${TTY_SAN}"
+
+if [ ! -f "$MARKER" ]; then
+	ORIG_CWD=$(pwd)
+
+	case "$0" in
+		/*) SCRIPT_PATH="$0" ;;
+		*)  SCRIPT_PATH="$ORIG_CWD/$0" ;;
+	esac
+
+	: > "$MARKER" || {
+		echo "Error - cannot create file /tmp/$MARKER" >&2
+		exit 1
+	}
+
+	exec su - root -c '
+		ORIG_CWD=$1
+		SCRIPT_PATH=$2
+		shift 2
+
+		cd "$ORIG_CWD" || {
+			echo "Error - cannot access $ORIG_CWD directory." >&2
+			exit 1
+		}
+
+		exec "$SCRIPT_PATH" "$@"
+	' dummy "$ORIG_CWD" "$SCRIPT_PATH" -- "$@"
+fi
+
+trap 'rm -f "$MARKER"' EXIT
+trap 'rm -f "$MARKER"; exit 130' INT
+trap 'rm -f "$MARKER"; exit 143' TERM
+
 addr=$( hostname -I )
 addr1=$( hostname -I | awk '{print $1}' )
 cdir=$( pwd )
+
 if [ -e $debvf ]
 then
 	websrv_usr=www-data
@@ -288,35 +328,6 @@ nbckf=nextcloud.tar
 scrpt=nextcloud-ins
 backup=false
 purge=false
-
-shchk() {
-	local ppid parent_cmd
-
-	ppid=$(ps -p $$ -o ppid=)
-	ppid=$(echo "$ppid" | xargs)
-	parent_cmd=$(ps -p "$ppid" -o args=)
-
-	case "$parent_cmd" in
-		-bash*|-sh*|-zsh*|-ksh*|sudo* )
-			return 0
-			;;
-		su\ -* )
-			return 0
-			;;
-		*)
-			return 1
-			;;
-	esac
-}
-
-if shchk; then
-    echo "Script started with full root profile loaded." >> /dev/null
-else
-    echo -e "You must start the script in full login shell. Mission aborted!"
-    echo -e "Use whole command to start it with \e[1;31msh -c \e[39;0m at the beginning."
-	unset LC_ALL
-    exit 0
-fi
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -344,7 +355,6 @@ while [ "$#" -gt 0 ]; do
 done
 
 # More complex tasks are functions now:
-
 function restart_websrv {
 	if [ -e $debvf ]
 	then
@@ -462,7 +472,7 @@ function install_soft {
 	echo "!!!!!!! Installing all needed standard packages." >> $insl 2>&1
 	if [ -e $debvf ]
 	then
-		DEBIAN_FRONTEND=noninteractive apt-get install -y -o DPkg::Lock::Timeout=-1 git lbzip2 unzip zip lsb-release locales-all rsync wget curl sed screen gawk mc sudo net-tools ethtool vim nano ufw apt-transport-https ca-certificates miniupnpc jq libfontconfig1 libfuse2 socat tree ffmpeg imagemagick webp libreoffice ghostscript bindfs >> $insl 2>&1
+		DEBIAN_FRONTEND=noninteractive apt-get install -y -o DPkg::Lock::Timeout=-1 git lbzip2 unzip zip lsb-release locales-all rsync wget curl sed screen gawk mc sudo net-tools ethtool vim nano apt-transport-https ca-certificates miniupnpc jq libfontconfig1 libfuse2 socat tree ffmpeg imagemagick webp libreoffice ghostscript bindfs >> $insl 2>&1
 		# Package below do not appear in Debian 13 anymore
 		DEBIAN_FRONTEND=noninteractive apt-get install -y -o DPkg::Lock::Timeout=-1 software-properties-common >> $insl 2>&1
 		yes | sudo DEBIAN_FRONTEND=noninteractive apt-get -yqq -o DPkg::Lock::Timeout=-1 install ddclient >> $insl 2>&1
@@ -581,6 +591,18 @@ function install_php83 {
 function install_php84 {
 	dpv=8.4
 	epv=84
+	ins_php
+}
+
+function install_php85 {
+	dpv=8.5
+	epv=85
+	ins_php
+}
+
+function install_php86 {
+	dpv=8.6
+	epv=86
 	ins_php
 }
 
@@ -750,6 +772,35 @@ function php84_tweaks {
 	restart_websrv
 }
 
+function php85_tweaks {
+	dpvi=8.5
+	epvi=85
+	pvi
+	gen_phpini
+	a2dismod php7.4 >> $insl 2>&1
+	a2dismod php8.1 >> $insl 2>&1
+	a2dismod php8.2 >> $insl 2>&1
+	a2dismod php8.3 >> $insl 2>&1
+	a2dismod php8.4 >> $insl 2>&1
+	a2enmod php8.5 >> $insl 2>&1
+	restart_websrv
+}
+
+function php86_tweaks {
+	dpvi=8.6
+	epvi=86
+	pvi
+	gen_phpini
+	a2dismod php7.4 >> $insl 2>&1
+	a2dismod php8.1 >> $insl 2>&1
+	a2dismod php8.2 >> $insl 2>&1
+	a2dismod php8.3 >> $insl 2>&1
+	a2dismod php8.4 >> $insl 2>&1
+	a2dismod php8.5 >> $insl 2>&1
+	a2enmod php8.6 >> $insl 2>&1
+	restart_websrv
+}
+
 # This are tweaks for currently latest verion used.
 function php_tweaks {
 	php84_tweaks
@@ -807,6 +858,14 @@ function nv_verify {
 		nv_check_upd
 	fi
 	if [ "$nv" = "32" ]
+	then
+		nv_check_upd
+	fi
+	if [ "$nv" = "33" ]
+	then
+		nv_check_upd
+	fi
+	if [ "$nv" = "34" ]
 	then
 		nv_check_upd
 	fi
@@ -989,6 +1048,36 @@ function nv_update {
 	then
 		nv_upd_simpl
 	fi
+	sncver
+	if [ "$ncver" = "33" ]
+	then
+		nv_upd_simpl
+	fi
+	sncver
+	if [ "$ncver" = "33" ]
+	then
+		nv_upd_simpl
+	fi
+	sncver
+	if [ "$ncver" = "33" ]
+	then
+		nv_upd_simpl
+	fi
+	sncver
+	if [ "$ncver" = "34" ]
+	then
+		nv_upd_simpl
+	fi
+	sncver
+	if [ "$ncver" = "34" ]
+	then
+		nv_upd_simpl
+	fi
+	sncver
+	if [ "$ncver" = "34" ]
+	then
+		nv_upd_simpl
+	fi
 }
 
 # Office Package Installing
@@ -1106,8 +1195,8 @@ CN = Office Service' >> /opt/open_ssl2.conf
 	openssl req -new -config /opt/open_ssl2.conf -key /app/onlyoffice/DocumentServer/data/certs/tls.key -out /app/onlyoffice/DocumentServer/data/certs/tls.csr
 	openssl x509 -req -days 4096 -in /app/onlyoffice/DocumentServer/data/certs/tls.csr -signkey /app/onlyoffice/DocumentServer/data/certs/tls.key -out /app/onlyoffice/DocumentServer/data/certs/tls.crt
 	openssl dhparam -out /app/onlyoffice/DocumentServer/data/certs/dhparam.pem 2048
-	ufw allow 9080/tcp
-	ufw allow 9443/tcp
+	ufw allow 9080/tcp >> $insl 2>&1
+	ufw allow 9443/tcp >> $insl 2>&1
 	# docker run -i -t -d -p 9443:443 --env-file /root/onlyoffice/.env -v /app/onlyoffice/DocumentServer/data:/var/www/onlyoffice/Data -v /app/onlyoffice/DocumentServer/lib:/var/lib/onlyoffice -v /app/onlyoffice/DocumentServer/rabbitmq:/var/lib/rabbitmq -v /app/onlyoffice/DocumentServer/redis:/var/lib/redis -v /app/onlyoffice/DocumentServer/db:/var/lib/postgresql -v /app/onlyoffice/DocumentServer/logs:/var/log/onlyoffice ghcr.io/thomisus/onlyoffice-documentserver-unlimited
 	docker run -i -t -d -p 9443:443 -p 9080:80 -e ssl_verify_client='false' -e use_unauthorized_storage='true' -e allow_private_ip_address='true' -e secure_link_secret='sekret' -v /app/onlyoffice/DocumentServer/data:/var/www/onlyoffice/Data -v /app/onlyoffice/DocumentServer/lib:/var/lib/onlyoffice -v /app/onlyoffice/DocumentServer/rabbitmq:/var/lib/rabbitmq -v /app/onlyoffice/DocumentServer/redis:/var/lib/redis -v /app/onlyoffice/DocumentServer/db:/var/lib/postgresql -v /app/onlyoffice/DocumentServer/logs:/var/log/onlyoffice ghcr.io/thomisus/onlyoffice-documentserver-unlimited
 	# wget https://github.com/ONLYOFFICE/Docker-DocumentServer/blob/master/docker-compose.yml
@@ -1115,50 +1204,52 @@ CN = Office Service' >> /opt/open_ssl2.conf
 	sudo -u $websrv_usr php /var/www/nextcloud/occ app:install onlyoffice >> $insl 2>&1
 }
 
-# Backup
 function ncbackup {
-echo "!!!!!!! Creating backup." >> $insl 2>&1
-echo "Creating backup - it may take some time, please wait."
-echo "Check if directory for backup exist, and create it if not." >> $insl 2>&1
-mkdir $nbckd >> $insl 2>&1
-ncverf
-echo "Backing up database." >> $insl 2>&1
-echo "Backing up database."
-dbname=$(grep "dbname" "/var/www/nextcloud/config/config.php" | awk -F"'" '{print $4}')
-dbpassword=$(grep "dbpassword" "/var/www/nextcloud/config/config.php" | awk -F"'" '{print $4}')
-dbuser=$(grep "dbuser" "/var/www/nextcloud/config/config.php" | awk -F"'" '{print $4}')
-mysqldump -u $dbuser -p$dbpassword $dbname > /var/www/nextcloud/nextcloud.sql
+if [ -e "/var/www/nextcloud" ]; then
+	echo "!!!!!!! Creating backup." >> $rstl 2>&1
+	echo "Creating backup - it may take some time, please wait."
+	echo "Check if directory for backup exist, and create it if not." >> $rstl 2>&1
+	mkdir $nbckd >> $rstl 2>&1
+	ncverf
+	echo "Backing up database." >> $rstl 2>&1
+	echo "Backing up database."
+	dbname=$(grep "dbname" "/var/www/nextcloud/config/config.php" | awk -F"'" '{print $4}')
+	dbpassword=$(grep "dbpassword" "/var/www/nextcloud/config/config.php" | awk -F"'" '{print $4}')
+	dbuser=$(grep "dbuser" "/var/www/nextcloud/config/config.php" | awk -F"'" '{print $4}')
+	mysqldump -u $dbuser -p$dbpassword $dbname > /var/www/nextcloud/nextcloud.sql
 
-echo "Backing up Nextcloud directory - excluding files stored by users!" >> $insl 2>&1
-echo "Backing up Nextcloud directory - excluding files stored by users!"
-rm -rf $nbckd/$nbckf >> $insl 2>&1
-tar -pcf $nbckd/$nbckf --exclude="/var/www/nextcloud/data" /var/www/nextcloud >> $insl 2>&1
-tar -rpf $nbckd/$nbckf /var/www/nextcloud/data/.h* >> $insl 2>&1
-tar -rpf $nbckd/$nbckf /var/www/nextcloud/data/.o* >> $insl 2>&1
-tar -rpf $nbckd/$nbckf /var/www/nextcloud/data/audit.log >> $insl 2>&1
-tar -rpf $nbckd/$nbckf /var/www/nextcloud/data/index.* >> $insl 2>&1
-tar -rpf $nbckd/$nbckf /var/www/nextcloud/data/nextcloud.log >> $insl 2>&1
-tar -rpf $nbckd/$nbckf /var/www/nextcloud/data/updater.log >> $insl 2>&1
-tar -rpf $nbckd/$nbckf --exclude="preview" /var/www/nextcloud/data/appdata_* >> $insl 2>&1
-tar -rpf $nbckd/$nbckf /var/www/nextcloud/data/bridge-bot >> $insl 2>&1
-tar -rpf $nbckd/$nbckf /var/www/nextcloud/data/files_external >> $insl 2>&1
-tar -rpf $nbckd/$nbckf --exclude="backups" /var/www/nextcloud/data/updater-* >> $insl 2>&1
+	echo "Backing up Nextcloud directory - excluding files stored by users!" >> $rstl 2>&1
+	echo "Backing up Nextcloud directory - excluding files stored by users!"
+	rm -rf $nbckd/$nbckf >> $rstl 2>&1
+	tar -pcf $nbckd/$nbckf --exclude="/var/www/nextcloud/data" /var/www/nextcloud >> $rstl 2>&1
+	tar -rpf $nbckd/$nbckf /var/www/nextcloud/data/.h* >> $rstl 2>&1
+	tar -rpf $nbckd/$nbckf /var/www/nextcloud/data/.o* >> $rstl 2>&1
+	tar -rpf $nbckd/$nbckf /var/www/nextcloud/data/audit.log >> $rstl 2>&1
+	tar -rpf $nbckd/$nbckf /var/www/nextcloud/data/index.* >> $rstl 2>&1
+	tar -rpf $nbckd/$nbckf /var/www/nextcloud/data/nextcloud.log >> $rstl 2>&1
+	tar -rpf $nbckd/$nbckf /var/www/nextcloud/data/updater.log >> $rstl 2>&1
+	tar -rpf $nbckd/$nbckf --exclude="preview" /var/www/nextcloud/data/appdata_* >> $rstl 2>&1
+	tar -rpf $nbckd/$nbckf /var/www/nextcloud/data/bridge-bot >> $rstl 2>&1
+	tar -rpf $nbckd/$nbckf /var/www/nextcloud/data/files_external >> $rstl 2>&1
+	tar -rpf $nbckd/$nbckf --exclude="backups" /var/www/nextcloud/data/updater-* >> $rstl 2>&1
 
-echo "Compressing backup." >> $insl 2>&1
-echo "Compressing backup." 
-lbzip2 -k -z -9 $nbckd/$nbckf
-rm -rf $nbckd/$nbckf
-if $purge; then
-    mv $nbckd/nextcloud.tar.bz2 $nbckd/$(date +%Y-%m-%d-at-%H:%M:%S)-PURGED-nc-v$ncverf.tar.bz2
+	echo "Compressing backup." >> $rstl 2>&1
+	echo "Compressing backup." 
+	lbzip2 -k -z -9 $nbckd/$nbckf
+	rm -rf $nbckd/$nbckf
+	if $purge; then
+		mv $nbckd/nextcloud.tar.bz2 $nbckd/$(date +%Y-%m-%d-at-%H:%M:%S)-PURGED-nc-v$ncverf.tar.bz2
+	else
+		mv $nbckd/nextcloud.tar.bz2 $nbckd/$(date +%Y-%m-%d-at-%H:%M:%S)-nc-v$ncverf.tar.bz2
+	fi
+	rm -rf /var/www/nextcloud/nextcloud.sql >> $rstl 2>&1
+	echo "Backup creation finished." >> $rstl 2>&1
+	echo "Backup creation finished."
 else
-    mv $nbckd/nextcloud.tar.bz2 $nbckd/$(date +%Y-%m-%d-at-%H:%M:%S)-nc-v$ncverf.tar.bz2
+	echo "No Nextcloud found to backup. Exiting."
 fi
-rm -rf /var/www/nextcloud/nextcloud.sql >> $insl 2>&1
-echo "Backup creation finished." >> $insl 2>&1
-echo "Backup creation finished."
 }
 
-# Restore
 function ncrestore {
 echo "Nextcloud installer $ver (www.marcinwilk.eu) started. RESTORE MODE." >> $rstl 2>&1
 date >> $rstl 2>&1
@@ -1334,6 +1425,58 @@ function ncpurge {
 	echo "Job done. For best results, reboot operating system."
 }
 
+function fwcmd {
+	firewall-cmd --permanent --add-service=http >> $insl 2>&1
+	firewall-cmd --permanent --add-service=https >> $insl 2>&1
+	firewall-cmd --permanent --add-service=ssh >> $insl 2>&1
+	firewall-cmd --permanent --add-port=20/tcp >> $insl 2>&1
+	firewall-cmd --permanent --add-port=21/tcp >> $insl 2>&1
+	firewall-cmd --permanent --add-port=22/tcp >> $insl 2>&1
+	firewall-cmd --permanent --add-port=989/tcp >> $insl 2>&1
+	firewall-cmd --permanent --add-port=990/tcp >> $insl 2>&1
+	firewall-cmd --permanent --add-port=7867/tcp >> $insl 2>&1
+	firewall-cmd --permanent --add-port=3389/tcp >> $insl 2>&1
+	firewall-cmd --permanent --add-port=3389/udp >> $insl 2>&1
+	firewall-cmd --reload >> $insl 2>&1
+}
+
+function ncfirewall {
+	echo "Setting up firewall."
+	echo "Setting up firewall." >> $insl 2>&1
+	if [ -e $debvf ]
+	then
+		firewalld_running() {
+			ps ax 2>/dev/null | grep '[f]irewalld' >/dev/null
+		}
+
+		if firewalld_running; then
+			echo "Firewalld already running detected!!! Using fwcmd instructions" >> $insl 2>&1
+			fwcmd
+		else
+			DEBIAN_FRONTEND=noninteractive apt-get install -y -o DPkg::Lock::Timeout=-1 ufw
+			ufw default allow  >> $insl 2>&1
+			ufw --force enable >> $insl 2>&1
+			ufw allow OpenSSH >> $insl 2>&1
+			ufw allow FTP >> $insl 2>&1
+			ufw allow 'WWW Full' >> $insl 2>&1
+			ufw allow 20/tcp >> $insl 2>&1
+			ufw allow 21/tcp >> $insl 2>&1
+			ufw allow 22/tcp >> $insl 2>&1
+			ufw allow 989/tcp >> $insl 2>&1
+			ufw allow 990/tcp >> $insl 2>&1
+			ufw allow 7867/tcp >> $insl 2>&1
+			ufw allow 3389/tcp >> $insl 2>&1
+			ufw allow 3389/udp >> $insl 2>&1
+			ufw default deny >> $insl 2>&1
+			ufw show added >> $insl 2>&1
+		fi
+	fi
+	if [ -e $elvf ]
+	then
+		fwcmd
+	fi
+}
+
 function upd_p1 {	
 	echo "Detected installer already used, checking versions." >> $insl 2>&1
 	echo "$pverr1" >> $insl 2>&1
@@ -1474,15 +1617,7 @@ then
 		echo "Installing additional packages."
 		install_soft
 		restart_websrv
-		echo "Setting up firewall"
-		echo "Setting up firewall" >> $insl 2>&1
-		ufw default allow  >> $insl 2>&1
-		ufw --force enable >> $insl 2>&1
-		ufw allow OpenSSH >> $insl 2>&1
-		ufw allow 'WWW Full' >> $insl 2>&1
-		ufw allow 7867/tcp >> $insl 2>&1
-		ufw default deny >> $insl 2>&1
-		ufw show added >> $insl 2>&1
+		ncfirewall
 		ncbackup
 		echo "OS tweaking for Redis."
 		sysctl vm.overcommit_memory=1 >> $insl 2>&1
@@ -1727,7 +1862,7 @@ else
 	echo ""
 fi
 
-# Here clean install starts!
+# Here install starts!
 if [ -e $debvf ] || [ -e $elvf ]
 then
 	if [ -n "$el5" ] || [ -n "$el6" ] || [ -n "$el7" ] || [ -n "$el8" ] || [ -n "$ubu19" ] || [ -n "$ubu20" ] || [ -n "$ubu21" ] || [ -n "$fed36" ] || [ -n "$fed37" ] || [ -n "$fed38" ]
@@ -1818,6 +1953,12 @@ touch /var/log/nextcloud-installer.log
 echo "Nextcloud installer - $ver (www.marcinwilk.eu) started." >> $insl 2>&1
 date >> $insl 2>&1
 echo "---------------------------------------------------------------------------" >> $insl 2>&1
+echo "Current directory: $(pwd)" >> $insl 2>&1
+echo "Arguments: $@" >> $insl 2>&1
+ppid=$(ps -p $$ -o ppid=)
+ppid=$(echo "$ppid" | xargs)
+pcmd=$(ps -p "$ppid" -o args=)
+echo "Process that started script: $pcmd" >> $insl 2>&1
 
 if [ -z "$lang" ]
 then
@@ -2102,27 +2243,7 @@ then
 	restart_websrv
 fi
 
-echo "Setting up firewall."
-echo "!!!!!!! Setting up firewall." >> $insl 2>&1
-if [ -e $debvf ]
-then
-	ufw default allow  >> $insl 2>&1
-	ufw --force enable >> $insl 2>&1
-	ufw allow OpenSSH >> $insl 2>&1
-	ufw allow 'WWW Full' >> $insl 2>&1
-	ufw allow 'Apache Full' >> $insl 2>&1
-	ufw allow 7867/tcp >> $insl 2>&1
-	ufw default deny >> $insl 2>&1
-	ufw show added >> $insl 2>&1
-fi
-if [ -e $elvf ]
-then
-	firewall-cmd --permanent --add-service=http >> $insl 2>&1
-	firewall-cmd --permanent --add-service=https >> $insl 2>&1
-	firewall-cmd --permanent --add-service=ssh >> $insl 2>&1
-	firewall-cmd --permanent --add-port=7867/tcp >> $insl 2>&1
-	firewall-cmd --reload >> $insl 2>&1
-fi
+ncfirewall
 
 echo "Simple PHP testing..."
 echo "!!!!!!! PHP check:" >> $insl 2>&1
@@ -2773,7 +2894,7 @@ else
 			certbot --email $mail --apache --agree-tos -d $dm >> $insl 2>&1
 			(crontab -l 2>/dev/null; echo "0 4 1,15 * * /usr/bin/certbot renew") | crontab -
 		fi
-		if [ -e $debvf ]
+		if [ -e $elvf ]
 		then
 			certbot-3 --non-interactive --email $mail --apache --agree-tos -d $dm >> $insl 2>&1
 			(crontab -l 2>/dev/null; echo "0 4 1,15 * * /usr/bin/certbot-3 renew") | crontab -
@@ -2888,7 +3009,8 @@ touch $ver_file
 echo "Version $ver was succesfully installed at $(date +%d-%m-%Y_%H:%M:%S)" >> $ver_file
 echo "pver=$ver lang=$lang mail=$mail dm=$dm nv=$nv fdir=$fdir" >> $ver_file
 mv $cdir/$scrpt.sh $scrpt-$(date +"%FT%H%M").sh
-echo "Script name changed to $scrpt-$(date +"%FT%H%M").sh"
+echo "Script filename changed to $scrpt-$(date +"%FT%H%M").sh"
+echo "Script filename changed to $scrpt-$(date +"%FT%H%M").sh" >> $insl 2>&1
 echo "!!!!!!! Install finished!" >> $insl 2>&1
 unset LC_ALL
 exit 0
