@@ -1453,7 +1453,7 @@ function ncfirewall {
 			echo "Firewalld already running detected!!! Using fwcmd instructions" >> $insl 2>&1
 			fwcmd
 		else
-			DEBIAN_FRONTEND=noninteractive apt-get install -y -o DPkg::Lock::Timeout=-1 ufw
+			DEBIAN_FRONTEND=noninteractive apt-get install -y -o DPkg::Lock::Timeout=-1 ufw >> $insl 2>&1
 			ufw default allow  >> $insl 2>&1
 			ufw --force enable >> $insl 2>&1
 			ufw allow OpenSSH >> $insl 2>&1
