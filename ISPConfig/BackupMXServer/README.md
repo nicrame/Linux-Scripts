@@ -1,4 +1,4 @@
-This is simple solution to make backup MX server using postfix.  
+This is simple solution to make backup MX server using postfix on Debian Linux.  
 It will receive user account and domain informations from the primary (main) ISPConfig server.  
   
 In this directory there are script files that will be used. Here is the instruction of how to make things work.  
@@ -22,11 +22,11 @@ The things that must be alredy preconfigured are: Server connected to Internet w
 	"echo "policyd-spf  unix  -       n       n       -       0       spawn" >> /etc/postfix/master.cf"  
 	"echo "  user=policyd-spf argv=/usr/bin/policyd-spf" >> /etc/postfix/master.cf"  
 	"sed -i '/POSTGREY_OPTS/s/^/#/' /etc/default/postgrey && echo 'POSTGREY_OPTS="--inet=127.0.0.1:10023 --delay=60"' >> /etc/default/postgrey && systemctl restart postgrey"  
-	"sudo -u postfixmaps touch /home/postfixmaps/.ssh/authorized_keys"  
+	"sudo -u postfixmaps mkdir /home/postfixmaps/.ssh && sudo -u postfixmaps touch /home/postfixmaps/.ssh/authorized_keys"  
 9 - Edit crontab with "crontab -e", and add this new line "05 04 * * * /opt/pf-dh.sh"  
 10 - Change SSH server config: "cp /etc/ssh/sshd_config /etc/ssh/sshd_config-org && sed -i 's|/usr/lib/openssh/sftp-server|internal-sftp|g' /etc/ssh/sshd_config"  
     "echo "Match User postfixmaps" >> /etc/ssh/sshd_config && echo "    ForceCommand internal-sftp" >> /etc/ssh/sshd_config && echo "    AllowTcpForwarding no" >> /etc/ssh/sshd_config"  
-    "echo "    X11Forwarding no" >> /etc/ssh/sshd_config && echo "    PasswordAuthentication no" >> /etc/ssh/sshd_config"
+    "echo "    X11Forwarding no" >> /etc/ssh/sshd_config && echo "    PasswordAuthentication no" >> /etc/ssh/sshd_config && service sshd restart"
   
 !!! Now we must prepare our main server, where ISPC is running !!!  
   
