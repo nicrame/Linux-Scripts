@@ -91,7 +91,7 @@
 # V 1.12.2 - 09.09.2025
 # - fixes for better upgrade process from older NC versions
 # V 1.12.1 - 09.09.2025
-# - small tewaks and fixes
+# - small tweaks and fixes
 # V 1.12 - 07.09.2025
 # - make PHP 8.4 the default version
 # - change the way PHP configuration is stored (new, different config file instead of changing installed by packages)

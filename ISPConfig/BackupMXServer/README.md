@@ -12,11 +12,11 @@ The things that must be alredy preconfigured are: Server connected to Internet w
 2 - Let's create new account that will be used for transfering data, with command "useradd -s /usr/sbin/nologin -m postfixmaps && sudo -u postfixmaps mkdir /home/postfixmaps/maps && sudo -u postfixmaps mkdir /home/postfixmaps/.ssh"  
 3 - make sure that command "hostname -f" will show current domain name as server hostname. If domain is backupmx.mydomain.com then "hostname -f" should show it. It it's not, fix Your /etc/hostsname file.  
 4 - Install and preconfigure postfix MTA with command:   
-    "echo "postfix	postfix/mailname string $(hostname -f)" | debconf-set-selections && echo "postfix postfix/main_mailer_type string 'Internet Site'" | debconf-set-selections && apt install -y postfix mailutils postfix-policyd-spf-python && systemctl stop postfix"  
+    "echo "postfix	postfix/mailname string $(hostname -f)" | debconf-set-selections && echo "postfix postfix/main_mailer_type string 'Internet Site'" | debconf-set-selections && apt install -y postfix mailutils postfix-policyd-spf-python postgrey && systemctl stop postfix"  
 5 - Generating of certs for our domain name with command: "certbot certonly --standalone --agree-tos -d $(hostname -f)", it will ask You for email address!  
 6 - Link certificates for Postfix "ln -s /etc/letsencrypt/live/$(hostname -f)/fullchain.pem /etc/postfix/smtpd.cert && ln -s /etc/letsencrypt/live/$(hostname -f)/privkey.pem /etc/postfix/smtpd.key"  
 7 - Download script files and do some preparing: "wget https://raw.githubusercontent.com/nicrame/Linux-Scripts/refs/heads/master/ISPConfig/BackupMXServer/pf-dh.sh -P /opt/"  
-    "chmod +x /opt/pf-dh.sh && wget https://raw.githubusercontent.com/nicrame/Linux-Scripts/refs/heads/master/ISPConfig/BackupMXServer/main-mx.cf -P /etc/postfix/ && cp main.cf main-org.cf && cat main-mx.cf >> main.cf"  
+    "chmod +x /opt/pf-dh.sh && wget https://raw.githubusercontent.com/nicrame/Linux-Scripts/refs/heads/master/ISPConfig/BackupMXServer/main-mx.cf -P /etc/postfix/ && cp /etc/postfix/main.cf /etc/postfix/main-org.cf && cat /etc/postfix/main-mx.cf >> /etc/postfix/main.cf"  
 8 - Make some changes in main/master.cf with commands: "cp /etc/postfix/master.cf /etc/postfix/master-org.cf && sed -i '/maildrop/s/^/#/' /etc/postfix/master.cf && sed -i '/uucp/s/^/#/' /etc/postfix/master.cf"  
     "wiersze=$(wc -l < /etc/postfix/master.cf) && pozm=$((wiersze - 8 + 1)) && sed -i "${pozm},\$ s/^/#/" /etc/postfix/master.cf"  
 	"echo "policyd-spf  unix  -       n       n       -       0       spawn" >> /etc/postfix/master.cf"  
