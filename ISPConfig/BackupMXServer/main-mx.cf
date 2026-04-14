@@ -48,7 +48,7 @@ smtp_tls_exclude_ciphers = RC4, aNULL
 smtpd_tls_CAfile = /etc/letsencrypt/live/$mydomain/fullchain.pem
 smtp_tls_CAfile = $smtpd_tls_CAfile
 
-# Perfect forwatd secrecy Prime Field Groups EDH
+# Perfect forward secrecy Prime Field Groups EDH
 smtpd_tls_dh2048_param_file = ${config_directory}/dh2048.pem
 smtpd_tls_dh1024_param_file = ${config_directory}/dh1024.pem
 smtpd_tls_dh512_param_file = ${config_directory}/dh512.pem
